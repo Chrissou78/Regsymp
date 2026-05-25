@@ -1183,8 +1183,37 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .hero-detail-strip .hero-gold { color: rgba(184,150,58,0.55); }
 
 @media (max-width: 640px) {
-  .hero-detail-row { grid-template-columns: 1fr; row-gap: 4px; }
-  .hero-detail-row .hero-sep { display: none; }
+  .hero-detail-strip {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .hero-detail-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-detail-row .hero-sep {
+    display: inline-block;
+  }
+  .hero-detail-row--meta {
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(246,242,235,0.05);
+  }
+  .hero-detail-row--meta > span:first-child,
+  .hero-detail-row--meta > .hero-sep {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .hero-detail-row--meta > span:last-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
 }
 
 /* ------- Editorial Themes List (replaces 3-col card grid) ------- */
@@ -1240,9 +1269,6 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 
 @media (max-width: 880px) {
   .themes-editorial { grid-template-columns: 1fr; gap: 32px; }
-  .hero-detail-strip { flex-direction: column; align-items: flex-start; gap: 6px; }
-  .hero-detail-strip .hero-sep { display: none; }
-  .hero-detail-strip > span { margin-right: 0; }
 }
 
 /* ------- The Thirty-Three (dinner) ------- */
