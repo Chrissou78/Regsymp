@@ -5,70 +5,86 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="index, follow" />
 <meta name="author" content="RegSymp" />
-<meta name="geo.region" content="CA-ON" />
-<meta name="geo.placename" content="Luxembourg" />
+<meta name="geo.region" content="ES" />
+<meta name="geo.placename" content="Palma de Mallorca" />
 <meta name="theme-color" content="#0D1322" />
-<title>RegSymp 2026 — Where Finance's Future Is Decided</title>
-<meta name="description" content="An invite-only, practitioner-led symposium for senior leaders shaping the future of finance. Two cities. One conversation. Palma de Mallorca, Spring 2026 — Luxembourg, Autumn 2026." />
+<title>RegSymp — Where Finance's Future Is Decided</title>
+<meta name="description" content="An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Palma de Mallorca, 14–15 September 2026. Lake Como, Italy, June 2027. Limited to 99 delegates per city." />
 
 <!-- Open Graph -->
 <meta property="og:type" content="website" />
-<meta property="og:title" content="RegSymp 2026 — Where Finance's Future Is Decided" />
-<meta property="og:description" content="An invite-only, practitioner-led symposium for senior leaders shaping the future of finance. Palma de Mallorca and Luxembourg, 2026. Limited to 99 delegates per city." />
+<meta property="og:title" content="RegSymp — Where Finance's Future Is Decided" />
+<meta property="og:description" content="An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Palma de Mallorca, 14–15 September 2026. Lake Como, Italy, June 2027. Limited to 99 delegates per city." />
 <meta property="og:url" content="https://www.regsymp.com" />
-<meta property="og:image" content="https://www.regsymp.com/og-image-luxembourg-2027.jpg" />
+<!-- TODO: create og-image-palma-2026.jpg asset -->
+<meta property="og:image" content="https://www.regsymp.com/og-image-palma-2026.jpg" />
 <meta property="og:site_name" content="RegSymp" />
-<meta property="og:locale" content="en_CA" />
+<meta property="og:locale" content="en_GB" />
 
 <!-- Twitter / X Card -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="RegSymp 2026 — Where Finance's Future Is Decided" />
-<meta name="twitter:description" content="Invite-only. Practitioner-led. 99 senior delegates per city shaping the future of banking, wealth, payments, digital assets and AI. Palma de Mallorca + Luxembourg, 2026." />
-<meta name="twitter:image" content="https://www.regsymp.com/og-image-luxembourg-2027.jpg" />
+<meta name="twitter:title" content="RegSymp — Where Finance's Future Is Decided" />
+<meta name="twitter:description" content="Invite-only. Practitioner-led. 99 senior delegates per city shaping the future of banking, wealth, payments, digital assets and AI. Palma de Mallorca, Sep 2026 — Lake Como, June 2027." />
+<meta name="twitter:image" content="https://www.regsymp.com/og-image-palma-2026.jpg" />
 
 <!-- Canonical -->
 <link rel="canonical" href="https://www.regsymp.com" />
+<!--
+  TODO: Convert SPA anchors to real indexable routes.
+  Recommended approach: create static HTML pages at:
+    /palma-2026/index.html
+    /lake-como-2027/index.html
+    /speakers/index.html
+    /faq/index.html
+  Each page should contain the relevant section content with full <head> metadata.
+  Current constraint: this is a single static HTML file with no build system or framework router.
+  Simplest viable path: duplicate the shell into separate .html files with only the relevant
+  section visible, or add a static site generator (e.g. Eleventy) to template shared chrome.
+  Preserve existing anchor navigation as fallback for in-page scrolling.
+-->
 
-<!-- Event structured data -->
+<!-- Event structured data: Palma de Mallorca 2026 -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Event",
-  "name": "RegSymp 2026",
-  "description": "An invite-only, practitioner-led symposium for senior leaders shaping the future of finance. Two cities — Palma de Mallorca and Luxembourg — each limited to 99 delegates. Held under Chatham House Rule.",
-  "startDate": "2026-10-13",
-  "endDate": "2026-10-14",
+  "name": "RegSymp 2026 — Palma de Mallorca",
+  "description": "An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Limited to 99 delegates.",
+  "startDate": "2026-09-14",
+  "endDate": "2026-09-15",
   "eventStatus": "https://schema.org/EventScheduled",
   "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
   "location": {
     "@type": "Place",
-    "name": "TBC — Central Luxembourg",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "Luxembourg",
-      "addressRegion": "ON",
-      "addressCountry": "CA"
-    }
+    "name": "Palma de Mallorca",
+    "address": { "@type": "PostalAddress", "addressLocality": "Palma de Mallorca", "addressCountry": "ES" }
   },
-  "organizer": {
-    "@type": "Organization",
-    "name": "RegSymp",
-    "url": "https://www.regsymp.com",
-    "email": "info@regsymp.com"
+  "image": "https://www.regsymp.com/og-image-palma-2026.jpg",
+  "organizer": { "@type": "Organization", "name": "RegSymp", "url": "https://www.regsymp.com" },
+  "offers": { "@type": "Offer", "availability": "https://schema.org/LimitedAvailability", "url": "mailto:info@regsymp.com", "description": "By invitation only. Request an introduction." }
+}
+</script>
+
+<!-- Event structured data: Lake Como 2027 -->
+<!-- TODO: Update startDate/endDate to full YYYY-MM-DD once the exact days are confirmed -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": "RegSymp 2027 — Lake Como",
+  "description": "An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Limited to 99 delegates.",
+  "startDate": "2027-06",
+  "endDate": "2027-06",
+  "eventStatus": "https://schema.org/EventScheduled",
+  "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+  "location": {
+    "@type": "Place",
+    "name": "Lake Como",
+    "address": { "@type": "PostalAddress", "addressLocality": "Lake Como", "addressRegion": "Lombardy", "addressCountry": "IT" }
   },
-  "offers": {
-    "@type": "Offer",
-    "url": "https://www.regsymp.com/luxembourg-2027#register",
-    "availability": "https://schema.org/InStock",
-    "validFrom": "2026-01-01",
-    "priceCurrency": "CAD"
-  },
-  "maximumAttendeeCapacity": 99,
-  "typicalAgeRange": "30-",
-  "inLanguage": "en-CA",
-  "url": "https://www.regsymp.com/luxembourg-2027",
-  "image": "https://www.regsymp.com/og-image-luxembourg-2027.jpg",
-  "keywords": "future of finance, senior finance leaders, UHNW, banking innovation, digital assets, AI in finance, wealth management, fintech, payments, invite-only symposium, Palma de Mallorca, Luxembourg, 2026, Chatham House Rule"
+  "image": "https://www.regsymp.com/og-image-lake-como-2027.jpg",
+  "organizer": { "@type": "Organization", "name": "RegSymp", "url": "https://www.regsymp.com" },
+  "offers": { "@type": "Offer", "availability": "https://schema.org/LimitedAvailability", "url": "mailto:info@regsymp.com", "description": "By invitation only. Request an introduction." }
 }
 </script>
 
@@ -78,54 +94,12 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "Who should attend RegSymp Luxembourg 2027?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "RegSymp is designed for senior practitioners who own regulatory outcomes inside major financial institutions — including Founders & CEOs, COOs & Heads of Operations, CROs & CCOs, MLROs & Head of Financial Crime, Audit & Cosultancy, General Counsel, Tax, Finance, Regulators, Government & Policy Makers."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "When and where is RegSymp Luxembourg 2027?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "RegSymp Luxembourg 2027 takes place on 13–14 October 2026 in central Luxembourg. The specific venue will be announced four months before the event. The venue is in the downtown core, five minutes from Union Station and 25 minutes from Luxembourg Findel Airport."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What is the cancellation and substitution policy?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Free name substitution is available up to 14 days before the event. Refunds are available up to 60 days before the event, with a partial refund window thereafter. Contact info@regsymp.com for the full policy."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Are there group rates available?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Organisations registering four or more delegates receive a 15% volume discount and a private pre-event briefing call with the programme chair. Contact info@regsymp.com to arrange."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How do I apply for media accreditation?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "A limited number of accreditation passes are available for credentialed financial-services press and sell-side regulatory analysts. Apply at least four weeks before the event at info@regsymp.com. Accredited press receive the programme synthesis and anonymised session notes the week following the symposium."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What partnership packages are available?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "RegSymp Luxembourg offers four partnership tiers: Platinum Strategic Partner (CAD $85,000–$120,000), Gold Programme Partner (CAD $45,000–$60,000), Silver Session Partner (CAD $22,000–$30,000), and Bronze Supporting Partner (CAD $9,000–$14,000). There are no exhibition booths or partner keynotes. Contact info@regsymp.com to discuss availability."
-      }
-    }
+    { "@type": "Question", "name": "When and where is RegSymp held?", "acceptedAnswer": { "@type": "Answer", "text": "RegSymp takes place in Palma de Mallorca, Spain on 14–15 September 2026, and at Lake Como, Italy in June 2027." } },
+    { "@type": "Question", "name": "Who can attend RegSymp?", "acceptedAnswer": { "@type": "Answer", "text": "RegSymp is invitation-only and limited to 99 senior delegates per city: founders and CEOs, banking and payments executives, fintech and digital asset leaders, investors and family offices, CROs, CCOs and COOs, wealth and private banking professionals, and policymakers and advisors." } },
+    { "@type": "Question", "name": "How do I get invited to RegSymp?", "acceptedAnswer": { "@type": "Answer", "text": "Attendance is curated. You can request an introduction by writing to info@regsymp.com with a brief note about your role and interest." } },
+    { "@type": "Question", "name": "What topics does RegSymp cover?", "acceptedAnswer": { "@type": "Answer", "text": "The programme is built around five themes: the future of European finance; payments, stablecoins and programmable money; AI, wealth and the reinvention of banking; trust, infrastructure and institutional resilience; and the new financial ecosystem." } },
+    { "@type": "Question", "name": "What is the Chatham House Rule at RegSymp?", "acceptedAnswer": { "@type": "Answer", "text": "Under the Chatham House Rule, participants are free to use the information shared in sessions, but may not reveal the identity or affiliation of any speaker or attendee. This allows candid discussion among senior leaders." } },
+    { "@type": "Question", "name": "What is The Thirty-Three?", "acceptedAnswer": { "@type": "Answer", "text": "The Thirty-Three is a privately convened seated dinner for 33 guests during the symposium, curated by the programme chairs and held under the Chatham House Rule." } }
   ]
 }
 </script>
@@ -155,17 +129,17 @@
       </button>
       <div class="city-menu" role="listbox" aria-label="City editions">
         <div class="city-menu-item" role="option" data-city="palma" tabindex="0"><span>Palma de Mallorca 2026</span></div>
-        <div class="city-menu-item" role="option" data-city="luxembourg" tabindex="0"><span>Luxembourg 2027</span></div>
-        <div class="city-menu-item soon" role="option" aria-disabled="true" tabindex="-1"><span>London</span><span class="tag">Announcing Soon</span></div>
+        <div class="city-menu-item" role="option" data-city="lakecomo" tabindex="0"><span>Lake Como 2027</span></div>
       </div>
     </div>
 
     <nav class="nav-links" id="navLinks" aria-label="Sections">
       <a href="#about">About</a>
-      <a href="#why">Why Attend</a>
+      <a href="#why-attend">Why Attend</a>
       <a href="#speakers">Speakers</a>
       <a href="#agenda">Agenda</a>
       <a href="#sponsors">Partners</a>
+      <a href="#faq">FAQ</a>
     </nav>
 
     <div class="nav-cta">
@@ -185,13 +159,13 @@
   </div>
   <nav class="drawer-links" aria-label="Mobile sections">
     <a href="#about">About the Event</a>
-    <a href="#why">Why Attend</a>
+    <a href="#why-attend">Why Attend</a>
     <a href="#speakers">Speakers</a>
     <a href="#agenda">Agenda</a>
-    <a href="#organiser">Organiser</a>
     <a href="#sponsors">Partners</a>
-    <a href="#venue">Venue</a>
-    <a href="mailto:info@regsymp.com"></a>
+    <a href="#faq">FAQ</a>
+    <a href="#organiser">Organiser</a>
+    <a href="mailto:info@regsymp.com">Contact</a>
   </nav>
 </aside>
 
@@ -217,10 +191,10 @@
             <span class="hero-sep"></span>
             <span>Palma de Mallorca</span>
           </div>
-          <div class="hero-detail-row" data-city="luxembourg">
-            <span>February 2027</span>
+          <div class="hero-detail-row" data-city="lakecomo">
+            <span>June 2027</span>
             <span class="hero-sep"></span>
-            <span>Luxembourg</span>
+            <span>Lake Como, Italy</span>
           </div>
           <div class="hero-detail-row hero-detail-row--meta">
             <span>99 Senior Delegates</span>
@@ -243,10 +217,10 @@
         <p>RegSymp brings together leaders from banking, fintech, payments, wealth, digital assets and technology to explore what the next generation of finance will look like in practice.</p>
         <p><strong>The programme is built around five key themes:</strong></p>
         <ul style="margin:12px 0 16px 20px; list-style:disc;">
-          <li>The Future of Finance</li>
-          <li>Payments, Stablecoins &amp; Tokenisation</li>
-          <li>AI &amp; The Reinvention of Banking</li>
-          <li>Trust, Infrastructure &amp; Resilience</li>
+          <li>The Future of European Finance</li>
+          <li>Payments, Stablecoins &amp; Programmable Money</li>
+          <li>AI, Wealth &amp; The Reinvention of Banking</li>
+          <li>Trust, Infrastructure &amp; Institutional Resilience</li>
           <li>The New Financial Ecosystem</li>
         </ul>
         <p>Designed as an executive forum rather than a traditional conference, RegSymp focuses on commercially relevant discussions, strategic partnerships and real operational challenges facing modern financial institutions.</p>
@@ -254,7 +228,8 @@
       </div>
 
       <aside class="feature-stack" aria-label="What makes RegSymp different">
-        <div class="feature-card"><span class="num">01</span><h3 class="h4">Industry-led</h3><p>Sessions chaired and curated by today's leaders in finance.</p></div>
+        <!-- TODO: add named speaker/committee member to replace anonymous "practitioners" -->
+        <div class="feature-card"><span class="num">01</span><h3 class="h4">Industry-led</h3><p>Sessions chaired and curated by senior practitioners in banking, payments, wealth, fintech and digital assets.</p></div>
         <div class="feature-card"><span class="num">02</span><h3 class="h4">Exclusive audience</h3><p>Invitation only. 99 senior delegates.</p></div>
         <div class="feature-card"><span class="num">03</span><h3 class="h4">Local-first lens</h3><p>Leading regulators in the room with the international comparators that matter.</p></div>
       </aside>
@@ -270,7 +245,8 @@
       <div class="themes-intro">
         <span class="eyebrow on-dark">The Programme Thesis</span>
         <h2 class="h2">Five critical themes<br/>for 2026.</h2>
-        <p class="lede on-dark">Every session at RegSymp maps to one of five themes that the programme committee has identified as the most consequential shifts facing the financial services industry over the next 12 months.</p>
+        <!-- TODO: add named programme committee members once confirmed -->
+        <p class="lede on-dark">Every session at RegSymp maps to one of five themes identified as the most consequential shifts facing the financial services industry over the next 12 months.</p>
       </div>
 
       <ol class="themes-list" aria-label="Programme themes">
@@ -282,27 +258,40 @@
       </ol>
     </div>
 
-    <div class="attendee-block">
-      <div class="attendee-grid">
-        <div>
-          <span class="eyebrow on-dark">Who Should Attend</span>
-          <h3 class="h2" style="font-size:clamp(28px,3vw,40px); margin-bottom:14px;">Who Should Attend</h3>
-          <p class="lede on-dark">RegSymp is designed for senior leaders navigating the transformation of modern financial services, from banking, payments and wealth management to fintech, AI and digital assets.</p>
-          <p class="lede on-dark">The event brings together a carefully selected group of:</p>
-          <ul style="margin:12px 0 16px 20px; list-style:disc; color:rgba(255,255,255,.85);">
-            <li>Founders &amp; CEOs</li>
-            <li>Banking &amp; Payments Executives</li>
-            <li>Fintech &amp; Digital Asset Leaders</li>
-            <li>Investors &amp; Family Offices</li>
-            <li>CROs, CCOs &amp; COOs</li>
-            <li>Wealth &amp; Private Banking Professionals</li>
-            <li>Treasury, Custody &amp; Infrastructure Specialists</li>
-            <li>Technology &amp; AI Leaders</li>
-            <li>Policymakers, Advisors &amp; Industry Experts</li>
-          </ul>
-          <p class="lede on-dark">RegSymp is intentionally designed as a private and relationship-driven forum.</p>
-          <p class="lede on-dark">Attendance is curated to encourage high-quality discussions, meaningful networking and genuine collaboration between leaders shaping the next generation of financial services.</p>
-        </div>
+  </div>
+</section>
+
+<!-- ============================= WHY ATTEND ============================= -->
+<section class="section light" id="why-attend" data-screen-label="04b Why Attend">
+  <div class="container reveal">
+    <div class="section-head">
+      <span class="eyebrow">Why Attend</span>
+      <h2 class="h2">What Delegates Gain</h2>
+    </div>
+    <div class="why-grid">
+      <div class="why-card">
+        <h3 class="h4">Direct access to decision-makers</h3>
+        <p>Connect with 99 senior leaders — founders, C-suite executives, investors and policymakers — in a format designed for substantive conversation, not surface-level networking.</p>
+      </div>
+      <div class="why-card">
+        <h3 class="h4">Candid, off-the-record dialogue</h3>
+        <p>Every session runs under the Chatham House Rule. Delegates speak freely about real challenges, competitive strategy and operational decisions without attribution.</p>
+      </div>
+      <div class="why-card">
+        <h3 class="h4">Actionable strategic insight</h3>
+        <p>Sessions are practitioner-led and built to land tangible takeaways — not theoretical panels. Walk away with frameworks, partnerships and intelligence you can act on immediately.</p>
+      </div>
+      <div class="why-card">
+        <h3 class="h4">A curated peer group</h3>
+        <p>Attendance is invitation-only. Every delegate is selected to ensure relevance, seniority and diversity of perspective across banking, payments, wealth, fintech, digital assets and AI.</p>
+      </div>
+      <div class="why-card">
+        <h3 class="h4">Relationship-driven format</h3>
+        <p>Two days, intimate group sizes, structured networking, and The Thirty-Three dinner — designed so that meaningful relationships form naturally, not by accident.</p>
+      </div>
+      <div class="why-card">
+        <h3 class="h4">Who should attend</h3>
+        <p>Founders &amp; CEOs; banking &amp; payments executives; fintech &amp; digital asset leaders; investors &amp; family offices; CROs, CCOs &amp; COOs; wealth &amp; private banking professionals; policymakers &amp; advisors.</p>
       </div>
     </div>
   </div>
@@ -314,7 +303,13 @@
     <div class="section-head">
       <span class="eyebrow">2026 Programme</span>
       <h2 class="h2">Speakers.</h2>
-      <p class="lede">The inaugural programme is being finalised. The first wave of speakers will be announced in June. To be notified, join the list below or write to the programme office directly.</p>
+      <p class="lede">The inaugural programme is being shaped by practitioners across banking, payments, fintech, digital assets and AI. The first confirmed speakers will be announced in June 2026.</p>
+      <!-- TODO: add named speakers once confirmed — format: name, title, organisation -->
+      <div class="speaker-placeholder">
+        <p class="lede"><strong>Programme committee:</strong></p>
+        <!-- TODO: add named programme committee members -->
+        <p class="lede" style="font-style:italic; opacity:0.7;">Committee members will be named here once confirmed.</p>
+      </div>
       <h3 class="h3" style="margin-top:32px; margin-bottom:12px;">Speak at RegSymp</h3>
       <p class="lede">A limited number of programme slots each cycle are filled through nomination. We welcome introductions to:</p>
       <ul style="margin:12px 0 16px 20px; list-style:disc;">
@@ -394,15 +389,85 @@
   </div>
 </section>
 
-<!-- ============================= COUNTDOWN STRIP (removed) ============================= -->
+<!-- ============================= FAQ ============================= -->
+<section class="section dark" id="faq" data-screen-label="09 FAQ">
+  <div class="container reveal">
+    <div class="section-head">
+      <span class="eyebrow on-dark">Questions</span>
+      <h2 class="h2">Frequently Asked Questions</h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary class="faq-q">When and where is RegSymp held?</summary>
+        <p class="faq-a">RegSymp takes place in Palma de Mallorca, Spain on 14–15 September 2026, and at Lake Como, Italy in June 2027.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">Who can attend RegSymp?</summary>
+        <p class="faq-a">RegSymp is invitation-only and limited to 99 senior delegates per city: founders and CEOs, banking and payments executives, fintech and digital asset leaders, investors and family offices, CROs, CCOs and COOs, wealth and private banking professionals, and policymakers and advisors.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">How do I get invited to RegSymp?</summary>
+        <p class="faq-a">Attendance is curated. You can request an introduction by writing to <a href="mailto:info@regsymp.com">info@regsymp.com</a> with a brief note about your role and interest.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">What topics does RegSymp cover?</summary>
+        <p class="faq-a">The programme is built around five themes: the future of European finance; payments, stablecoins and programmable money; AI, wealth and the reinvention of banking; trust, infrastructure and institutional resilience; and the new financial ecosystem.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">What is the Chatham House Rule at RegSymp?</summary>
+        <p class="faq-a">Under the Chatham House Rule, participants are free to use the information shared in sessions, but may not reveal the identity or affiliation of any speaker or attendee. This allows candid discussion among senior leaders.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">What is The Thirty-Three?</summary>
+        <p class="faq-a">The Thirty-Three is a privately convened seated dinner for 33 guests during the symposium, curated by the programme chairs and held under the Chatham House Rule.</p>
+      </details>
+    </div>
+  </div>
+</section>
 
-<!-- ============================= TICKETS (removed) ============================= -->
+<!-- ============================= ORGANISER ============================= -->
+<section class="section light" id="organiser" data-screen-label="10 Organiser">
+  <div class="container reveal">
+    <div class="section-head">
+      <span class="eyebrow">About the Organiser</span>
+      <h2 class="h2">RegSymp</h2>
+      <!-- TODO: confirm legal entity name -->
+      <p class="lede">RegSymp is a practitioner-led symposium platform convening senior leaders from banking, payments, wealth management, fintech, digital assets and AI to shape the future of financial services.</p>
+      <p class="lede">The programme is designed and curated by industry practitioners — not conference producers — ensuring every session reflects the real challenges facing modern financial institutions.</p>
+    </div>
+    <div class="organiser-nap">
+      <dl class="nap-grid">
+        <div><dt>Organisation</dt><dd>RegSymp<!-- TODO: confirm legal entity name --></dd></div>
+        <div><dt>Contact</dt><dd><a href="mailto:info@regsymp.com">info@regsymp.com</a></dd></div>
+        <div><dt>Web</dt><dd><a href="https://www.regsymp.com">www.regsymp.com</a></dd></div>
+        <div><dt>LinkedIn</dt><dd><a href="https://www.linkedin.com/company/regsymp/" target="_blank" rel="noopener">linkedin.com/company/regsymp</a></dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
 
-<!-- ============================= MEDIA & PRESS (removed) ============================= -->
+<!-- ============================= EMAIL SIGNUP ============================= -->
+<section class="section dark" id="signup" data-screen-label="11 Signup">
+  <div class="container reveal">
+    <div class="signup-block">
+      <h2 class="h2">Stay Informed</h2>
+      <p class="lede on-dark">Be the first to receive programme updates, speaker announcements and invitations.</p>
+      <!-- TODO: connect to email provider (e.g. Mailchimp, ConvertKit, or custom ESP) -->
+      <form class="signup-form" id="signupForm" aria-label="Email signup">
+        <div class="signup-field">
+          <input type="email" id="signupEmail" name="email" placeholder="Your email address" required aria-label="Email address" />
+          <button type="submit" class="btn btn-primary">Join the List <span class="arrow">→</span></button>
+        </div>
+        <p class="signup-privacy">We respect your privacy. Your email is used solely for RegSymp communications and will never be shared with third parties.</p>
+      </form>
+      <div class="signup-success" id="signupSuccess" hidden>
+        <p>Thank you. You're on the list — we'll be in touch with programme updates.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
 </main>
-
-<!-- ============================= ABOUT THE ORGANISER (removed) ============================= -->
 
 <!-- ============================= FOOTER ============================= -->
 <footer class="footer" data-screen-label="12 Footer">
@@ -424,15 +489,17 @@
           <h5>Programme</h5>
           <ul>
             <li><a href="#about">About</a></li>
-            <li><a href="#why">Why Attend</a></li>
+            <li><a href="#why-attend">Why Attend</a></li>
             <li><a href="#speakers">Speakers</a></li>
             <li><a href="#agenda">Agenda</a></li>
+            <li><a href="#faq">FAQ</a></li>
           </ul>
         </div>
         <div>
           <h5>Attend</h5>
           <ul>
             <li><a href="#dinner">The Thirty-Three</a></li>
+            <li><a href="#signup">Join the List</a></li>
           </ul>
         </div>
         <div>
@@ -440,6 +507,7 @@
           <ul>
             <li><a href="#sponsors">Partnership</a></li>
             <li><a href="mailto:info@regsymp.com">Speaker Submissions</a></li>
+            <li><a href="#organiser">Organiser</a></li>
           </ul>
         </div>
         <div class="footer-email">
@@ -535,12 +603,12 @@
         { time: '19:30', title: 'Exclusive Dinner Event XXXIII', format: 'By invitation. Onwards from 19:30.', badge: 'Private Dinner' }
       ]
     },
-    luxembourg: { day1: [], day2: [] }
+    lakecomo: { day1: [], day2: [] }
   };
 
   const CITY_META = {
-    palma:   { label: 'Palma de Mallorca 2026', host: 'Palma de Mallorca', title: 'RegSymp Palma de Mallorca 2026 — Where Finance\'s Future Is Decided' },
-    luxembourg: { label: 'Luxembourg 2027',           host: 'Luxembourg',           title: 'RegSymp Luxembourg 2027 — Where Finance\'s Future Is Decided' }
+    palma:    { label: 'Palma de Mallorca 2026', host: 'Palma de Mallorca', title: 'RegSymp — Palma de Mallorca, 14–15 September 2026' },
+    lakecomo: { label: 'Lake Como 2027',         host: 'Lake Como, Italy',  title: 'RegSymp — Lake Como, Italy, June 2027' }
   };
   const DEFAULT_CITY = 'palma';
   const VALID_CITIES = Object.keys(CITY_META);
@@ -578,10 +646,10 @@
     // Page title
     document.title = meta.title;
 
-    // Agenda content — hide entire section for Luxembourg
+    // Agenda content — hide entire section for Lake Como (not yet populated)
     const agendaSection = document.getElementById('agenda');
-    if (agendaSection) agendaSection.style.display = city === 'luxembourg' ? 'none' : '';
-    document.querySelectorAll('a[href="#agenda"]').forEach(el => el.style.display = city === 'luxembourg' ? 'none' : '');
+    if (agendaSection) agendaSection.style.display = city === 'lakecomo' ? 'none' : '';
+    document.querySelectorAll('a[href="#agenda"]').forEach(el => el.style.display = city === 'lakecomo' ? 'none' : '');
     renderAgenda(city);
 
     // Theme 1 always shows European Finance
@@ -651,6 +719,18 @@
 
   // Countdown removed
 
+  // Email signup form
+  const signupForm = document.getElementById('signupForm');
+  const signupSuccess = document.getElementById('signupSuccess');
+  if (signupForm) {
+    signupForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      // TODO: connect to email provider — POST to ESP endpoint here
+      signupForm.hidden = true;
+      signupSuccess.hidden = false;
+    });
+  }
+
   // Section reveal on scroll
   const io = new IntersectionObserver((entries) => {
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
@@ -658,7 +738,7 @@
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 
   // Active nav state on scroll
-  const sections = ['about','why','speakers','agenda','sponsors','venue'];
+  const sections = ['about','why','why-attend','speakers','agenda','sponsors','faq','organiser','signup'];
   const navLinks = document.querySelectorAll('.nav-links a');
   const spy = new IntersectionObserver((entries) => {
     entries.forEach(e => {
