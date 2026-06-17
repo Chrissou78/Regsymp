@@ -8,13 +8,13 @@
 <meta name="geo.region" content="ES" />
 <meta name="geo.placename" content="Palma de Mallorca" />
 <meta name="theme-color" content="#0D1322" />
-<title>RegSymp — Where Finance's Future Is Decided</title>
-<meta name="description" content="An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Palma de Mallorca, 14–15 September 2026. Lake Como, Italy, June 2027. Limited to 99 delegates per city." />
+<title>RegSymp | Invite-Only Finance &amp; Fintech Symposium | Palma de Mallorca 2026</title>
+<meta name="description" content="An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Palma de Mallorca, 14–15 September 2026. Limited to 99 delegates." />
 
 <!-- Open Graph -->
 <meta property="og:type" content="website" />
 <meta property="og:title" content="RegSymp — Where Finance's Future Is Decided" />
-<meta property="og:description" content="An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Palma de Mallorca, 14–15 September 2026. Lake Como, Italy, June 2027. Limited to 99 delegates per city." />
+<meta property="og:description" content="An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Palma de Mallorca, 14–15 September 2026. Limited to 99 delegates." />
 <meta property="og:url" content="https://www.regsymp.com" />
 <!-- TODO: create og-image-palma-2026.jpg asset -->
 <meta property="og:image" content="https://www.regsymp.com/og-image-palma-2026.jpg" />
@@ -24,7 +24,7 @@
 <!-- Twitter / X Card -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="RegSymp — Where Finance's Future Is Decided" />
-<meta name="twitter:description" content="Invite-only. Practitioner-led. 99 senior delegates per city shaping the future of banking, wealth, payments, digital assets and AI. Palma de Mallorca, Sep 2026 — Lake Como, June 2027." />
+<meta name="twitter:description" content="Invite-only. Practitioner-led. 99 senior delegates shaping the future of banking, wealth, payments, digital assets and AI. Palma de Mallorca, Sep 2026." />
 <meta name="twitter:image" content="https://www.regsymp.com/og-image-palma-2026.jpg" />
 
 <!-- Canonical -->
@@ -33,7 +33,7 @@
   TODO: Convert SPA anchors to real indexable routes.
   Recommended approach: create static HTML pages at:
     /palma-2026/index.html
-    /lake-como-2027/index.html
+
     /speakers/index.html
     /faq/index.html
   Each page should contain the relevant section content with full <head> metadata.
@@ -49,42 +49,48 @@
   "@context": "https://schema.org",
   "@type": "Event",
   "name": "RegSymp 2026 — Palma de Mallorca",
-  "description": "An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Limited to 99 delegates.",
+  "description": "An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Limited to 99 delegates. Held under the Chatham House Rule.",
   "startDate": "2026-09-14",
   "endDate": "2026-09-15",
   "eventStatus": "https://schema.org/EventScheduled",
   "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
   "location": {
-    "@type": "Place",
+    "@type": "City",
     "name": "Palma de Mallorca",
-    "address": { "@type": "PostalAddress", "addressLocality": "Palma de Mallorca", "addressCountry": "ES" }
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Palma de Mallorca",
+      "addressCountry": "ES"
+    }
   },
-  "image": "https://www.regsymp.com/og-image-palma-2026.jpg",
-  "organizer": { "@type": "Organization", "name": "RegSymp", "url": "https://www.regsymp.com" },
-  "offers": { "@type": "Offer", "availability": "https://schema.org/LimitedAvailability", "url": "mailto:info@regsymp.com", "description": "By invitation only. Request an introduction." }
+  "organizer": {
+    "@type": "Organization",
+    "name": "RegSymp",
+    "url": "https://www.regsymp.com"
+  },
+  "maximumAttendeeCapacity": 99,
+  "isAccessibleForFree": false
 }
 </script>
 
-<!-- Event structured data: Lake Como 2027 -->
-<!-- TODO: Update startDate/endDate to full YYYY-MM-DD once the exact days are confirmed -->
+
+<!-- Organization structured data -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Event",
-  "name": "RegSymp 2027 — Lake Como",
-  "description": "An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Limited to 99 delegates.",
-  "startDate": "2027-06",
-  "endDate": "2027-06",
-  "eventStatus": "https://schema.org/EventScheduled",
-  "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-  "location": {
-    "@type": "Place",
-    "name": "Lake Como",
-    "address": { "@type": "PostalAddress", "addressLocality": "Lake Como", "addressRegion": "Lombardy", "addressCountry": "IT" }
-  },
-  "image": "https://www.regsymp.com/og-image-lake-como-2027.jpg",
-  "organizer": { "@type": "Organization", "name": "RegSymp", "url": "https://www.regsymp.com" },
-  "offers": { "@type": "Offer", "availability": "https://schema.org/LimitedAvailability", "url": "mailto:info@regsymp.com", "description": "By invitation only. Request an introduction." }
+  "@type": "Organization",
+  "name": "RegSymp",
+  "url": "https://www.regsymp.com",
+  "logo": "https://www.regsymp.com/assets/regsymp-hex.png",
+  "description": "RegSymp is a practitioner-led symposium platform convening senior leaders across banking, payments, wealth management, fintech, digital assets and AI to shape the future of financial services. Each edition is invitation-only, limited to 99 delegates, and held under the Chatham House Rule.",
+  "sameAs": [
+    "https://www.linkedin.com/company/regsymp/"
+  ],
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "email": "info@regsymp.com",
+    "contactType": "general"
+  }
 }
 </script>
 
@@ -94,13 +100,76 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    { "@type": "Question", "name": "When and where is RegSymp held?", "acceptedAnswer": { "@type": "Answer", "text": "RegSymp takes place in Palma de Mallorca, Spain on 14–15 September 2026, and at Lake Como, Italy in June 2027." } },
+    { "@type": "Question", "name": "When and where is RegSymp held?", "acceptedAnswer": { "@type": "Answer", "text": "RegSymp takes place in Palma de Mallorca, Spain on 14–15 September 2026." } },
     { "@type": "Question", "name": "Who can attend RegSymp?", "acceptedAnswer": { "@type": "Answer", "text": "RegSymp is invitation-only and limited to 99 senior delegates per city: founders and CEOs, banking and payments executives, fintech and digital asset leaders, investors and family offices, CROs, CCOs and COOs, wealth and private banking professionals, and policymakers and advisors." } },
     { "@type": "Question", "name": "How do I get invited to RegSymp?", "acceptedAnswer": { "@type": "Answer", "text": "Attendance is curated. You can request an introduction by writing to info@regsymp.com with a brief note about your role and interest." } },
     { "@type": "Question", "name": "What topics does RegSymp cover?", "acceptedAnswer": { "@type": "Answer", "text": "The programme is built around five themes: the future of finance; payments, stablecoins and programmable money; AI, wealth and the reinvention of banking; trust, infrastructure and institutional resilience; and the new financial ecosystem." } },
     { "@type": "Question", "name": "What is the Chatham House Rule at RegSymp?", "acceptedAnswer": { "@type": "Answer", "text": "Under the Chatham House Rule, participants are free to use the information shared in sessions, but may not reveal the identity or affiliation of any speaker or attendee. This allows candid discussion among senior leaders." } },
-    { "@type": "Question", "name": "What is The Thirty-Three?", "acceptedAnswer": { "@type": "Answer", "text": "The Thirty-Three is a privately convened seated dinner for 33 guests during the symposium, curated by the programme chairs and held under the Chatham House Rule." } }
+    { "@type": "Question", "name": "What is The Thirty-Three?", "acceptedAnswer": { "@type": "Answer", "text": "The Thirty-Three is a privately convened seated dinner for 33 guests during the symposium, curated by the programme chairs and held under the Chatham House Rule." } },
+    { "@type": "Question", "name": "What makes RegSymp different from a traditional finance conference?", "acceptedAnswer": { "@type": "Answer", "text": "RegSymp is not a conference in the traditional sense. Every session is practitioner-led, closed-door and run under the Chatham House Rule, which means delegates speak openly about real operational challenges, competitive strategy and emerging decisions. With 99 delegates per city, the format is built for substantive conversation and relationship formation." } },
+    { "@type": "Question", "name": "Is there a fee to attend RegSymp?", "acceptedAnswer": { "@type": "Answer", "text": "Attendance is by invitation and curated by the programme committee to ensure the right mix of seniority, sector and perspective. If you would like to be considered, you can request an introduction by writing to info@regsymp.com with a brief note on your role and interest." } },
+    { "@type": "Question", "name": "Is RegSymp relevant for both banks and fintechs?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The programme is designed specifically for the intersection of traditional and emerging finance. Sessions bring together banking executives, fintech founders, digital asset leaders, investors and policymakers in the same room, the premise being that the most commercially relevant conversations happen across institutional boundaries, not within them." } }
   ]
+}
+</script>
+
+<!-- Speaker structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Luis Gelado Crespo",
+  "jobTitle": "Founder",
+  "worksFor": {
+    "@type": "Organization",
+    "name": "Standard 21",
+    "url": "https://standard21.com"
+  },
+  "sameAs": [
+    "https://www.linkedin.com/in/luisgelado/",
+    "https://twitter.com/lgelado"
+  ],
+  "description": "Founder of Standard 21, Spain's first Bitcoin-native treasury holding company. Serial entrepreneur with a background in blockchain infrastructure and decentralised data.",
+  "url": "https://www.regsymp.com/#speakers"
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Jorge Soriano Lázaro",
+  "jobTitle": "Co-founder & CEO",
+  "worksFor": {
+    "@type": "Organization",
+    "name": "Criptan",
+    "url": "https://criptan.com"
+  },
+  "sameAs": [
+    "https://www.linkedin.com/in/jorgesorianolazaro/",
+    "https://www.crunchbase.com/person/jorge-soriano-lazaro"
+  ],
+  "description": "Co-founder and CEO of Criptan, Spain's leading regulated crypto fintech platform, registered with the Bank of Spain for digital asset custody and trading.",
+  "url": "https://www.regsymp.com/#speakers"
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Javier Pastor Moreno",
+  "jobTitle": "Head of OTC",
+  "worksFor": {
+    "@type": "Organization",
+    "name": "Bit2Me",
+    "url": "https://bit2me.com"
+  },
+  "sameAs": [
+    "https://www.linkedin.com/in/javier-pastor-moreno-18ab46266/"
+  ],
+  "description": "Head of OTC at Bit2Me, the first Spanish-speaking fintech authorised as a Crypto-Asset Service Provider under MiCA by the CNMV.",
+  "url": "https://www.regsymp.com/#speakers"
 }
 </script>
 
@@ -129,7 +198,7 @@
       </button>
       <div class="city-menu" role="listbox" aria-label="City editions">
         <div class="city-menu-item" role="option" data-city="palma" tabindex="0"><span>Palma de Mallorca 2026</span></div>
-        <div class="city-menu-item" role="option" data-city="lakecomo" tabindex="0"><span>Lake Como 2027</span></div>
+
       </div>
     </div>
 
@@ -178,6 +247,7 @@
       <div class="hero-inner">
         <p class="invitation-signal">— By Invitation Only</p>
         <h1 class="h-display">Shaping the<br/>Future of Finance.</h1>
+        <p class="hero-kicker">Senior Finance &amp; Fintech Symposium — Palma de Mallorca, September 2026</p>
         <p class="hero-body">We bring together traditional finance, private wealth, fintech and Web3 leaders to bridge the gap between institutional finance and digital innovation.</p>
 
         <div class="hero-ctas">
@@ -191,11 +261,7 @@
             <span class="hero-sep"></span>
             <span>Palma de Mallorca</span>
           </div>
-          <div class="hero-detail-row" data-city="lakecomo">
-            <span>June 2027</span>
-            <span class="hero-sep"></span>
-            <span>Lake Como, Italy</span>
-          </div>
+
           <div class="hero-detail-row hero-detail-row--meta">
             <span>99 Senior Delegates</span>
             <span class="hero-sep"></span>
@@ -399,7 +465,7 @@
     <div class="faq-list">
       <details class="faq-item">
         <summary class="faq-q">When and where is RegSymp held?</summary>
-        <p class="faq-a">RegSymp takes place in Palma de Mallorca, Spain on 14–15 September 2026, and at Lake Como, Italy in June 2027.</p>
+        <p class="faq-a">RegSymp takes place in Palma de Mallorca, Spain on 14–15 September 2026.</p>
       </details>
       <details class="faq-item">
         <summary class="faq-q">Who can attend RegSymp?</summary>
@@ -420,6 +486,18 @@
       <details class="faq-item">
         <summary class="faq-q">What is The Thirty-Three?</summary>
         <p class="faq-a">The Thirty-Three is a privately convened seated dinner for 33 guests during the symposium, curated by the programme chairs and held under the Chatham House Rule.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">What makes RegSymp different from a traditional finance conference?</summary>
+        <p class="faq-a">RegSymp is not a conference in the traditional sense. Every session is practitioner-led, closed-door and run under the Chatham House Rule, which means delegates speak openly about real operational challenges, competitive strategy and emerging decisions. With 99 delegates per city, the format is built for substantive conversation and relationship formation.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">Is there a fee to attend RegSymp?</summary>
+        <p class="faq-a">Attendance is by invitation and curated by the programme committee to ensure the right mix of seniority, sector and perspective. If you would like to be considered, you can request an introduction by writing to <a href="mailto:info@regsymp.com">info@regsymp.com</a> with a brief note on your role and interest.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q">Is RegSymp relevant for both banks and fintechs?</summary>
+        <p class="faq-a">Yes. The programme is designed specifically for the intersection of traditional and emerging finance. Sessions bring together banking executives, fintech founders, digital asset leaders, investors and policymakers in the same room, the premise being that the most commercially relevant conversations happen across institutional boundaries, not within them.</p>
       </details>
     </div>
   </div>
@@ -603,12 +681,10 @@
         { time: '19:30', title: 'Exclusive Dinner Event XXXIII', format: 'By invitation. Onwards from 19:30.', badge: 'Private Dinner' }
       ]
     },
-    lakecomo: { day1: [], day2: [] }
   };
 
   const CITY_META = {
-    palma:    { label: 'Palma de Mallorca 2026', host: 'Palma de Mallorca', title: 'RegSymp — Palma de Mallorca, 14–15 September 2026' },
-    lakecomo: { label: 'Lake Como 2027',         host: 'Lake Como, Italy',  title: 'RegSymp — Lake Como, Italy, June 2027' }
+    palma:    { label: 'Palma de Mallorca 2026', host: 'Palma de Mallorca', title: 'RegSymp — Palma de Mallorca, 14–15 September 2026' }
   };
   const DEFAULT_CITY = 'palma';
   const VALID_CITIES = Object.keys(CITY_META);
@@ -646,10 +722,6 @@
     // Page title
     document.title = meta.title;
 
-    // Agenda content — hide entire section for Lake Como (not yet populated)
-    const agendaSection = document.getElementById('agenda');
-    if (agendaSection) agendaSection.style.display = city === 'lakecomo' ? 'none' : '';
-    document.querySelectorAll('a[href="#agenda"]').forEach(el => el.style.display = city === 'lakecomo' ? 'none' : '');
     renderAgenda(city);
 
     // Theme 1 always shows The Future of Finance
