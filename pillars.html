@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="index, follow" />
+<meta name="author" content="RegSymp" />
+<meta name="theme-color" content="#0D1322" />
+<title>The Pillars (Plus Ultra) — RegSymp</title>
+<meta name="description" content="A membership for senior leaders across banking, regulation, payments and digital assets. Quarterly briefings, peer introductions, thought leadership and The Exchange." />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="The Pillars (Plus Ultra) — RegSymp" />
+<meta property="og:description" content="A membership for senior leaders across banking, regulation, payments and digital assets. Quarterly briefings, peer introductions, thought leadership and The Exchange." />
+<meta property="og:url" content="https://www.regsymp.com/the-pillars" />
+<meta property="og:site_name" content="RegSymp" />
+<meta property="og:locale" content="en_GB" />
+
+<!-- Canonical -->
+<link rel="canonical" href="https://www.regsymp.com/the-pillars" />
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+
+<style>
+/* ========================================================
+   The Pillars — page-specific styles
+   ======================================================== */
+
+/* --- Hero --- */
+.section.dark-deep.pillars-hero {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  padding-top: clamp(140px, 14vw, 200px);
+  padding-bottom: clamp(80px, 10vw, 128px);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    150deg,
+    #060c18 0%,
+    #0D1322 52%,
+    #111b30 100%
+  );
+}
+
+/* Atmospheric gradient — gold warmth at top, shadow at base */
+.section.dark-deep.pillars-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(184,150,58,0.055) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 45% at 50% 100%, rgba(0,0,0,0.38) 0%, transparent 65%);
+}
+
+/* Fine grain — institutional paper texture */
+.section.dark-deep.pillars-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.042;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  background-repeat: repeat;
+}
+
+.pillars-hero .container {
+  position: relative;
+  z-index: 1;
+}
+
+.pillars-hero-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pillars-hero-inner .eyebrow {
+  color: rgba(184,150,58,0.78);
+}
+
+/* Headline — two-line h1 with decorative rule */
+.pillars-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 16px 0 0;
+}
+
+.pillars-headline-main {
+  display: block;
+  color: rgba(246,242,235,0.96);
+  text-shadow: none;
+}
+
+.pillars-headline-rule {
+  display: block;
+  width: 40px;
+  height: 1px;
+  background: var(--gold);
+  margin: 20px auto;
+  opacity: 0.7;
+}
+
+/* "Plus Ultra" — Playfair Display italic, ~60% of h-display max */
+.pillars-headline-sub {
+  display: block;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(24px, 3.84vw, 53px);
+  line-height: 1.1;
+  letter-spacing: 0.005em;
+  color: rgba(246,242,235,0.72);
+}
+
+.pillars-hero-lede {
+  margin: 32px auto 36px;
+  max-width: 58ch;
+  font-size: clamp(15px, 1.2vw, 17px);
+  line-height: 1.72;
+  color: rgba(246,242,235,0.58);
+  text-align: center;
+}
+
+.pillars-hero-inner .btn-ghost {
+  color: rgba(255,255,255,0.88);
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.28);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.pillars-hero-inner .btn-ghost:hover {
+  background: rgba(255,255,255,0.92);
+  color: var(--navy-deep);
+  border-color: rgba(255,255,255,0.9);
+}
+
+/* --- Tiers section header --- */
+.pillars-section-head {
+  max-width: 760px;
+  margin-bottom: clamp(48px, 6vw, 80px);
+}
+
+.pillars-section-head .h2 {
+  margin: 12px 0 18px;
+}
+
+/* --- Tier cards grid --- */
+.pillars-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.pillars-tier-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Executive — gold top border elevation */
+.pillars-tier-card.executive {
+  border-top: 3px solid var(--gold);
+}
+
+/* Leadership — dark reverse treatment */
+.pillars-tier-card.leadership {
+  background: var(--navy-deep);
+  color: var(--white);
+  border-color: transparent;
+}
+
+/* Tier name */
+.pillars-tier-name {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: clamp(20px, 2vw, 26px);
+  letter-spacing: -0.01em;
+  color: var(--navy);
+  margin: 0 0 12px;
+  line-height: 1.2;
+}
+
+.pillars-tier-card.leadership .pillars-tier-name {
+  color: var(--white);
+}
+
+/* Pricing */
+.pillars-tier-price {
+  color: var(--gold-text);
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 8px;
+  line-height: 1.5;
+  font-family: var(--sans);
+}
+
+.pillars-tier-card.leadership .pillars-tier-price {
+  color: var(--gold);
+}
+
+/* Audience */
+.pillars-tier-audience {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.72;
+  margin: 0;
+  font-family: var(--sans);
+}
+
+.pillars-tier-card.leadership .pillars-tier-audience {
+  color: rgba(255,255,255,0.55);
+}
+
+/* Card divider */
+.pillars-tier-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+.pillars-tier-card.leadership .pillars-tier-divider {
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* "All X benefits, plus:" note */
+.pillars-tier-note {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  display: block;
+  font-family: var(--sans);
+}
+
+.pillars-tier-card.leadership .pillars-tier-note {
+  color: rgba(255,255,255,0.5);
+}
+
+/* Benefit list — gold square bullets */
+.pillars-tier-benefits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.pillars-tier-benefits li {
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-dark);
+  padding-left: 16px;
+  position: relative;
+}
+
+.pillars-tier-benefits li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 5px;
+  height: 5px;
+  background: var(--gold);
+  display: inline-block;
+}
+
+.pillars-tier-card.leadership .pillars-tier-benefits li {
+  color: rgba(255,255,255,0.75);
+}
+
+/* Founding badge */
+.pillars-founding-badge {
+  margin-top: 28px;
+  padding: 8px 14px;
+  background: var(--gold-soft);
+  color: var(--gold-text);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  display: inline-block;
+  align-self: flex-start;
+  line-height: 1.4;
+}
+
+.pillars-tier-card.leadership .pillars-founding-badge {
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.82);
+}
+
+/* Card CTA — pushed to bottom by flex column */
+.pillars-tier-cta {
+  margin-top: 24px;
+  width: 100%;
+}
+
+.pillars-tier-cta .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* --- About section — centred narrow block --- */
+.pillars-about-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.pillars-about-inner .h2 {
+  margin: 12px 0 28px;
+}
+
+.pillars-about-body {
+  font-size: 16px;
+  line-height: 1.72;
+  color: rgba(246,242,235,0.72);
+  margin: 0 0 18px;
+  max-width: 66ch;
+}
+
+/* --- Contact section --- */
+.pillars-contact-inner {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pillars-contact-inner .eyebrow {
+  display: block;
+}
+
+.pillars-contact-inner .h2 {
+  margin: 12px 0 20px;
+}
+
+.pillars-contact-inner .lede {
+  margin: 0 auto 32px;
+}
+
+.pillars-contact-email {
+  margin: 0 auto 0;
+  text-align: center;
+}
+
+.pillars-small-print {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 32px;
+  line-height: 1.7;
+  max-width: 48ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* --- Responsive --- */
+@media (max-width: 1024px) {
+  .pillars-tiers {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pillars-tier-card.leadership {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .pillars-tiers {
+    grid-template-columns: 1fr;
+  }
+  .pillars-tier-card.leadership {
+    grid-column: auto;
+  }
+  .pillars-tier-card {
+    padding: 28px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { transition: none; opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to content</a>
+
+<!-- ============================= NAV ============================= -->
+<header class="nav" id="nav" aria-label="Primary navigation">
+  <div class="container nav-inner">
+    <a href="index.html" class="brand brand-hex" aria-label="RegSymp home">
+      <img src="assets/regsymp-hex.png" alt="RegSymp" />
+    </a>
+
+    <nav class="nav-links" id="navLinks" aria-label="Pages">
+      <a href="index.html">Home</a>
+      <a href="pillars.html" class="active" aria-current="page">The Pillars</a>
+    </nav>
+
+    <div class="nav-cta">
+      <a href="mailto:info@regsymp.com" class="nav-write-link">Write to us →</a>
+      <button class="nav-burger" id="burger" aria-label="Open menu" aria-controls="drawer">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Mobile drawer -->
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="brand-wordmark"><img src="assets/regsymp-wordmark-tight.png" alt="RegSymp" /></span>
+    <button class="drawer-close" id="drawerClose" aria-label="Close menu">×</button>
+  </div>
+  <nav class="drawer-links" aria-label="Mobile pages">
+    <a href="index.html">Home</a>
+    <a href="pillars.html" aria-current="page">The Pillars</a>
+    <a href="#membership-details">Request Details</a>
+    <a href="mailto:info@regsymp.com">Contact</a>
+  </nav>
+</aside>
+
+<main id="main-content">
+
+<!-- ============================= HERO ============================= -->
+<section class="section dark-deep pillars-hero" aria-labelledby="pillars-heading">
+  <div class="container">
+    <div class="pillars-hero-inner">
+      <span class="eyebrow">Membership</span>
+      <h1 class="pillars-headline" id="pillars-heading">
+        <span class="h-display pillars-headline-main">The Pillars</span>
+        <span class="pillars-headline-rule" aria-hidden="true"></span>
+        <span class="pillars-headline-sub">Plus Ultra</span>
+      </h1>
+      <p class="pillars-hero-lede">
+        A membership for senior leaders across banking, regulation, payments and digital assets.
+        The Pillars keeps the conversation going between symposia — quarterly briefings, curated peer
+        introductions, thought leadership, and The Exchange published throughout the year.
+      </p>
+      <a href="#membership-details" class="btn btn-ghost">Request Membership Details <span class="arrow">→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= TIER CARDS ============================= -->
+<section class="section light" aria-labelledby="tiers-heading">
+  <div class="container reveal">
+
+    <div class="pillars-section-head">
+      <span class="eyebrow">Membership Tiers</span>
+      <h2 class="h2" id="tiers-heading">Choose your level of engagement</h2>
+      <p class="lede">Membership is annual. Founding Member status is available to the first 50 members at each tier.</p>
+    </div>
+
+    <div class="pillars-tiers">
+
+      <!-- Pillar Member -->
+      <article class="pillars-tier-card" aria-label="Pillar Member tier">
+        <h3 class="pillars-tier-name">Pillar Member</h3>
+        <p class="pillars-tier-price">
+          <data value="1250">£1,250</data> per year | <data value="150">£150</data> per month
+        </p>
+        <p class="pillars-tier-audience">For senior professionals, consultants, lawyers, risk and compliance leaders, fintech founders and executives.</p>
+        <hr class="pillars-tier-divider" />
+        <ul class="pillars-tier-benefits" aria-label="Pillar Member benefits">
+          <li>Quarterly Pillars Briefing</li>
+          <li>Personal profile in the Pillars Member Directory</li>
+          <li>Inclusion in member communications and updates</li>
+          <li>Access to the Pillars network</li>
+          <li>Input into future Pillars publications</li>
+          <li>Subscription to The Exchange, the Pillars newsletter</li>
+        </ul>
+        <span class="pillars-founding-badge">★ Founding Member status — limited to the first 50</span>
+        <div class="pillars-tier-cta">
+          <a href="mailto:info@regsymp.com?subject=Pillar%20Member%20Enquiry" class="btn btn-primary on-light">Request Details <span class="arrow">→</span></a>
+        </div>
+      </article>
+
+      <!-- Executive Member -->
+      <article class="pillars-tier-card executive" aria-label="Executive Member tier">
+        <h3 class="pillars-tier-name">Executive Member</h3>
+        <p class="pillars-tier-price">
+          <data value="2500">£2,500</data> per year | <data value="250">£250</data> per month
+        </p>
+        <p class="pillars-tier-audience">For boutique firms, consultancies, law firms, RegTechs and fintechs.</p>
+        <hr class="pillars-tier-divider" />
+        <span class="pillars-tier-note">All Pillar Member benefits, plus:</span>
+        <ul class="pillars-tier-benefits" aria-label="Executive Member additional benefits">
+          <li>Corporate profile in the Pillars Directory</li>
+          <li>One annual thought leadership contribution published through Pillars channels</li>
+          <li>Inclusion in Pillars publications and industry features</li>
+          <li>Curated introductions within the Pillars network</li>
+          <li>Named placement across Pillars communications</li>
+          <li>Featured placement in The Exchange</li>
+        </ul>
+        <span class="pillars-founding-badge">★ Founding Executive Member status — limited to the first 50</span>
+        <div class="pillars-tier-cta">
+          <a href="mailto:info@regsymp.com?subject=Executive%20Member%20Enquiry" class="btn btn-primary on-light">Request Details <span class="arrow">→</span></a>
+        </div>
+      </article>
+
+      <!-- Leadership Member -->
+      <article class="pillars-tier-card leadership" aria-label="Leadership Member tier">
+        <h3 class="pillars-tier-name">Leadership Member</h3>
+        <p class="pillars-tier-price">
+          <data value="5000">£5,000</data> per year | <data value="500">£500</data> per month
+        </p>
+        <p class="pillars-tier-audience">For established firms and institutions seeking sustained engagement with the practitioner network.</p>
+        <hr class="pillars-tier-divider" />
+        <span class="pillars-tier-note">All Executive Member benefits, plus:</span>
+        <ul class="pillars-tier-benefits" aria-label="Leadership Member additional benefits">
+          <li>Featured organisation profile</li>
+          <li>Up to four annual thought leadership contributions</li>
+          <li>Featured practitioner profile, once per year</li>
+          <li>Editorial placement across Pillars publications and The Exchange</li>
+          <li>Priority curated introductions within the Pillars network</li>
+        </ul>
+        <span class="pillars-founding-badge">★ Founding Leadership Member status — limited to the first 50</span>
+        <div class="pillars-tier-cta">
+          <a href="mailto:info@regsymp.com?subject=Leadership%20Member%20Enquiry" class="btn btn-ghost">Request Details <span class="arrow">→</span></a>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================= ABOUT ============================= -->
+<section class="section dark" aria-labelledby="about-pillars-heading">
+  <div class="container reveal">
+    <div class="pillars-about-inner">
+      <span class="eyebrow on-dark">About The Pillars</span>
+      <h2 class="h2" id="about-pillars-heading">Year-round professional engagement</h2>
+      <p class="pillars-about-body">The Pillars exists for year-round professional engagement — peer connection, thought leadership and ongoing access to a network of senior practitioners between events. It is entirely separate from RegSymp conference attendance, speaking opportunities and sponsorship packages.</p>
+      <p class="pillars-about-body">Membership is annual. Founding Member status is available to the first 50 at each tier.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= CONTACT ============================= -->
+<section class="section light" id="membership-details" aria-labelledby="contact-heading">
+  <div class="container reveal">
+    <div class="pillars-contact-inner">
+      <h2 class="h2" id="contact-heading">Request membership details</h2>
+      <p class="lede">To enquire about membership or to receive the full member prospectus, contact us at the address below.</p>
+      <div class="pillars-contact-email">
+        <a href="mailto:info@regsymp.com" class="btn-link">info@regsymp.com</a>
+      </div>
+      <p class="pillars-small-print">The Pillars is a membership programme. It is separate from RegSymp event registration, conference attendance and sponsorship. Membership is annual and non-transferable.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================= FOOTER ============================= -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="brand brand-hex" style="color:var(--white); display:inline-flex; align-items:center; gap:0;">
+          <img src="assets/regsymp-hex-tight.png" alt="RegSymp" style="height:54px; width:auto; display:block; filter:brightness(0) invert(1);" />
+        </a>
+        <p>Shaping the future of finance.</p>
+        <div class="footer-social">
+          <a href="https://www.linkedin.com/company/regsymp/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.59 0 4.26 2.36 4.26 5.43v6.31zM5.34 7.43a2.06 2.06 0 110-4.12 2.06 2.06 0 010 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg></a>
+          <a href="https://x.com/regsymp" target="_blank" rel="noopener" aria-label="X / Twitter"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg></a>
+          <a href="mailto:info@regsymp.com" aria-label="Email"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></a>
+        </div>
+      </div>
+      <nav class="footer-nav" aria-label="Footer navigation">
+        <div>
+          <h5>Programme</h5>
+          <ul>
+            <li><a href="index.html#about">About</a></li>
+            <li><a href="index.html#why-attend">Why Attend</a></li>
+            <li><a href="speakers.html">Speakers</a></li>
+            <li><a href="index.html#agenda">Agenda</a></li>
+            <li><a href="faq.html" target="_blank" rel="noopener">FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>Attend</h5>
+          <ul>
+            <li><a href="index.html#dinner">The Thirty-Three</a></li>
+            <li><a href="index.html#signup">Join the List</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>Membership</h5>
+          <ul>
+            <li><a href="pillars.html" aria-current="page">The Pillars</a></li>
+            <li><a href="#membership-details">Request Details</a></li>
+          </ul>
+        </div>
+        <div class="footer-email">
+          <h5>Contact</h5>
+          <ul>
+            <li><span class="em-label">General</span><a href="mailto:info@regsymp.com">info@regsymp.com</a></li>
+            <li><span class="em-label">LinkedIn</span><a href="https://www.linkedin.com/company/regsymp/" target="_blank" rel="noopener">linkedin.com/regsymp</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <div class="footer-bot">
+      <div class="links"><a href="legal.html">Legal</a></div>
+      <div>© 2026 RegSymp Group Limited. All rights reserved.</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // Nav scroll state
+  const nav = document.getElementById('nav');
+  const onScroll = () => { nav.classList.toggle('scrolled', window.scrollY > 60); };
+  document.addEventListener('scroll', onScroll, {passive: true}); onScroll();
+
+  // Mobile drawer
+  const burger = document.getElementById('burger');
+  const drawer = document.getElementById('drawer');
+  const drawerClose = document.getElementById('drawerClose');
+  function setDrawer(open){
+    drawer.classList.toggle('open', open);
+    drawer.setAttribute('aria-hidden', String(!open));
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (open) {
+      const firstLink = document.querySelector('.drawer-links a');
+      if (firstLink) firstLink.focus();
+    } else {
+      document.getElementById('burger').focus();
+    }
+  }
+  burger.addEventListener('click', () => setDrawer(true));
+  drawerClose.addEventListener('click', () => setDrawer(false));
+  drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', () => setDrawer(false)));
+
+  // Smooth scroll for #membership-details anchor
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  // Section reveal on scroll
+  const io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.08, rootMargin: '0px 0px -80px 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+})();
+</script>
+</body>
+</html>

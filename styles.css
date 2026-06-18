@@ -253,6 +253,19 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
   height: 1px; background: var(--gold);
 }
 
+.nav-pillars-link {
+  color: var(--gold) !important;
+  border: 1px solid rgba(184,150,58,0.35);
+  padding: 5px 12px !important;
+  font-size: 11px !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: border-color 0.2s ease, color 0.2s ease !important;
+}
+.nav-pillars-link:hover { border-color: var(--gold) !important; }
+
+.drawer-pillars-link { color: var(--gold) !important; }
+
 .nav-cta { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
 .nav-write-link {
   font-size: 11px;
