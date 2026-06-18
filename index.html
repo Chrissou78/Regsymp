@@ -16,7 +16,6 @@
 <meta property="og:title" content="RegSymp — Where Finance's Future Is Decided" />
 <meta property="og:description" content="An invite-only, practitioner-led symposium for senior leaders in banking, payments, wealth, fintech, digital assets and AI. Palma de Mallorca, 14–15 September 2026. Limited to 99 delegates." />
 <meta property="og:url" content="https://www.regsymp.com" />
-<!-- TODO: create og-image-palma-2026.jpg asset -->
 <meta property="og:image" content="https://www.regsymp.com/og-image-palma-2026.jpg" />
 <meta property="og:site_name" content="RegSymp" />
 <meta property="og:locale" content="en_GB" />
@@ -29,19 +28,6 @@
 
 <!-- Canonical -->
 <link rel="canonical" href="https://www.regsymp.com" />
-<!--
-  TODO: Convert SPA anchors to real indexable routes.
-  Recommended approach: create static HTML pages at:
-    /palma-2026/index.html
-
-    /speakers/index.html
-    /faq/index.html
-  Each page should contain the relevant section content with full <head> metadata.
-  Current constraint: this is a single static HTML file with no build system or framework router.
-  Simplest viable path: duplicate the shell into separate .html files with only the relevant
-  section visible, or add a static site generator (e.g. Eleventy) to template shared chrome.
-  Preserve existing anchor navigation as fallback for in-page scrolling.
--->
 
 <!-- Event structured data: Palma de Mallorca 2026 -->
 <script type="application/ld+json">
@@ -205,10 +191,9 @@
     <nav class="nav-links" id="navLinks" aria-label="Sections">
       <a href="#about">About</a>
       <a href="#why-attend">Why Attend</a>
-      <a href="#speakers">Speakers</a>
+      <a href="speakers.html">Speakers</a>
       <a href="#agenda">Agenda</a>
       <a href="#sponsors">Partners</a>
-      <a href="#faq">FAQ</a>
     </nav>
 
     <div class="nav-cta">
@@ -229,11 +214,10 @@
   <nav class="drawer-links" aria-label="Mobile sections">
     <a href="#about">About the Event</a>
     <a href="#why-attend">Why Attend</a>
-    <a href="#speakers">Speakers</a>
+    <a href="speakers.html">Speakers</a>
     <a href="#agenda">Agenda</a>
     <a href="#sponsors">Partners</a>
-    <a href="#faq">FAQ</a>
-    <a href="#organiser">Organiser</a>
+    <a href="#about">Organiser</a>
     <a href="mailto:info@regsymp.com">Contact</a>
   </nav>
 </aside>
@@ -241,14 +225,14 @@
 <main id="home">
 
 <!-- ============================= HERO ============================= -->
-<section class="hero hero-editorial" data-screen-label="01 Hero">
+<section class="hero hero-editorial edition-palma" data-screen-label="01 Hero">
+  <div class="hero-vignette"></div>
   <div class="hero-stage">
     <div class="container">
       <div class="hero-inner">
         <p class="invitation-signal">— By Invitation Only</p>
-        <h1 class="h-display">Shaping the<br/>Future of Finance.</h1>
-        <p class="hero-kicker">Senior Finance &amp; Fintech Symposium — Palma de Mallorca, September 2026</p>
-        <p class="hero-body">We bring together traditional finance, private wealth, fintech and Web3 leaders to bridge the gap between institutional finance and digital innovation.</p>
+        <h1 class="h-display">Ninety-Nine.</h1>
+        <p class="hero-body">An invitation-only gathering of 99 senior leaders. Two days. No attribution. No agenda except the one that emerges when the right people share a room.</p>
 
         <div class="hero-ctas">
           <a href="#agenda" class="hero-link">The Programme <span class="arrow">→</span></a>
@@ -260,6 +244,8 @@
             <span>14–15 September 2026</span>
             <span class="hero-sep"></span>
             <span>Palma de Mallorca</span>
+            <span class="hero-sep"></span>
+            <span>Venue disclosed on confirmation</span>
           </div>
 
           <div class="hero-detail-row hero-detail-row--meta">
@@ -279,27 +265,29 @@
     <div class="about-grid">
       <div class="about-copy">
         <h2 class="h2" style="margin-bottom:28px;">About RegSymp</h2>
-        <p>Financial services is changing fast. Payments, AI, digital assets, tokenisation and embedded finance are transforming how institutions operate, compete and grow.</p>
-        <p>RegSymp brings together leaders from banking, fintech, payments, wealth, digital assets and technology to explore what the next generation of finance will look like in practice.</p>
-        <p><strong>The programme is built around five key themes:</strong></p>
-        <ul style="margin:12px 0 16px 20px; list-style:disc;">
-          <li>The Future of Finance</li>
-          <li>Payments, Stablecoins &amp; Programmable Money</li>
-          <li>AI, Wealth &amp; The Reinvention of Banking</li>
-          <li>Trust, Infrastructure &amp; Institutional Resilience</li>
-          <li>The New Financial Ecosystem</li>
-        </ul>
-        <p>Designed as an executive forum rather than a traditional conference, RegSymp focuses on commercially relevant discussions, strategic partnerships and real operational challenges facing modern financial institutions.</p>
-        <p>Across two days of debates and networking, the symposium connects founders, executives, investors and industry leaders shaping the future of financial services.</p>
+        <p>Payments, AI, digital assets, tokenisation and embedded finance are reshaping how financial institutions operate, compete and grow.</p>
+        <p>RegSymp convenes founders, executives, family offices and senior investors from banking, fintech, payments, wealth and digital assets to confront what the next generation of finance will demand in practice.</p>
+        <p>RegSymp focuses on commercially relevant discussion, relationship formation, and the operational challenges that define how the next generation of financial institutions competes.</p>
+        <p>Across two days, in closed-room sessions under the Chatham House Rule, the symposium creates the conditions for candid conversation. No panels for the cameras. No attribution. No press.</p>
       </div>
 
       <aside class="feature-stack" aria-label="What makes RegSymp different">
-        <!-- TODO: add named speaker/committee member to replace anonymous "practitioners" -->
-        <div class="feature-card"><span class="num">01</span><h3 class="h4">Industry-led</h3><p>Sessions chaired and curated by senior practitioners in banking, payments, wealth, fintech and digital assets.</p></div>
+<div class="feature-card"><span class="num">01</span><h3 class="h4">Practitioner-led</h3><p>Sessions chaired by sitting heads of function — not vendors, not consultants presenting a deck.</p></div>
         <div class="feature-card"><span class="num">02</span><h3 class="h4">Exclusive audience</h3><p>Invitation only. 99 senior delegates.</p></div>
         <div class="feature-card"><span class="num">03</span><h3 class="h4">Local-first lens</h3><p>Leading regulators in the room with the international comparators that matter.</p></div>
       </aside>
 
+    </div>
+  </div>
+</section>
+
+<!-- ============================= THE SETTING ============================= -->
+<section class="section dark-deep">
+  <div class="container reveal">
+    <div class="section-head">
+      <span class="eyebrow on-dark">— The Setting</span>
+      <h2 class="h2">Palma de Mallorca. The venue is shared with confirmed attendees.</h2>
+      <p class="lede">We select the setting with the same care as the programme. Confirmed delegates receive full details — including venue, accommodation guidance, and logistics — upon acceptance.</p>
     </div>
   </div>
 </section>
@@ -311,8 +299,7 @@
       <div class="themes-intro">
         <span class="eyebrow on-dark">The Programme Thesis</span>
         <h2 class="h2">Five critical themes<br/>for 2026.</h2>
-        <!-- TODO: add named programme committee members once confirmed -->
-        <p class="lede on-dark">Every session at RegSymp maps to one of five themes identified as the most consequential shifts facing the financial services industry over the next 12 months.</p>
+<p class="lede on-dark">Every session at RegSymp maps to one of five themes identified as the most consequential shifts facing the financial services industry over the next 12 months.</p>
       </div>
 
       <ol class="themes-list" aria-label="Programme themes">
@@ -331,60 +318,27 @@
 <section class="section light" id="why-attend" data-screen-label="04b Why Attend">
   <div class="container reveal">
     <div class="section-head">
-      <span class="eyebrow">Why Attend</span>
-      <h2 class="h2">What Delegates Gain</h2>
+      <span class="eyebrow">The Format</span>
+      <h2 class="h2">Two days. Closed room.<br/>No attribution.</h2>
     </div>
-    <div class="why-grid">
-      <div class="why-card">
-        <h3 class="h4">Direct access to decision-makers</h3>
-        <p>Connect with 99 senior leaders - founders, C-suite executives, investors and policymakers, in a format designed for substantive conversation.</p>
-      </div>
-      <div class="why-card">
-        <h3 class="h4">Candid, off-the-record dialogue</h3>
-        <p>Every session runs under the Chatham House Rule. Delegates speak freely about real challenges, competitive strategy and operational decisions without attribution.</p>
-      </div>
-      <div class="why-card">
-        <h3 class="h4">Actionable strategic insight</h3>
-        <p>Sessions are practitioner-led and built to land tangible takeaways. Walk away with frameworks, partnerships and intelligence you can act on immediately.</p>
-      </div>
-      <div class="why-card">
-        <h3 class="h4">A curated peer group</h3>
-        <p>Attendance is invitation-only. Every delegate is selected to ensure relevance, seniority and diversity of perspective across banking, payments, wealth, fintech, digital assets and AI.</p>
-      </div>
-      <div class="why-card">
-        <h3 class="h4">Relationship-driven format</h3>
-        <p>Two days, intimate group sizes, structured networking, and The Thirty-Three dinner, designed so that meaningful relationships form naturally.</p>
-      </div>
-      <div class="why-card">
-        <h3 class="h4">Who should attend</h3>
-        <p>Founders &amp; CEOs; banking &amp; payments executives; fintech &amp; digital asset leaders; investors &amp; family offices; CROs, CCOs &amp; COOs; wealth &amp; private banking professionals; policymakers &amp; advisors.</p>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- ============================= SPEAKERS ============================= -->
-<section class="section light" id="speakers" data-screen-label="05 Speakers">
-  <div class="container reveal">
-    <div class="section-head">
-      <span class="eyebrow">2026 Programme</span>
-      <h2 class="h2">Speakers.</h2>
-      <p class="lede">The inaugural programme is being shaped by practitioners across banking, payments, fintech, digital assets and AI. The first confirmed speakers will be announced in June 2026.</p>
-      <!-- TODO: add named speakers once confirmed — format: name, title, organisation -->
-      <div class="speaker-placeholder">
-        <p class="lede"><strong>Programme committee:</strong></p>
-        <!-- TODO: add named programme committee members -->
-        <p class="lede" style="font-style:italic; opacity:0.7;">Committee members will be named here once confirmed.</p>
+    <div class="format-blocks">
+
+      <div class="format-block">
+        <h3 class="h4">The sessions</h3>
+        <p>Every panel and debate is chaired by a senior practitioner. Sessions run under the Chatham House Rule. Delegates speak candidly about strategy, risk, and competitive position. Nothing is recorded. Nothing is attributed.</p>
       </div>
-      <h3 class="h3" style="margin-top:32px; margin-bottom:12px;">Speak at RegSymp</h3>
-      <p class="lede">A limited number of programme slots each cycle are filled through nomination. We welcome introductions to:</p>
-      <ul style="margin:12px 0 16px 20px; list-style:disc;">
-        <li>Senior regulators and policymakers with direct authority over financial supervision</li>
-        <li>C-suite leaders at institutions and platforms reshaping market structure</li>
-        <li>Founders, principals, and allocators with an original thesis on capital, compliance, or risk</li>
-        <li>Researchers and authors whose frameworks are being used in practice</li>
-      </ul>
-      <p class="lede">Nominations and introductions: <a href="mailto:info@regsymp.com" style="color:inherit; text-decoration:underline;">info@regsymp.com</a> with a brief note on the proposed topic.</p>
+
+      <div class="format-block">
+        <h3 class="h4">The room</h3>
+        <p>Attendance is invitation-only and limited to 99 delegates per edition. Every seat is curated to ensure the right mix of seniority, sector, and perspective. The conversations that matter most happen between institutional boundaries, not within them. This is the room where those conversations take place.</p>
+      </div>
+
+      <div class="format-block">
+        <h3 class="h4">The Thirty-Three</h3>
+        <p>On the evening of the first day, thirty-three guests sit down to dinner. Curated by the programme chairs. Chatham House Rule. No agenda beyond the one that forms naturally when the right people share a table.</p>
+      </div>
+
     </div>
   </div>
 </section>
@@ -393,9 +347,9 @@
 <section class="section dark-deep" id="agenda" data-screen-label="06 Agenda">
   <div class="container reveal">
     <div class="section-head">
-      <span class="eyebrow on-dark">Two Days. Five Themes. Practical Outputs.</span>
+      <span class="eyebrow on-dark">Two Days. Five Themes. No Attribution.</span>
       <h2 class="h2">Programme.</h2>
-      <p class="lede on-dark">Every session is timed, moderated and built to land a tangible takeaway. The full programme is finalised four weeks out from the event.</p>
+      <p class="lede on-dark">Every session is chaired by a practitioner and runs under the Chatham House Rule.</p>
     </div>
 
     <div class="tabs" role="tablist" aria-label="Programme tabs">
@@ -436,91 +390,13 @@
 <section class="section light" id="sponsors" data-screen-label="08 Partners">
   <div class="container reveal">
     <div class="section-head">
-      <span class="eyebrow">Partnership</span>
-      <h2 class="h2">A seat at the table shaping modern finance.</h2>
-      <p class="lede">Partners are selected carefully and participation is intentionally limited.</p>
-      <p class="lede">Our partners sit alongside senior leaders from banking, private capital, fintech, digital assets, infrastructure, advisory and regulatory circles in conversations that are strategic, closed-door and relationship-driven.</p>
-      <p class="lede">What partners gain is not visibility alone, but meaningful access to the people influencing the future of financial services.</p>
-      <p class="lede">We prioritise long-term relationships, aligned institutions and meaningful participation.</p>
+      <span class="eyebrow">— Partners</span>
+      <h2 class="h2">Made possible by those who shape it.</h2>
+      <p class="lede">RegSymp is supported by a small group of institutions whose work is directly relevant to the programme. We are grateful for their involvement and the seriousness with which they approach the conversation.</p>
     </div>
 
+    <p class="partners-enquiry">Interested in partnership? <a href="mailto:info@regsymp.com">Write to us →</a></p>
 
-    <div class="sponsor-cta">
-      <div>
-        <h3 class="h3">To discuss opportunities, please contact us.</h3>
-      </div>
-      <a href="mailto:info@regsymp.com" class="btn btn-primary">info@regsymp.com <span class="arrow">→</span></a>
-    </div>
-
-  </div>
-</section>
-
-<!-- ============================= FAQ ============================= -->
-<section class="section dark" id="faq" data-screen-label="09 FAQ">
-  <div class="container reveal">
-    <div class="section-head">
-      <span class="eyebrow on-dark">Questions</span>
-      <h2 class="h2">Frequently Asked Questions</h2>
-    </div>
-    <div class="faq-list">
-      <details class="faq-item">
-        <summary class="faq-q">When and where is RegSymp held?</summary>
-        <p class="faq-a">RegSymp takes place in Palma de Mallorca, Spain on 14–15 September 2026.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">Who can attend RegSymp?</summary>
-        <p class="faq-a">RegSymp is invitation-only and limited to 99 senior delegates per city: founders and CEOs, banking and payments executives, fintech and digital asset leaders, investors and family offices, CROs, CCOs and COOs, wealth and private banking professionals, and policymakers and advisors.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">How do I get invited to RegSymp?</summary>
-        <p class="faq-a">Attendance is curated. You can request an introduction by writing to <a href="mailto:info@regsymp.com">info@regsymp.com</a> with a brief note about your role and interest.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">What topics does RegSymp cover?</summary>
-        <p class="faq-a">The programme is built around five themes: the future of finance; payments, stablecoins and programmable money; AI, wealth and the reinvention of banking; trust, infrastructure and institutional resilience; and the new financial ecosystem.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">What is the Chatham House Rule at RegSymp?</summary>
-        <p class="faq-a">Under the Chatham House Rule, participants are free to use the information shared in sessions, but may not reveal the identity or affiliation of any speaker or attendee. This allows candid discussion among senior leaders.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">What is The Thirty-Three?</summary>
-        <p class="faq-a">The Thirty-Three is a privately convened seated dinner for 33 guests during the symposium, curated by the programme chairs and held under the Chatham House Rule.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">What makes RegSymp different from a traditional finance conference?</summary>
-        <p class="faq-a">RegSymp is not a conference in the traditional sense. Every session is practitioner-led, closed-door and run under the Chatham House Rule, which means delegates speak openly about real operational challenges, competitive strategy and emerging decisions. With 99 delegates per city, the format is built for substantive conversation and relationship formation.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">Is there a fee to attend RegSymp?</summary>
-        <p class="faq-a">Attendance is by invitation and curated by the programme committee to ensure the right mix of seniority, sector and perspective. If you would like to be considered, you can request an introduction by writing to <a href="mailto:info@regsymp.com">info@regsymp.com</a> with a brief note on your role and interest.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-q">Is RegSymp relevant for both banks and fintechs?</summary>
-        <p class="faq-a">Yes. The programme is designed specifically for the intersection of traditional and emerging finance. Sessions bring together banking executives, fintech founders, digital asset leaders, investors and policymakers in the same room, the premise being that the most commercially relevant conversations happen across institutional boundaries, not within them.</p>
-      </details>
-    </div>
-  </div>
-</section>
-
-<!-- ============================= ORGANISER ============================= -->
-<section class="section light" id="organiser" data-screen-label="10 Organiser">
-  <div class="container reveal">
-    <div class="section-head">
-      <span class="eyebrow">About the Organiser</span>
-      <h2 class="h2">RegSymp</h2>
-      <!-- TODO: confirm legal entity name -->
-      <p class="lede">RegSymp is a practitioner-led symposium platform convening senior leaders from banking, payments, wealth management, fintech, digital assets and AI to shape the future of financial services.</p>
-      <p class="lede">The programme is designed and curated by industry practitioners — not conference producers — ensuring every session reflects the real challenges facing modern financial institutions.</p>
-    </div>
-    <div class="organiser-nap">
-      <dl class="nap-grid">
-        <div><dt>Organisation</dt><dd>RegSymp<!-- TODO: confirm legal entity name --></dd></div>
-        <div><dt>Contact</dt><dd><a href="mailto:info@regsymp.com">info@regsymp.com</a></dd></div>
-        <div><dt>Web</dt><dd><a href="https://www.regsymp.com">www.regsymp.com</a></dd></div>
-        <div><dt>LinkedIn</dt><dd><a href="https://www.linkedin.com/company/regsymp/" target="_blank" rel="noopener">linkedin.com/company/regsymp</a></dd></div>
-      </dl>
-    </div>
   </div>
 </section>
 
@@ -528,18 +404,18 @@
 <section class="section dark" id="signup" data-screen-label="11 Signup">
   <div class="container reveal">
     <div class="signup-block">
-      <h2 class="h2">Stay Informed</h2>
-      <p class="lede on-dark">Be the first to receive programme updates, speaker announcements and invitations.</p>
-      <!-- TODO: connect to email provider (e.g. Mailchimp, ConvertKit, or custom ESP) -->
-      <form class="signup-form" id="signupForm" aria-label="Email signup">
+      <h2 class="h2">The RS Exchange.</h2>
+      <p class="lede on-dark">A curated intelligence briefing for senior leaders in financial services — expert perspectives, peer insight, and regulatory analysis from inside the room. Distributed by invitation.</p>
+      <p class="lede on-dark" style="margin-top:0.5em;">Founding membership is extended by nomination. To request consideration, write to us.</p>
+<form class="signup-form" id="signupForm" aria-label="Email signup">
         <div class="signup-field">
           <input type="email" id="signupEmail" name="email" placeholder="Your email address" required aria-label="Email address" />
-          <button type="submit" class="btn btn-primary">Join the List <span class="arrow">→</span></button>
+          <button type="submit" class="btn btn-primary">Request consideration <span class="arrow">→</span></button>
         </div>
-        <p class="signup-privacy">We respect your privacy. Your email is used solely for RegSymp communications and will never be shared with third parties.</p>
+        <p class="signup-privacy">Your details are used solely for RegSymp and RS Exchange communications. <a href="legal.html" style="text-decoration:underline; color:inherit;">Privacy Policy</a>.</p>
       </form>
       <div class="signup-success" id="signupSuccess" hidden>
-        <p>Thank you. You're on the list — we'll be in touch with programme updates.</p>
+        <p>Thank you. We'll be in touch.</p>
       </div>
     </div>
   </div>
@@ -558,7 +434,7 @@
         <p>Shaping the future of finance.</p>
         <div class="footer-social">
           <a href="https://www.linkedin.com/company/regsymp/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.59 0 4.26 2.36 4.26 5.43v6.31zM5.34 7.43a2.06 2.06 0 110-4.12 2.06 2.06 0 010 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg></a>
-          <a href="#" aria-label="X / Twitter"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg></a>
+          <a href="https://x.com/regsymp" target="_blank" rel="noopener" aria-label="X / Twitter"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg></a>
           <a href="mailto:info@regsymp.com" aria-label="Email"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></a>
         </div>
       </div>
@@ -568,9 +444,9 @@
           <ul>
             <li><a href="#about">About</a></li>
             <li><a href="#why-attend">Why Attend</a></li>
-            <li><a href="#speakers">Speakers</a></li>
+            <li><a href="speakers.html">Speakers</a></li>
             <li><a href="#agenda">Agenda</a></li>
-            <li><a href="#faq">FAQ</a></li>
+            <li><a href="faq.html" target="_blank" rel="noopener">FAQ</a></li>
           </ul>
         </div>
         <div>
@@ -585,7 +461,7 @@
           <ul>
             <li><a href="#sponsors">Partnership</a></li>
             <li><a href="mailto:info@regsymp.com">Speaker Submissions</a></li>
-            <li><a href="#organiser">Organiser</a></li>
+            <li><a href="#about">Organiser</a></li>
           </ul>
         </div>
         <div class="footer-email">
@@ -600,7 +476,7 @@
 
     <div class="footer-bot">
       <div class="links"><a href="legal.html">Legal</a></div>
-      <div>© 2026 RegSymp. All rights reserved.</div>
+      <div>© 2026 RegSymp Group Limited. All rights reserved.</div>
     </div>
   </div>
 </footer>
@@ -677,8 +553,7 @@
         { time: '15:45', title: 'Break', badge: 'Lounge', break: true },
         { time: '16:15', title: 'The Role of Audit, Consulting & Advisory in Financial Transformation', badge: 'Executive Panel' },
         { time: '17:00', title: 'Academia, Research & the Future Talent Pipeline', badge: 'Executive Panel' },
-        { time: '17:45', title: 'Closing Remarks', badge: 'Chair' },
-        { time: '19:30', title: 'Exclusive Dinner Event XXXIII', format: 'By invitation. Onwards from 19:30.', badge: 'Private Dinner' }
+        { time: '17:45', title: 'Closing Remarks', badge: 'Chair' }
       ]
     },
   };
@@ -810,7 +685,7 @@
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 
   // Active nav state on scroll
-  const sections = ['about','why','why-attend','speakers','agenda','sponsors','faq','organiser','signup'];
+  const sections = ['about','why','why-attend','agenda','sponsors','faq','signup'];
   const navLinks = document.querySelectorAll('.nav-links a');
   const spy = new IntersectionObserver((entries) => {
     entries.forEach(e => {

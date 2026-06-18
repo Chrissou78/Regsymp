@@ -1,5 +1,5 @@
 /* =========================================================
-   RegSymp Luxembourg 2027 — Production Stylesheet
+   RegSymp — Production Stylesheet
    UHNW Redesign — Institutional Finance Edition
    ========================================================= */
 
@@ -718,6 +718,103 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .speakers-teaser .btn-link { color: var(--navy); }
 .speakers-teaser .btn-link:hover { color: var(--navy-light); border-bottom-color: var(--navy-light); }
 
+/* ------- Speaker Cards ------- */
+.speaker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+.speaker-card {
+  background: var(--navy-deep);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.speaker-card__photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+.speaker-card__body {
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.speaker-card__eyebrow {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 16px;
+}
+.speaker-card__name {
+  font-family: var(--display);
+  font-size: clamp(24px, 2.8vw, 36px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--white);
+  margin: 0 0 20px;
+  letter-spacing: 0.01em;
+}
+.speaker-card__rule {
+  width: 40px;
+  height: 1px;
+  background: var(--gold);
+  border: none;
+  margin: 0 0 20px;
+}
+.speaker-card__title {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--white);
+  margin: 0 0 4px;
+}
+.speaker-card__org {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--blue-soft);
+  margin: 0 0 16px;
+}
+.speaker-card__bio {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--blue-soft);
+  margin: 0 0 24px;
+  flex: 1;
+}
+.speaker-card__footer {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 16px;
+}
+.speaker-card__link {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(184,150,58,0.4);
+  padding-bottom: 2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.speaker-card__link:hover { color: var(--white); border-bottom-color: var(--white); }
+@media (max-width: 768px) {
+  .speaker-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  .speaker-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ------- Agenda ------- */
 .tabs {
   display: inline-flex;
@@ -825,7 +922,7 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .tier-card.platinum li { color: rgba(255,255,255,0.68); }
 .tier-card li::before { content: ""; position: absolute; left: 0; top: 8px; width: 8px; height: 1px; background: currentColor; opacity: 0.4; }
 
-.sponsor-logos { margin-top: clamp(60px, 6vw, 96px); display: flex; flex-direction: column; gap: 28px; }
+.sponsor-logos { margin-top: 0; display: flex; flex-direction: column; gap: 28px; }
 .sponsor-row .label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); margin-bottom: 14px; }
 .sponsor-row .label.platinum { color: var(--navy); }
 .sponsor-row .label.gold { color: #8A6B20; }
@@ -836,18 +933,45 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .sponsor-row.gold   .slots { grid-template-columns: repeat(2, 1fr); }
 .sponsor-row.silver .slots { grid-template-columns: repeat(3, 1fr); }
 .sponsor-row.bronze .slots { grid-template-columns: repeat(4, 1fr); }
+/* Partners section — public-facing logo grid (no tier labels shown) */
+.sponsor-row.partner-primary .slots { grid-template-columns: repeat(4, 1fr); }
 .logo-slot {
-  border: 1px dashed var(--border);
+  border: 1px solid var(--border);
   border-radius: 0;
-  height: 96px;
+  height: 100px;
   display: flex; align-items: center; justify-content: center;
-  color: var(--text-muted);
-  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-  background: var(--off-white-2);
+  background: var(--white);
+  transition: border-color 0.2s ease;
 }
+.logo-slot img {
+  max-height: 48px;
+  max-width: 75%;
+  width: auto;
+  object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.65;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+.logo-slot:hover img { opacity: 1; filter: grayscale(0); }
 .sponsor-row.platinum .logo-slot { height: 140px; font-size: 13px; }
 .sponsor-row.bronze  .logo-slot { height: 76px; }
 
+/* Quiet partnership enquiry link */
+.partners-enquiry {
+  margin-top: clamp(36px, 4vw, 52px);
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+.partners-enquiry a {
+  color: var(--navy);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1px;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.partners-enquiry a:hover { color: var(--gold); border-color: var(--gold); }
+
+/* Legacy sponsor-cta (kept for potential internal use; fix contrast) */
 .sponsor-cta {
   background: var(--navy-deep);
   color: var(--white);
@@ -857,7 +981,7 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
   margin-top: clamp(48px, 5vw, 72px);
 }
 .sponsor-cta .h3 { color: var(--white); margin: 0 0 6px; }
-.sponsor-cta p { margin: 0; color: rgba(255,255,255,0.62); font-size: 14px; max-width: 56ch; }
+.sponsor-cta p { margin: 0; color: rgba(255,255,255,0.80); font-size: 14px; max-width: 56ch; }
 
 /* ------- Dinner ------- */
 .dinner-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(40px, 6vw, 96px); align-items: start; }
@@ -1048,6 +1172,7 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
   .agenda-row { grid-template-columns: 72px 1fr; gap: 14px; }
   .agenda-row .spk-meta { display: none; }
   .sponsor-cta { flex-direction: column; align-items: flex-start; }
+  .sponsor-row.partner-primary .slots { grid-template-columns: repeat(2, 1fr); }
   .footer-bot { flex-direction: column; align-items: flex-start; gap: 12px; }
   .hero { padding-top: 110px; }
   .hero-vignette {
@@ -1074,7 +1199,7 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
   color: var(--white);
   padding: clamp(140px, 14vw, 200px) 0 clamp(56px, 7vw, 96px);
   display: block;
-  overflow: visible;
+  overflow: hidden;
 }
 .hero-editorial .hero-video,
 .hero-editorial .hero-vignette,
@@ -1146,7 +1271,7 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
   padding-top: 22px;
   border-top: 1px solid rgba(246,242,235,0.08);
   display: grid;
-  grid-template-columns: max-content 1px max-content;
+  grid-template-columns: max-content 1px max-content 1px max-content;
   column-gap: 18px;
   row-gap: 10px;
   align-items: center;
@@ -1346,9 +1471,46 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 
 /* ------- Why Attend grid ------- */
 .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; margin-top: 40px; }
-.why-card { padding: 28px; border: 1px solid rgba(13,19,34,0.08); border-radius: 12px; }
+.why-card { padding: 28px; border: 1px solid rgba(13,19,34,0.08); border-radius: 0; }
 .why-card .h4 { margin-bottom: 10px; }
 .why-card p { font-size: 15px; line-height: 1.6; color: rgba(13,19,34,0.72); }
+
+.format-blocks {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.format-block {
+  border-bottom: 1px solid var(--border);
+  padding: clamp(28px, 3.5vw, 48px) 0;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: clamp(24px, 4vw, 80px);
+  align-items: baseline;
+}
+
+.format-block .h4 {
+  color: var(--text-dark);
+  font-size: 14px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.format-block p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.82;
+  color: var(--text-muted);
+  max-width: 68ch;
+}
+
+@media (max-width: 640px) {
+  .format-block {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
 
 /* ------- FAQ ------- */
 .faq-list { max-width: 800px; margin: 40px auto 0; }
@@ -1372,11 +1534,125 @@ details[open] .faq-q::after { content: '−'; }
 .signup-block { text-align: center; max-width: 600px; margin: 0 auto; }
 .signup-form { margin-top: 28px; }
 .signup-field { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.signup-field input[type="email"] { flex: 1; min-width: 240px; padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: var(--white); font-size: 15px; }
+.signup-field input[type="email"] { flex: 1; min-width: 240px; padding: 14px 18px; border-radius: 0; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: var(--white); font-size: 15px; }
 .signup-field input[type="email"]::placeholder { color: rgba(255,255,255,0.4); }
 .signup-field input[type="email"]:focus { outline: 2px solid var(--gold); border-color: transparent; }
 .signup-privacy { margin-top: 14px; font-size: 13px; color: rgba(255,255,255,0.5); }
 .signup-success p { font-size: 17px; color: var(--gold); }
+
+/* ------- Edition Colour System ------- */
+/*
+  Each edition page adds a modifier class to the hero <section>.
+  The gradient shifts the atmospheric temperature of the navy base —
+  barely perceptible as a colour, read as a mood.
+  All editions share the same gold texture overlay via ::before.
+*/
+
+/* ------- Fine grain — institutional material depth ------- */
+/*
+  SVG feTurbulence noise tiled at 256px.
+  Renders as fine film grain at ~4% opacity — reads as paper/linen, not digital.
+  Uses ::after so it layers above the gradient but below hero content (z-index: 1 < content z-index).
+*/
+.hero-editorial::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.042;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  background-repeat: repeat;
+}
+
+/* ------- Base atmospheric texture — all editions ------- */
+.hero-editorial::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 68% 0%, rgba(184,150,58,0.055) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 45% at 8% 95%, rgba(0,0,0,0.38) 0%, transparent 65%);
+}
+
+/* Base gradient — replaces flat navy (fallback / default) */
+.hero-editorial {
+  background: linear-gradient(
+    150deg,
+    #060c18 0%,
+    #0D1322 52%,
+    #111b30 100%
+  );
+}
+
+/* Palma de Mallorca — warm Mediterranean: amber-ochre undertone */
+.hero-editorial.edition-palma {
+  background: linear-gradient(
+    150deg,
+    #0b0d09 0%,
+    #0e1216 35%,
+    #0D1322 62%,
+    #0e1428 100%
+  );
+}
+
+/* Luxembourg — cool institutional slate */
+.hero-editorial.edition-luxembourg {
+  background: linear-gradient(
+    150deg,
+    #06091a 0%,
+    #0a1226 42%,
+    #0c1530 80%,
+    #08101e 100%
+  );
+}
+
+/* Merano — Alpine sage-grey: crisp, mineral */
+.hero-editorial.edition-merano {
+  background: linear-gradient(
+    150deg,
+    #07100e 0%,
+    #0a1410 42%,
+    #0c1420 76%,
+    #091018 100%
+  );
+}
+
+/* Málaga — warm Andalusian terracotta */
+.hero-editorial.edition-malaga {
+  background: linear-gradient(
+    150deg,
+    #150c06 0%,
+    #14100a 32%,
+    #101422 66%,
+    #0a0e1c 100%
+  );
+}
+
+/* Mexico City — deep volcanic warmth */
+.hero-editorial.edition-mexico {
+  background: linear-gradient(
+    150deg,
+    #160d08 0%,
+    #13100b 30%,
+    #0f1220 66%,
+    #0a0c1a 100%
+  );
+}
+
+/* London — cool pewter, overcast grey-blue */
+.hero-editorial.edition-london {
+  background: linear-gradient(
+    150deg,
+    #08090e 0%,
+    #0a1018 42%,
+    #0c1422 76%,
+    #090d18 100%
+  );
+}
 
 /* ------- Print ------- */
 @media print {
