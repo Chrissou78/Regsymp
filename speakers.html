@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Speakers — RegSymp</title>
+<meta name="description" content="Meet the confirmed speakers for RegSymp 2026 — senior practitioners from banking, payments, digital assets, AI and wealth management." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css?v=20260525" />
+
+<style>
+/* =============================================
+   SPEAKERS PAGE — Additional Styles
+   ============================================= */
+
+/* ---- Page Hero ---- */
+.speakers-hero {
+  background: var(--navy-deep);
+  padding: clamp(130px, 13vw, 190px) 0 clamp(48px, 6vw, 80px);
+  position: relative;
+  overflow: hidden;
+}
+.speakers-hero::before {
+  content: "";
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 55% at 72% -10%, rgba(184,150,58,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 50% at 5% 100%, rgba(0,0,0,0.42) 0%, transparent 65%);
+}
+.speakers-hero::after {
+  content: "";
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.038;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+.speakers-hero .container { position: relative; z-index: 2; }
+.speakers-hero-inner { max-width: 700px; }
+.speakers-hero .invitation-signal { margin-bottom: 22px; }
+.speakers-hero h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(38px, 5.4vw, 66px);
+  line-height: 1.07;
+  letter-spacing: -0.01em;
+  color: rgba(246,242,235,0.96);
+  margin: 0 0 22px;
+}
+.speakers-hero p {
+  font-size: clamp(15px, 1.15vw, 17px);
+  line-height: 1.78;
+  color: rgba(246,242,235,0.58);
+  max-width: 54ch;
+  margin: 0 0 40px;
+}
+.speakers-hero-meta {
+  padding-top: 22px;
+  border-top: 1px solid rgba(246,242,235,0.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.speakers-hero-meta span {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(246,242,235,0.38);
+}
+.speakers-hero-meta .gold { color: rgba(184,150,58,0.6); }
+.speakers-hero-meta .sep {
+  width: 1px; height: 9px;
+  background: rgba(246,242,235,0.1);
+  display: inline-block;
+}
+
+/* ---- Filter Bar ---- */
+.filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(13,19,34,0.96);
+  -webkit-backdrop-filter: saturate(120%) blur(14px);
+  backdrop-filter: saturate(120%) blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 0;
+  transition: box-shadow 0.3s ease;
+}
+.filter-bar.elevated {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.32);
+}
+.filter-bar-inner {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.filter-bar-inner::-webkit-scrollbar { display: none; }
+
+.filter-label {
+  font-size: 9px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(184,150,58,0.5);
+  font-weight: 600;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filter-topics {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  flex-shrink: 0;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  padding: 18px 22px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.42);
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  border-right: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+.filter-btn::after {
+  content: "";
+  position: absolute;
+  bottom: 0; left: 22px; right: 22px;
+  height: 1px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.filter-btn:hover { color: rgba(255,255,255,0.72); }
+.filter-btn.active {
+  color: var(--white);
+}
+.filter-btn.active::after {
+  transform: scaleX(1);
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(184,150,58,0.15);
+  border: 1px solid rgba(184,150,58,0.22);
+  color: rgba(184,150,58,0.8);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin-left: 8px;
+  padding: 0 5px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.filter-btn.active .filter-count {
+  background: rgba(184,150,58,0.22);
+  border-color: rgba(184,150,58,0.4);
+  color: var(--gold);
+}
+
+/* ---- Speakers Section ---- */
+.speakers-page-section {
+  background: var(--white);
+  padding: clamp(56px, 7vw, 96px) 0 clamp(80px, 10vw, 140px);
+}
+
+/* ---- Result count ---- */
+.speakers-result-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+.speakers-result-count {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.speakers-result-count em {
+  font-style: normal;
+  color: var(--navy);
+}
+.speakers-active-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.speakers-active-filter strong {
+  color: var(--navy);
+  font-weight: 600;
+}
+.clear-filter-btn {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(184,150,58,0.7);
+  border-bottom: 1px solid rgba(184,150,58,0.28);
+  padding-bottom: 1px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.clear-filter-btn:hover { color: var(--gold); border-bottom-color: rgba(184,150,58,0.6); }
+
+/* ---- Speaker Grid (page version — portrait cards) ---- */
+.speaker-page-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.speaker-page-card {
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.22s ease;
+  cursor: default;
+}
+.speaker-page-card:hover { background: var(--off-white); }
+.speaker-page-card.hidden {
+  display: none;
+}
+
+.speaker-page-card__photo-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--off-white-2);
+}
+.speaker-page-card__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  transition: transform 0.5s ease;
+}
+.speaker-page-card:hover .speaker-page-card__photo {
+  transform: scale(1.03);
+}
+.speaker-page-card__photo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #0D1322 0%, #1C2B4A 100%);
+}
+.speaker-page-card__photo-placeholder svg {
+  width: 56px;
+  height: 56px;
+  opacity: 0.12;
+}
+.speaker-page-card__topic-tag {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 16px 10px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(184,150,58,0.88);
+  background: linear-gradient(0deg, rgba(13,19,34,0.82) 0%, transparent 100%);
+}
+
+.speaker-page-card__body {
+  padding: 22px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  border-top: 2px solid var(--gold);
+}
+.speaker-page-card__name {
+  font-family: var(--serif);
+  font-size: clamp(16px, 1.4vw, 20px);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--navy-deep);
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+.speaker-page-card__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin: 0 0 2px;
+  line-height: 1.4;
+}
+.speaker-page-card__org {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+.speaker-page-card__bio {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-muted);
+  margin: 0 0 18px;
+  flex: 1;
+}
+.speaker-page-card__footer {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.speaker-page-card__linkedin {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--blue);
+  border-bottom: 1px solid rgba(107,127,160,0.28);
+  padding-bottom: 2px;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.speaker-page-card__linkedin:hover { color: var(--navy); border-color: var(--navy); }
+
+/* Edition pill */
+.edition-pill {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--off-white-2);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+}
+
+/* ---- No results ---- */
+.no-results {
+  display: none;
+  text-align: center;
+  padding: clamp(60px, 8vw, 100px) 0;
+}
+.no-results.visible { display: block; }
+.no-results .h3 { color: var(--text-dark); margin-bottom: 12px; }
+.no-results p { color: var(--text-muted); font-size: 15px; }
+
+/* ---- CTA Banner ---- */
+.speakers-cta-banner {
+  background: var(--navy-deep);
+  padding: clamp(52px, 7vw, 88px) 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.speakers-cta-banner::before {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 60% 80% at 85% 50%, rgba(28,43,74,0.4) 0%, transparent 65%);
+}
+.speakers-cta-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(32px, 5vw, 80px);
+  flex-wrap: wrap;
+}
+.speakers-cta-copy .h2 { color: var(--white); margin-bottom: 12px; font-size: clamp(26px, 3vw, 38px); }
+.speakers-cta-copy p { font-size: 15px; color: rgba(255,255,255,0.6); max-width: 52ch; margin: 0; line-height: 1.7; }
+.speakers-cta-actions { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; flex-shrink: 0; }
+
+/* ---- Responsive ---- */
+@media (max-width: 1100px) {
+  .speaker-page-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+  .speaker-page-grid { grid-template-columns: repeat(2, 1fr); }
+  .filter-label { display: none; }
+  .filter-btn { padding: 16px 16px; font-size: 9px; }
+  .speakers-cta-inner { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 480px) {
+  .speaker-page-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Transition for filtering ---- */
+.speaker-page-card {
+  opacity: 1;
+  transition: opacity 0.25s ease, background 0.22s ease;
+}
+.speaker-page-card.fading {
+  opacity: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================= NAV ============================= -->
+<header class="nav" id="nav" aria-label="Primary navigation">
+  <div class="container nav-inner">
+    <a href="index.html" class="brand brand-hex" aria-label="RegSymp home">
+      <img src="assets/regsymp-hex.png" alt="RegSymp" />
+    </a>
+
+    <!-- City selector -->
+    <div class="city-pick" id="cityPick">
+      <button class="city-pick-btn" aria-expanded="false" aria-haspopup="true" id="cityPickBtn">
+        <span>Palma de Mallorca 2026</span>
+        <svg class="chev" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="city-menu" role="menu" id="cityMenu">
+        <div class="city-menu-item active" role="menuitem" tabindex="0">
+          <span>Palma de Mallorca</span>
+          <span class="tag">Sep 2026</span>
+        </div>
+        <div class="city-menu-item soon" role="menuitem" tabindex="-1">
+          <span>London</span>
+          <span class="tag">2027</span>
+        </div>
+        <div class="city-menu-item soon" role="menuitem" tabindex="-1">
+          <span>Luxembourg</span>
+          <span class="tag">2027</span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav-links" aria-label="Site navigation">
+      <a href="index.html#about">About</a>
+      <a href="speakers.html" class="active">Speakers</a>
+      <a href="index.html#agenda">Agenda</a>
+      <a href="index.html#venue">Venue</a>
+      <a href="index.html#tickets">Attend</a>
+    </nav>
+
+    <div class="nav-cta">
+      <a href="mailto:info@regsymp.com?subject=Speaking%20Enquiry" class="nav-write-link">Speak</a>
+      <a href="index.html#tickets" class="btn btn-primary">
+        Request Invitation
+        <svg class="arrow" width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12M8 1l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+
+    <button class="nav-burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<!-- Mobile drawer -->
+<div class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <a href="index.html" class="brand brand-hex" aria-label="RegSymp home">
+      <img src="assets/regsymp-hex.png" alt="RegSymp" />
+    </a>
+    <button class="drawer-close" id="drawerClose" aria-label="Close menu">✕</button>
+  </div>
+  <nav class="drawer-links">
+    <a href="index.html#about">About</a>
+    <a href="speakers.html">Speakers</a>
+    <a href="index.html#agenda">Agenda</a>
+    <a href="index.html#venue">Venue</a>
+    <a href="index.html#tickets">Attend</a>
+  </nav>
+  <div style="margin-top:auto;padding-top:32px;border-top:1px solid rgba(255,255,255,0.08);">
+    <a href="index.html#tickets" class="btn btn-primary" style="width:100%;justify-content:center;">Request Invitation</a>
+  </div>
+</div>
+
+<!-- ============================= HERO ============================= -->
+<section class="speakers-hero" aria-labelledby="speakers-hero-heading">
+  <div class="container">
+    <div class="speakers-hero-inner">
+      <p class="invitation-signal">2026 Programme</p>
+      <h1 id="speakers-hero-heading">The Speakers.</h1>
+      <p>Confirmed practitioners for RegSymp Palma de Mallorca 2026 — senior leaders shaping the future of banking, payments, digital assets and AI. Every voice in the room is a decision-maker.</p>
+      <div class="speakers-hero-meta">
+        <span class="gold">Palma de Mallorca</span>
+        <span class="sep"></span>
+        <span>14–15 Sep 2026</span>
+        <span class="sep"></span>
+        <span>Chatham House Rule</span>
+        <span class="sep"></span>
+        <span>99 Delegates</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FILTER BAR ============================= -->
+<div class="filter-bar" id="filterBar" role="navigation" aria-label="Filter speakers by topic">
+  <div class="container">
+    <div class="filter-bar-inner">
+      <span class="filter-label">Filter by topic</span>
+      <div class="filter-topics" role="group" aria-label="Topic filters">
+        <button class="filter-btn active" data-topic="all" aria-pressed="true">
+          All Speakers
+          <span class="filter-count" id="count-all">9</span>
+        </button>
+        <button class="filter-btn" data-topic="digital-assets" aria-pressed="false">
+          Digital Assets &amp; MiCA
+          <span class="filter-count" id="count-digital-assets">3</span>
+        </button>
+        <button class="filter-btn" data-topic="payments" aria-pressed="false">
+          Payments &amp; Stablecoins
+          <span class="filter-count" id="count-payments">2</span>
+        </button>
+        <button class="filter-btn" data-topic="ai-wealth" aria-pressed="false">
+          AI &amp; Wealth
+          <span class="filter-count" id="count-ai-wealth">2</span>
+        </button>
+        <button class="filter-btn" data-topic="banking-regulation" aria-pressed="false">
+          Banking &amp; Regulation
+          <span class="filter-count" id="count-banking-regulation">3</span>
+        </button>
+        <button class="filter-btn" data-topic="infrastructure" aria-pressed="false">
+          Infrastructure &amp; DeFi
+          <span class="filter-count" id="count-infrastructure">2</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= SPEAKERS GRID ============================= -->
+<section class="speakers-page-section" aria-labelledby="speakers-grid-label">
+  <div class="container">
+
+    <!-- Result bar -->
+    <div class="speakers-result-bar">
+      <p class="speakers-result-count" id="resultCount">
+        Showing <em id="resultCountNum">9</em> speakers
+      </p>
+      <div class="speakers-active-filter" id="activeFilterDisplay" style="display:none;">
+        Topic: <strong id="activeFilterName"></strong>
+        <button class="clear-filter-btn" id="clearFilterBtn" aria-label="Clear topic filter">Clear</button>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="speaker-page-grid" id="speakersGrid" aria-label="Speakers list">
+
+      <!-- ── Speaker 1 ── -->
+      <article class="speaker-page-card" data-topics="digital-assets" aria-label="Jorge Soriano Lázaro">
+        <div class="speaker-page-card__photo-wrap">
+          <img class="speaker-page-card__photo" src="assets/speakers/jorge-soriano.jpg" alt="Jorge Soriano Lázaro" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
+          <div class="speaker-page-card__topic-tag">Digital Assets &amp; MiCA</div>
+        </div>
+        <div class="speaker-page-card__body">
+          <p class="speaker-page-card__name">Jorge Soriano Lázaro</p>
+          <p class="speaker-page-card__title">Co-founder &amp; CEO</p>
+          <p class="speaker-page-card__org">Criptan</p>
+          <p class="speaker-page-card__bio">Spain's leading regulated crypto fintech, registered with the Bank of Spain for digital asset custody and trading under MiCA.</p>
+          <div class="speaker-page-card__footer">
+            <a class="speaker-page-card__linkedin" href="https://www.linkedin.com/in/jorgesorianolazaro/" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+            <span class="edition-pill">Palma 2026</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── Speaker 2 ── -->
+      <article class="speaker-page-card" data-topics="digital-assets" aria-label="Luis Gelado Crespo">
+        <div class="speaker-page-card__photo-wrap">
+          <img class="speaker-page-card__photo" src="assets/speakers/luis-gelado.jpg" alt="Luis Gelado Crespo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
+          <div class="speaker-page-card__topic-tag">Digital Assets &amp; MiCA</div>
+        </div>
+        <div class="speaker-page-card__body">
+          <p class="speaker-page-card__name">Luis Gelado Crespo</p>
+          <p class="speaker-page-card__title">Founder</p>
+          <p class="speaker-page-card__org">Standard 21</p>
+          <p class="speaker-page-card__bio">Spain's first Bitcoin-native treasury holding company. Serial entrepreneur in blockchain infrastructure and decentralised data.</p>
+          <div class="speaker-page-card__footer">
+            <a class="speaker-page-card__linkedin" href="https://www.linkedin.com/in/luisgelado/" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+            <span class="edition-pill">Palma 2026</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── Speaker 3 ── -->
+      <article class="speaker-page-card" data-topics="digital-assets banking-regulation" aria-label="Javier Pastor Moreno">
+        <div class="speaker-page-card__photo-wrap">
+          <img class="speaker-page-card__photo" src="assets/speakers/javier-pastor.jpg" alt="Javier Pastor Moreno" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
+          <div class="speaker-page-card__topic-tag">Digital Assets &amp; MiCA</div>
+        </div>
+        <div class="speaker-page-card__body">
+          <p class="speaker-page-card__name">Javier Pastor Moreno</p>
+          <p class="speaker-page-card__title">Head of OTC</p>
+          <p class="speaker-page-card__org">Bit2Me</p>
+          <p class="speaker-page-card__bio">First Spanish-speaking fintech authorised as a Crypto-Asset Service Provider under MiCA by the CNMV.</p>
+          <div class="speaker-page-card__footer">
+            <a class="speaker-page-card__linkedin" href="https://www.linkedin.com/in/javier-pastor-moreno-18ab46266/" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+            <span class="edition-pill">Palma 2026</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── Speaker 8 — Varlam Ebanoidze ── -->
+      <article class="speaker-page-card" data-topics="banking-regulation" aria-label="Varlam Ebanoidze">
+        <div class="speaker-page-card__photo-wrap">
+          <img class="speaker-page-card__photo" src="assets/speakers/varlam-ebanoidze.jpg" alt="Varlam Ebanoidze" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
+          <div class="speaker-page-card__topic-tag">Banking &amp; Regulation</div>
+        </div>
+        <div class="speaker-page-card__body">
+          <p class="speaker-page-card__name">Varlam Ebanoidze</p>
+          <p class="speaker-page-card__title">Head of FinTech &amp; SupTech Development Innovation Office</p>
+          <p class="speaker-page-card__org">National Bank of Georgia</p>
+          <p class="speaker-page-card__bio">Institutional leadership meets innovation — driving regulatory technology and fintech strategy at the National Bank of Georgia.</p>
+          <div class="speaker-page-card__footer">
+            <a class="speaker-page-card__linkedin" href="https://www.linkedin.com/in/varlam-ebanoidze-41594043/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <span class="edition-pill">Palma 2026</span>
+          </div>
+        </div>
+      </article>
+
+    </div><!-- /speaker-page-grid -->
+
+    <!-- No results -->
+    <div class="no-results" id="noResults" role="status" aria-live="polite">
+      <p class="h3">No speakers in this topic yet.</p>
+      <p>This track is being finalised. Speakers will be announced progressively ahead of September 2026.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================= CTA BANNER ============================= -->
+<section class="speakers-cta-banner" aria-labelledby="cta-heading">
+  <div class="container">
+    <div class="speakers-cta-inner">
+      <div class="speakers-cta-copy">
+        <p class="eyebrow on-dark">Speak at RegSymp</p>
+        <h2 class="h2" id="cta-heading">Interested in speaking?</h2>
+        <p>RegSymp speakers are senior practitioners. If you hold a principal role and have a perspective that would enrich the room, we would like to hear from you.</p>
+      </div>
+      <div class="speakers-cta-actions">
+        <a href="mailto:info@regsymp.com?subject=Speaking%20Enquiry%20%E2%80%94%20RegSymp%202026" class="btn btn-primary">
+          Submit a Speaker Enquiry
+          <svg class="arrow" width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12M8 1l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a href="index.html#tickets" class="hero-link hero-link--gold">
+          Request delegate invitation
+          <svg class="arrow" width="12" height="8" viewBox="0 0 14 10" fill="none"><path d="M1 5h12M8 1l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FOOTER ============================= -->
+<footer class="footer" aria-label="Site footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="brand brand-hex" aria-label="RegSymp home">
+          <img src="assets/regsymp-hex.png" alt="RegSymp" />
+        </a>
+        <p>An invite-only practitioner symposium for senior leaders shaping the future of financial services. Limited to 99 delegates per city.</p>
+        <div class="footer-social">
+          <a href="https://www.linkedin.com/company/regsymp/" target="_blank" rel="noopener noreferrer" aria-label="RegSymp on LinkedIn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-nav">
+        <div>
+          <h5>Programme</h5>
+          <ul>
+            <li><a href="speakers.html">Speakers</a></li>
+            <li><a href="index.html#agenda">Agenda</a></li>
+            <li><a href="index.html#themes">Themes</a></li>
+            <li><a href="index.html#dinner">The Thirty-Three</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>Attend</h5>
+          <ul>
+            <li><a href="index.html#tickets">Request Invitation</a></li>
+            <li><a href="index.html#about">About RegSymp</a></li>
+            <li><a href="index.html#venue">Venue</a></li>
+            <li><a href="index.html#sponsors">Partners</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>Editions</h5>
+          <ul>
+            <li><a href="index.html">Palma 2026</a></li>
+            <li><a href="RegSymp London 2027.html">London 2027</a></li>
+            <li><a href="RegSymp Luxembourg 2027.html">Luxembourg 2027</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>Contact</h5>
+          <ul>
+            <li class="footer-email">
+              <span class="em-label">General</span>
+              <a href="mailto:info@regsymp.com">info@regsymp.com</a>
+            </li>
+            <li class="footer-email">
+              <span class="em-label">Speaking</span>
+              <a href="mailto:info@regsymp.com?subject=Speaking%20Enquiry">Enquire</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bot">
+      <p>© 2026 RegSymp. All rights reserved.</p>
+      <div class="links">
+        <a href="legal.html">Privacy Policy</a>
+        <a href="legal.html">Terms</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============================= SCRIPTS ============================= -->
+<script>
+(function () {
+  'use strict';
+
+  /* ---- Nav scroll behaviour ---- */
+  const nav = document.getElementById('nav');
+  const onScroll = () => {
+    if (window.scrollY > 40) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* ---- Filter bar elevation on scroll ---- */
+  const filterBar = document.getElementById('filterBar');
+  const filterBarEl = filterBar;
+  const heroEl = document.querySelector('.speakers-hero');
+  const heroObserver = new IntersectionObserver(entries => {
+    if (!entries[0].isIntersecting) filterBarEl.classList.add('elevated');
+    else filterBarEl.classList.remove('elevated');
+  }, { threshold: 0 });
+  heroObserver.observe(heroEl);
+
+  /* ---- City picker ---- */
+  const cityPick = document.getElementById('cityPick');
+  const cityPickBtn = document.getElementById('cityPickBtn');
+  if (cityPick && cityPickBtn) {
+    cityPickBtn.addEventListener('click', () => {
+      const open = cityPick.classList.toggle('open');
+      cityPickBtn.setAttribute('aria-expanded', open);
+    });
+    document.addEventListener('click', e => {
+      if (!cityPick.contains(e.target)) {
+        cityPick.classList.remove('open');
+        cityPickBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  /* ---- Mobile drawer ---- */
+  const burger = document.getElementById('navBurger');
+  const drawer = document.getElementById('drawer');
+  const drawerClose = document.getElementById('drawerClose');
+  if (burger && drawer) {
+    burger.addEventListener('click', () => {
+      drawer.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+      burger.setAttribute('aria-expanded', 'true');
+    });
+    drawerClose.addEventListener('click', () => {
+      drawer.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+      burger.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  /* ---- Filter logic ---- */
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  const cards = document.querySelectorAll('.speaker-page-card');
+  const resultCountNum = document.getElementById('resultCountNum');
+  const activeFilterDisplay = document.getElementById('activeFilterDisplay');
+  const activeFilterName = document.getElementById('activeFilterName');
+  const clearFilterBtn = document.getElementById('clearFilterBtn');
+  const noResults = document.getElementById('noResults');
+
+  const topicLabels = {
+    'all': 'All Speakers',
+    'digital-assets': 'Digital Assets & MiCA',
+    'payments': 'Payments & Stablecoins',
+    'ai-wealth': 'AI & Wealth',
+    'banking-regulation': 'Banking & Regulation',
+    'infrastructure': 'Infrastructure & DeFi'
+  };
+
+  /* Precompute per-topic counts */
+  const topicCounts = {};
+  filterBtns.forEach(btn => {
+    const topic = btn.dataset.topic;
+    if (topic === 'all') return;
+    let n = 0;
+    cards.forEach(card => {
+      const topics = card.dataset.topics ? card.dataset.topics.split(' ') : [];
+      if (topics.includes(topic)) n++;
+    });
+    topicCounts[topic] = n;
+    const countEl = document.getElementById('count-' + topic);
+    if (countEl) countEl.textContent = n;
+  });
+  document.getElementById('count-all').textContent = cards.length;
+  resultCountNum.textContent = cards.length;
+
+  function applyFilter(topic) {
+    let visible = 0;
+    cards.forEach(card => {
+      const topics = card.dataset.topics ? card.dataset.topics.split(' ') : [];
+      const match = topic === 'all' || topics.includes(topic);
+      card.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+
+    /* Update buttons */
+    filterBtns.forEach(btn => {
+      const active = btn.dataset.topic === topic;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active);
+    });
+
+    /* Result bar */
+    resultCountNum.textContent = visible;
+    if (topic === 'all') {
+      activeFilterDisplay.style.display = 'none';
+    } else {
+      activeFilterDisplay.style.display = 'flex';
+      activeFilterName.textContent = topicLabels[topic] || topic;
+    }
+
+    /* No results */
+    noResults.classList.toggle('visible', visible === 0);
+  }
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => applyFilter(btn.dataset.topic));
+  });
+
+  if (clearFilterBtn) {
+    clearFilterBtn.addEventListener('click', () => applyFilter('all'));
+  }
+
+  /* ---- Reveal on scroll ---- */
+  const reveals = document.querySelectorAll('.reveal');
+  if (reveals.length) {
+    const revealObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08 });
+    reveals.forEach(el => revealObserver.observe(el));
+  }
+
+})();
+</script>
+
+</body>
+</html>
