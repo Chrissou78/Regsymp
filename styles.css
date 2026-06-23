@@ -948,6 +948,18 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .sponsor-row.bronze .slots { grid-template-columns: repeat(4, 1fr); }
 /* Partners section — public-facing logo grid (no tier labels shown) */
 .sponsor-row.partner-primary .slots { grid-template-columns: repeat(4, 1fr); }
+/* Founding / Strategic partner tiers — sized for up to 20 logos across both rows */
+.sponsor-row.founding-partner .slots  { grid-template-columns: repeat(4, 1fr); }
+.sponsor-row.strategic-partner .slots { grid-template-columns: repeat(5, 1fr); }
+.sponsor-row.founding-partner  .label { color: var(--navy); }
+.sponsor-row.strategic-partner .label { color: var(--text-muted); }
+/* No box — logos placed directly, full colour */
+.sponsor-row.founding-partner  .logo-slot,
+.sponsor-row.strategic-partner .logo-slot { border: none; background: none; height: auto; justify-content: flex-start; }
+.sponsor-row.founding-partner  .logo-slot img { max-height: 80px; max-width: 100%; filter: none; opacity: 1; }
+.sponsor-row.strategic-partner .logo-slot img { max-height: 140px; max-width: 100%; filter: none; opacity: 1; }
+.sponsor-row.founding-partner  .logo-slot:hover img,
+.sponsor-row.strategic-partner .logo-slot:hover img { filter: none; opacity: 1; }
 .logo-slot {
   border: 1px solid var(--border);
   border-radius: 0;
