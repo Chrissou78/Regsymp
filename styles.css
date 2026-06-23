@@ -956,7 +956,7 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 /* No box — logos placed directly, full colour */
 .sponsor-row.founding-partner  .logo-slot,
 .sponsor-row.strategic-partner .logo-slot { border: none; background: none; height: auto; justify-content: flex-start; }
-.sponsor-row.founding-partner  .logo-slot img { max-height: 80px; max-width: 100%; filter: none; opacity: 1; }
+.sponsor-row.founding-partner  .logo-slot img { max-height: 110px; max-width: 100%; filter: none; opacity: 1; }
 .sponsor-row.strategic-partner .logo-slot img { max-height: 140px; max-width: 100%; filter: none; opacity: 1; }
 .sponsor-row.founding-partner  .logo-slot:hover img,
 .sponsor-row.strategic-partner .logo-slot:hover img { filter: none; opacity: 1; }
