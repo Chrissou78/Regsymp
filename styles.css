@@ -11,7 +11,7 @@
   --blue-light:  #8B9BB4;
   --blue-soft:   #B0BCCC;
   --white:       #FFFFFF;
-  --off-white:   #F6F2EB;
+  --off-white:   #FAFAF8;
   --off-white-2: #EDE8E0;
   --text-dark:   #2C2E3A;
   --text-muted:  #6B6E7A;
@@ -122,7 +122,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 500; letter-spacing: -0.01em; line-heig
 .container { max-width: var(--maxw); margin: 0 auto; padding-left: var(--gutter); padding-right: var(--gutter); }
 
 section.section { padding-top: var(--section-py); padding-bottom: var(--section-py); position: relative; }
-.section.dark      { background: var(--navy);      color: var(--white); }
+.section.dark      { background: var(--navy-deep);  color: var(--white); }
 .section.dark-deep { background: var(--navy-deep); color: var(--white); }
 .section.light     { background: var(--off-white);  color: var(--text-dark); }
 
