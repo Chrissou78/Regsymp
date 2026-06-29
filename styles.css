@@ -1679,6 +1679,20 @@ details[open] .faq-q::after { content: '−'; }
   );
 }
 
+/* ------- The Setting + The Thirty-Three — immersive bg sections ------- */
+@media (max-width: 768px) {
+  .setting-bg-img { object-position: center 40%; }
+  .tt-bg { object-position: 70% center; }
+
+  [data-screen-label="The Setting"] { padding: 80px 24px !important; min-height: 80vh !important; }
+  [data-screen-label="The Setting"] > div:last-child { padding: 80px 24px !important; }
+
+  [data-screen-label="07 Thirty-Three"] { padding: 80px 24px !important; }
+
+  .tt-details { flex-direction: column !important; align-items: center !important; gap: 32px !important; }
+  .tt-divider { display: none !important; }
+}
+
 /* ------- Print ------- */
 @media print {
   .nav, .drawer, .hex-bg, .footer-social { display: none !important; }
