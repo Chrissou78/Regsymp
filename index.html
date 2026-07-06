@@ -171,6 +171,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
+<script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
 </head>
 <body>
 
@@ -202,7 +203,7 @@
     </nav>
 
     <div class="nav-cta">
-      <a href="pillars.html" class="nav-pillars-link">The Pillars</a>
+      <a href="mailto:info@regsymp.com" class="nav-intro-link">Request an Introduction</a>
       <button class="nav-burger" id="burger" aria-label="Open menu" aria-controls="drawer">
         <span></span><span></span><span></span>
       </button>
@@ -223,7 +224,8 @@
     <a href="speakers.html">Speakers</a>
     <a href="partners.html">Partners</a>
     <a href="#about">Organiser</a>
-    <a href="pillars.html" class="drawer-pillars-link">The Pillars — Membership</a>
+    <a href="pillars.html">The Pillars</a>
+    <a href="mailto:info@regsymp.com" class="drawer-intro-link">Request an Introduction</a>
   </nav>
 </aside>
 
@@ -291,6 +293,7 @@
   <div class="container reveal">
     <div class="about-copy about-copy--centered">
       <h2 class="h2" style="margin-bottom:28px;">Across Continents, <em>One</em> Room.</h2>
+      <p><strong>The Ninety Nine.</strong> An intimate group of selected leaders, investors, founders and policy makers gathered in unique settings around the world. The application-only symposiums create genuine connection with a deliberate maximum of only 99 international delegates.</p>
       <p>Payments, AI, digital assets, tokenisation and embedded finance are reshaping how financial institutions operate, compete and grow. RegSymp convenes founders, executives, family offices and senior investors from banking, fintech, payments, wealth and digital assets to confront what the next generation of finance will demand in practice.</p>
       <p>RegSymp focuses on commercially relevant discussion, relationship building, and the operational challenges that define how the next generation of financial institutions competes. Across two days, in closed-room sessions under the Chatham House Rule, the symposium creates the conditions for candid conversation. No panels for the cameras. No attribution. No press.</p>
     </div>
@@ -363,7 +366,7 @@
       </div>
 
       <div class="format-block">
-        <h3 class="h4">The room</h3>
+        <h3 class="h4">Invite only</h3>
         <p>Attendance is invitation only and limited to 99 delegates per edition. Every seat is curated to ensure the right mix of seniority, sector, and perspective. The conversations that matter most happen between institutional boundaries, not within them. This is the room where those conversations take place.</p>
       </div>
 
@@ -421,6 +424,18 @@
 
 </section>
 
+<!-- ============================= JOIN THE LIST ============================= -->
+<section class="section dark-deep" id="signup" data-screen-label="08 Signup">
+  <div class="container reveal" style="text-align:center; max-width:640px; margin-left:auto; margin-right:auto;">
+    <span class="eyebrow on-dark">Stay Close To The Conversation</span>
+    <h2 class="h2" style="color:#F6F3EC;">Join the List.</h2>
+    <p class="lede on-dark" style="margin:0 auto 40px;">Quarterly briefings on the themes shaping RegSymp, and first access when the next edition opens.</p>
+    <div style="max-width:480px; margin:0 auto;">
+      <script async src="https://subscribe-forms.beehiiv.com/v3/loader.js" data-beehiiv-form="4ef0fdb8-3474-4e84-a9de-d46ec2d283fe"></script>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <!-- ============================= FOOTER ============================= -->
@@ -462,6 +477,7 @@
             <li><a href="partners.html">Partnership</a></li>
             <li><a href="mailto:info@regsymp.com">Speaker Submissions</a></li>
             <li><a href="#about">Organiser</a></li>
+            <li><a href="pillars.html">The Pillars</a></li>
           </ul>
         </div>
         <div class="footer-email">
@@ -665,18 +681,6 @@
   }));
 
   // Countdown removed
-
-  // Email signup form
-  const signupForm = document.getElementById('signupForm');
-  const signupSuccess = document.getElementById('signupSuccess');
-  if (signupForm) {
-    signupForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      // TODO: connect to email provider — POST to ESP endpoint here
-      signupForm.hidden = true;
-      signupSuccess.hidden = false;
-    });
-  }
 
   // About gallery — arrow scroll
   document.querySelectorAll('[data-gallery-prev], [data-gallery-next]').forEach((btn) => {
