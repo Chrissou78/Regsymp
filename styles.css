@@ -591,7 +591,7 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .about-copy--centered p { margin-left: auto; margin-right: auto; }
 
 /* ------- About gallery — full-bleed horizontal scroller ------- */
-.about-gallery { position: relative; width: 100%; }
+.about-gallery { position: relative; width: 100%; margin-bottom: clamp(48px, 6vw, 80px); }
 .gallery-track {
   display: flex;
   gap: 0.5cm;
