@@ -76,112 +76,6 @@
   display: inline-block;
 }
 
-/* ---- Filter Bar ---- */
-.filter-bar {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: rgba(13,19,34,0.96);
-  -webkit-backdrop-filter: saturate(120%) blur(14px);
-  backdrop-filter: saturate(120%) blur(14px);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  padding: 0;
-  transition: box-shadow 0.3s ease;
-}
-.filter-bar.elevated {
-  box-shadow: 0 8px 32px rgba(0,0,0,0.32);
-}
-.filter-bar-inner {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.filter-bar-inner::-webkit-scrollbar { display: none; }
-
-.filter-label {
-  font-size: 9px;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: rgba(184,150,58,0.5);
-  font-weight: 600;
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  border-right: 1px solid rgba(255,255,255,0.06);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.filter-topics {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  flex: 1;
-  flex-shrink: 0;
-}
-
-.filter-btn {
-  display: flex;
-  align-items: center;
-  padding: 18px 22px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.42);
-  white-space: nowrap;
-  background: transparent;
-  border: none;
-  border-right: 1px solid rgba(255,255,255,0.05);
-  cursor: pointer;
-  position: relative;
-  transition: color 0.2s ease;
-  flex-shrink: 0;
-}
-.filter-btn::after {
-  content: "";
-  position: absolute;
-  bottom: 0; left: 22px; right: 22px;
-  height: 1px;
-  background: var(--gold);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.25s ease;
-}
-.filter-btn:hover { color: rgba(255,255,255,0.72); }
-.filter-btn.active {
-  color: var(--white);
-}
-.filter-btn.active::after {
-  transform: scaleX(1);
-}
-
-.filter-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: rgba(184,150,58,0.15);
-  border: 1px solid rgba(184,150,58,0.22);
-  color: rgba(184,150,58,0.8);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0;
-  margin-left: 8px;
-  padding: 0 5px;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-.filter-btn.active .filter-count {
-  background: rgba(184,150,58,0.22);
-  border-color: rgba(184,150,58,0.4);
-  color: var(--gold);
-}
-
 /* ---- Speakers Section ---- */
 .speakers-page-section {
   background: var(--white);
@@ -208,30 +102,6 @@
   font-style: normal;
   color: var(--navy);
 }
-.speakers-active-filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-.speakers-active-filter strong {
-  color: var(--navy);
-  font-weight: 600;
-}
-.clear-filter-btn {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(184,150,58,0.7);
-  border-bottom: 1px solid rgba(184,150,58,0.28);
-  padding-bottom: 1px;
-  cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-.clear-filter-btn:hover { color: var(--gold); border-bottom-color: rgba(184,150,58,0.6); }
-
 /* ---- Speaker Grid (page version — portrait cards) ---- */
 .speaker-page-grid {
   display: grid;
@@ -251,9 +121,6 @@
   cursor: default;
 }
 .speaker-page-card:hover { background: var(--off-white); }
-.speaker-page-card.hidden {
-  display: none;
-}
 
 .speaker-page-card__photo-wrap {
   position: relative;
@@ -286,18 +153,6 @@
   height: 56px;
   opacity: 0.12;
 }
-.speaker-page-card__topic-tag {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  padding: 12px 16px 10px;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(184,150,58,0.88);
-  background: linear-gradient(0deg, rgba(13,19,34,0.82) 0%, transparent 100%);
-}
-
 .speaker-page-card__body {
   padding: 22px 22px 20px;
   display: flex;
@@ -366,16 +221,6 @@
   border: 1px solid var(--border);
 }
 
-/* ---- No results ---- */
-.no-results {
-  display: none;
-  text-align: center;
-  padding: clamp(60px, 8vw, 100px) 0;
-}
-.no-results.visible { display: block; }
-.no-results .h3 { color: var(--text-dark); margin-bottom: 12px; }
-.no-results p { color: var(--text-muted); font-size: 15px; }
-
 /* ---- CTA Banner ---- */
 .speakers-cta-banner {
   background: var(--navy-deep);
@@ -407,22 +252,12 @@
 }
 @media (max-width: 760px) {
   .speaker-page-grid { grid-template-columns: repeat(2, 1fr); }
-  .filter-label { display: none; }
-  .filter-btn { padding: 16px 16px; font-size: 9px; }
   .speakers-cta-inner { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 480px) {
   .speaker-page-grid { grid-template-columns: 1fr; }
 }
 
-/* ---- Transition for filtering ---- */
-.speaker-page-card {
-  opacity: 1;
-  transition: opacity 0.25s ease, background 0.22s ease;
-}
-.speaker-page-card.fading {
-  opacity: 0;
-}
 </style>
 <script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
 </head>
@@ -505,41 +340,6 @@
   </div>
 </section>
 
-<!-- ============================= FILTER BAR ============================= -->
-<div class="filter-bar" id="filterBar" role="navigation" aria-label="Filter speakers by topic">
-  <div class="container">
-    <div class="filter-bar-inner">
-      <span class="filter-label">Filter by topic</span>
-      <div class="filter-topics" role="group" aria-label="Topic filters">
-        <button class="filter-btn active" data-topic="all" aria-pressed="true">
-          All Speakers
-          <span class="filter-count" id="count-all">7</span>
-        </button>
-        <button class="filter-btn" data-topic="digital-assets" aria-pressed="false">
-          Digital Assets &amp; MiCA
-          <span class="filter-count" id="count-digital-assets">3</span>
-        </button>
-        <button class="filter-btn" data-topic="payments" aria-pressed="false">
-          Payments &amp; Stablecoins
-          <span class="filter-count" id="count-payments">2</span>
-        </button>
-        <button class="filter-btn" data-topic="ai-wealth" aria-pressed="false">
-          AI &amp; Wealth
-          <span class="filter-count" id="count-ai-wealth">3</span>
-        </button>
-        <button class="filter-btn" data-topic="banking-regulation" aria-pressed="false">
-          Banking &amp; Regulation
-          <span class="filter-count" id="count-banking-regulation">3</span>
-        </button>
-        <button class="filter-btn" data-topic="infrastructure" aria-pressed="false">
-          Infrastructure &amp; DeFi
-          <span class="filter-count" id="count-infrastructure">2</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ============================= SPEAKERS GRID ============================= -->
 <section class="speakers-page-section" aria-labelledby="speakers-grid-label">
   <div class="container">
@@ -547,22 +347,17 @@
     <!-- Result bar -->
     <div class="speakers-result-bar">
       <p class="speakers-result-count" id="resultCount">
-        Showing <em id="resultCountNum">7</em> speakers
+        Showing <em id="resultCountNum">9</em> speakers
       </p>
-      <div class="speakers-active-filter" id="activeFilterDisplay" style="display:none;">
-        Topic: <strong id="activeFilterName"></strong>
-        <button class="clear-filter-btn" id="clearFilterBtn" aria-label="Clear topic filter">Clear</button>
-      </div>
     </div>
 
     <!-- Grid -->
     <div class="speaker-page-grid" id="speakersGrid" aria-label="Speakers list">
 
       <!-- ── Speaker — Robby Yung ── -->
-      <article class="speaker-page-card" data-topics="ai-wealth" aria-label="Robby Yung">
+      <article class="speaker-page-card" aria-label="Robby Yung">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/Speakers/Robby Yung.JPG" alt="Robby Yung" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">AI &amp; Wealth</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Robby Yung</p>
@@ -577,10 +372,9 @@
       </article>
 
       <!-- ── Speaker — Martín L. Aleñar Feliu ── -->
-      <article class="speaker-page-card" data-topics="banking-regulation" aria-label="Martín L. Aleñar Feliu">
+      <article class="speaker-page-card" aria-label="Martín L. Aleñar Feliu">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/Speakers/Martín L. Aleñar Feliu..jpg" alt="Martín L. Aleñar Feliu" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">Banking &amp; Regulation</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Martín L. Aleñar Feliu</p>
@@ -594,10 +388,9 @@
       </article>
 
       <!-- ── Speaker — Varlam Ebanoidze ── -->
-      <article class="speaker-page-card" data-topics="banking-regulation" aria-label="Varlam Ebanoidze">
+      <article class="speaker-page-card" aria-label="Varlam Ebanoidze">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/speakers/varlam-ebanoidze.jpg" alt="Varlam Ebanoidze" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">Banking &amp; Regulation</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Varlam Ebanoidze</p>
@@ -612,10 +405,9 @@
       </article>
 
       <!-- ── Speaker — Javier Pastor Moreno ── -->
-      <article class="speaker-page-card" data-topics="digital-assets banking-regulation" aria-label="Javier Pastor Moreno">
+      <article class="speaker-page-card" aria-label="Javier Pastor Moreno">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/speakers/javier-pastor.jpg" alt="Javier Pastor Moreno" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">Digital Assets &amp; MiCA</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Javier Pastor Moreno</p>
@@ -630,10 +422,9 @@
       </article>
 
       <!-- ── Speaker — Luis Gelado Crespo ── -->
-      <article class="speaker-page-card" data-topics="digital-assets" aria-label="Luis Gelado Crespo">
+      <article class="speaker-page-card" aria-label="Luis Gelado Crespo">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/speakers/luis-gelado.jpg" alt="Luis Gelado Crespo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">Digital Assets &amp; MiCA</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Luis Gelado Crespo</p>
@@ -648,10 +439,9 @@
       </article>
 
       <!-- ── Speaker — Jorge Soriano Lázaro ── -->
-      <article class="speaker-page-card" data-topics="digital-assets" aria-label="Jorge Soriano Lázaro">
+      <article class="speaker-page-card" aria-label="Jorge Soriano Lázaro">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/speakers/jorge-soriano.jpg" alt="Jorge Soriano Lázaro" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">Digital Assets &amp; MiCA</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Jorge Soriano Lázaro</p>
@@ -666,10 +456,9 @@
       </article>
 
       <!-- ── Speaker — Yasmina Kazitani ── -->
-      <article class="speaker-page-card" data-topics="ai-wealth" aria-label="Yasmina Kazitani">
+      <article class="speaker-page-card" aria-label="Yasmina Kazitani">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/Speakers/yasmina-kazitani.jpg" alt="Yasmina Kazitani" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">AI &amp; Wealth</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Yasmina Kazitani</p>
@@ -684,10 +473,9 @@
       </article>
 
       <!-- ── Speaker — Hadley Chilton ── -->
-      <article class="speaker-page-card" data-topics="infrastructure" aria-label="Hadley Chilton">
+      <article class="speaker-page-card" aria-label="Hadley Chilton">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/Speakers/hadley-chilton.jpg" alt="Hadley Chilton" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">Infrastructure &amp; DeFi</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Hadley Chilton</p>
@@ -702,10 +490,9 @@
       </article>
 
       <!-- ── Speaker — Florian Ehrbar ── -->
-      <article class="speaker-page-card" data-topics="digital-assets" aria-label="Florian Ehrbar">
+      <article class="speaker-page-card" aria-label="Florian Ehrbar">
         <div class="speaker-page-card__photo-wrap">
           <img class="speaker-page-card__photo" src="assets/Speakers/florian-ehrbar.jpg" alt="Florian Ehrbar" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'speaker-page-card__photo-placeholder\'><svg viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'12\' cy=\'8\' r=\'4\' stroke=\'white\' stroke-width=\'1.2\'/><path d=\'M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8\' stroke=\'white\' stroke-width=\'1.2\' stroke-linecap=\'round\'/></svg></div>'" />
-          <div class="speaker-page-card__topic-tag">Digital Assets &amp; MiCA</div>
         </div>
         <div class="speaker-page-card__body">
           <p class="speaker-page-card__name">Florian Ehrbar</p>
@@ -720,12 +507,6 @@
       </article>
 
     </div><!-- /speaker-page-grid -->
-
-    <!-- No results -->
-    <div class="no-results" id="noResults" role="status" aria-live="polite">
-      <p class="h3">No speakers in this topic yet.</p>
-      <p>This track is being finalised. Speakers will be announced progressively ahead of September 2026.</p>
-    </div>
 
   </div>
 </section>
@@ -829,16 +610,6 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
-  /* ---- Filter bar elevation on scroll ---- */
-  const filterBar = document.getElementById('filterBar');
-  const filterBarEl = filterBar;
-  const heroEl = document.querySelector('.speakers-hero');
-  const heroObserver = new IntersectionObserver(entries => {
-    if (!entries[0].isIntersecting) filterBarEl.classList.add('elevated');
-    else filterBarEl.classList.remove('elevated');
-  }, { threshold: 0 });
-  heroObserver.observe(heroEl);
-
   /* ---- City picker ---- */
   const cityPick = document.getElementById('cityPick');
   const cityPickBtn = document.getElementById('cityPickBtn');
@@ -872,77 +643,10 @@
     });
   }
 
-  /* ---- Filter logic ---- */
-  const filterBtns = document.querySelectorAll('.filter-btn');
+  /* ---- Speaker count ---- */
   const cards = document.querySelectorAll('.speaker-page-card');
   const resultCountNum = document.getElementById('resultCountNum');
-  const activeFilterDisplay = document.getElementById('activeFilterDisplay');
-  const activeFilterName = document.getElementById('activeFilterName');
-  const clearFilterBtn = document.getElementById('clearFilterBtn');
-  const noResults = document.getElementById('noResults');
-
-  const topicLabels = {
-    'all': 'All Speakers',
-    'digital-assets': 'Digital Assets & MiCA',
-    'payments': 'Payments & Stablecoins',
-    'ai-wealth': 'AI & Wealth',
-    'banking-regulation': 'Banking & Regulation',
-    'infrastructure': 'Infrastructure & DeFi'
-  };
-
-  /* Precompute per-topic counts */
-  const topicCounts = {};
-  filterBtns.forEach(btn => {
-    const topic = btn.dataset.topic;
-    if (topic === 'all') return;
-    let n = 0;
-    cards.forEach(card => {
-      const topics = card.dataset.topics ? card.dataset.topics.split(' ') : [];
-      if (topics.includes(topic)) n++;
-    });
-    topicCounts[topic] = n;
-    const countEl = document.getElementById('count-' + topic);
-    if (countEl) countEl.textContent = n;
-  });
-  document.getElementById('count-all').textContent = cards.length;
-  resultCountNum.textContent = cards.length;
-
-  function applyFilter(topic) {
-    let visible = 0;
-    cards.forEach(card => {
-      const topics = card.dataset.topics ? card.dataset.topics.split(' ') : [];
-      const match = topic === 'all' || topics.includes(topic);
-      card.classList.toggle('hidden', !match);
-      if (match) visible++;
-    });
-
-    /* Update buttons */
-    filterBtns.forEach(btn => {
-      const active = btn.dataset.topic === topic;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-pressed', active);
-    });
-
-    /* Result bar */
-    resultCountNum.textContent = visible;
-    if (topic === 'all') {
-      activeFilterDisplay.style.display = 'none';
-    } else {
-      activeFilterDisplay.style.display = 'flex';
-      activeFilterName.textContent = topicLabels[topic] || topic;
-    }
-
-    /* No results */
-    noResults.classList.toggle('visible', visible === 0);
-  }
-
-  filterBtns.forEach(btn => {
-    btn.addEventListener('click', () => applyFilter(btn.dataset.topic));
-  });
-
-  if (clearFilterBtn) {
-    clearFilterBtn.addEventListener('click', () => applyFilter('all'));
-  }
+  if (resultCountNum) resultCountNum.textContent = cards.length;
 
   /* ---- Reveal on scroll ---- */
   const reveals = document.querySelectorAll('.reveal');
