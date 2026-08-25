@@ -1,0 +1,20 @@
+<header class="nav{% if navScrolled %} scrolled{% endif %}" id="nav" aria-label="Primary navigation">
+  <div class="container nav-inner">
+    <a href="/" class="brand brand-hex" aria-label="RegSymp home">
+      <img src="/assets/images/regsymp-hex.png" alt="RegSymp" />
+    </a>
+    {% include "partials/city-select.njk" %}
+    <nav class="nav-links" aria-label="Sections">
+      <a href="/#about">About</a>
+      <a href="/#agenda">Agenda</a>
+      <a href="/speakers/">Speakers</a>
+      <a href="/partners/">Partners</a>
+    </nav>
+    <div class="nav-cta">
+      <a href="mailto:{{ site.email }}" class="nav-intro-link" data-invite-trigger>Request an Invitation</a>
+      <button class="nav-burger" id="burger" aria-label="Open menu" aria-controls="drawer" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>

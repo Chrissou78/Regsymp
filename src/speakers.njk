@@ -1,0 +1,81 @@
+---
+layout: layouts/base.njk
+permalink: /speakers/
+title: "Speakers — RegSymp"
+description: "Meet the confirmed speakers for RegSymp 2026 — senior practitioners from banking, payments, digital assets, AI and wealth management."
+---
+<!-- ============================= HERO ============================= -->
+<section class="speakers-hero" aria-labelledby="speakers-hero-heading">
+  <div class="container">
+    <div class="speakers-hero-inner">
+      <p class="invitation-signal">— By Invitation Only</p>
+      <h1 id="speakers-hero-heading" class="h-display">The Speakers.</h1>
+      <p>Confirmed practitioners for RegSymp Palma de Mallorca 2026 — senior leaders shaping the future of banking, payments, digital assets and AI. Every voice in the room is a decision-maker.</p>
+      <div class="speakers-hero-meta">
+        <span class="gold">Palma de Mallorca</span>
+        <span class="sep"></span>
+        <span>14–15 Sep 2026</span>
+        <span class="sep"></span>
+        <span>Chatham House Rule</span>
+        <span class="sep"></span>
+        <span>99 Delegates</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= SPEAKERS GRID ============================= -->
+<section class="speakers-page-section" aria-labelledby="speakers-grid-label">
+  <div class="container">
+
+    <!-- Result bar -->
+    <div class="speakers-result-bar">
+      <p class="speakers-result-count" id="resultCount">
+        Showing <em id="resultCountNum">{{ speakers.length }}</em> speakers
+      </p>
+    </div>
+
+    <!-- Grid -->
+    <div class="speaker-page-grid" id="speakersGrid" aria-label="Speakers list">
+      {% for speaker in speakers %}{% include "partials/speaker-card.njk" %}{% endfor %}
+    </div><!-- /speaker-page-grid -->
+
+  </div>
+</section>
+
+<!-- ============================= CTA BANNER ============================= -->
+<section class="speakers-cta-banner" aria-labelledby="cta-heading">
+  <div class="container">
+    <div class="speakers-cta-inner">
+      <div class="speakers-cta-copy">
+        <p class="eyebrow on-dark">Speak at RegSymp</p>
+        <h2 class="h2" id="cta-heading">Interested in speaking?</h2>
+        <p>RegSymp speakers are senior practitioners. If you hold a principal role and have a perspective that would enrich the room, we would like to hear from you.</p>
+      </div>
+      <div class="speakers-cta-actions">
+        <a href="mailto:info@regsymp.com?subject=Speaking%20Enquiry%20%E2%80%94%20RegSymp%202026" class="btn btn-primary">
+          Submit a Speaker Enquiry
+          <svg class="arrow" width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12M8 1l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FOOTER ============================= -->
+
+
+{% for speaker in speakers %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": {{ speaker.name | dump | safe }},
+  "jobTitle": {{ speaker.role | dump | safe }},
+{% if speaker.org %}  "worksFor": { "@type": "Organization", "name": {{ speaker.org | dump | safe }} },
+{% endif %}{% if speaker.linkedin %}  "sameAs": [{{ speaker.linkedin | dump | safe }}],
+{% endif %}  "description": {{ speaker.bio | dump | safe }},
+  "url": "{{ site.url }}/speakers/"
+}
+</script>
+{% endfor %}

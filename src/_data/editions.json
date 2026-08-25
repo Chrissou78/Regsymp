@@ -1,0 +1,5 @@
+[
+  { "key": "palma",      "label": "Palma de Mallorca 2026", "url": "/" },
+  { "key": "london",     "label": "London 2027",            "url": "/london-2027/" },
+  { "key": "luxembourg", "label": "Luxembourg 2027",        "url": "/luxembourg-2027/" }
+]

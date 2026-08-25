@@ -1,0 +1,24 @@
+---
+layout: layouts/base.njk
+permalink: /faq/
+title: "FAQ — RegSymp | Palma de Mallorca 2026"
+description: "Frequently asked questions about RegSymp, the invite-only finance and fintech symposium. Palma de Mallorca, 14–15 September 2026."
+---
+<!-- FAQ -->
+<main>
+  <section class="section dark" style="padding-top: clamp(100px, 12vw, 160px);">
+    <div class="container">
+      <div class="section-head">
+        <p class="invitation-signal">— By Invitation Only</p>
+        <h1 class="h-display">Frequently Asked Questions</h1>
+      </div>
+      <div class="faq-list">
+        {% for item in faq %}
+        <details class="faq-item"><summary>{{ item.question }}</summary><p>{{ item.answer }}</p></details>
+        {% endfor %}
+      </div>
+      </div>
+  </section>
+</main>
+
+<!-- FOOTER -->

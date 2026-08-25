@@ -1,3 +1,6 @@
 .DS_Store
 .claude/
-assets/Carousel/full-res/
+src/assets/images/carousel/full-res/
+node_modules/
+_site/
+.eleventy-img-cache/

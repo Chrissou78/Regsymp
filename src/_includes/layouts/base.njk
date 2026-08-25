@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="{% if noindex %}noindex, nofollow{% else %}index, follow{% endif %}" />
+<meta name="author" content="{{ site.name }}" />
+<meta name="theme-color" content="{{ site.themeColor }}" />
+{% if geoRegion %}<meta name="geo.region" content="{{ geoRegion }}" />{% endif %}
+{% if geoPlacename %}<meta name="geo.placename" content="{{ geoPlacename }}" />{% endif %}
+<title>{{ title }}</title>
+<meta name="description" content="{{ description }}" />
+
+<link rel="canonical" href="{{ site.url }}{{ page.url }}" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="{{ ogTitle or title }}" />
+<meta property="og:description" content="{{ ogDescription or description }}" />
+<meta property="og:url" content="{{ site.url }}{{ page.url }}" />
+<meta property="og:image" content="{{ site.url }}{{ ogImage or site.defaultOgImage }}" />
+<meta property="og:site_name" content="{{ site.name }}" />
+<meta property="og:locale" content="en_GB" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="{{ ogTitle or title }}" />
+<meta name="twitter:description" content="{{ ogDescription or description }}" />
+<meta name="twitter:image" content="{{ site.url }}{{ ogImage or site.defaultOgImage }}" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/assets/css/styles.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "RegSymp",
+  "url": "{{ site.url }}",
+  "logo": "{{ site.url }}/assets/images/regsymp-hex.png",
+  "description": "RegSymp is a practitioner-led symposium platform convening senior leaders across banking, payments, wealth management, fintech, digital assets and AI to shape the future of financial services. Each edition is invitation-only, limited to 99 delegates, and held under the Chatham House Rule.",
+  "sameAs": ["{{ site.linkedin }}"],
+  "contactPoint": { "@type": "ContactPoint", "email": "{{ site.email }}", "contactType": "general" }
+}
+</script>
+{{ structuredData | safe }}
+</head>
+<body{% if bodyClass %} class="{{ bodyClass }}"{% endif %}>
+
+<a href="#home" class="skip-link">Skip to main content</a>
+
+{% include "partials/nav.njk" %}
+{% include "partials/drawer.njk" %}
+
+{{ content | safe }}
+
+{% include "partials/footer.njk" %}
+{% include "partials/invite-modal.njk" %}
+
+<script type="module" src="/assets/js/site.js"></script>
+</body>
+</html>

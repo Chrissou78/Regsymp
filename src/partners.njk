@@ -1,0 +1,64 @@
+---
+layout: layouts/base.njk
+permalink: /partners/
+title: "Partners — RegSymp"
+description: "Meet the partners supporting RegSymp 2026 — institutions whose work is directly relevant to the programme."
+---
+<!-- ============================= HERO ============================= -->
+<section class="partners-hero" aria-labelledby="partners-hero-heading">
+  <div class="container">
+    <div class="partners-hero-inner">
+      <p class="invitation-signal">— By Invitation Only</p>
+      <h1 id="partners-hero-heading" class="h-display">Our Partners.</h1>
+      <p>RegSymp is supported by a small group of sponsors, from founders, investors, local businesses, and institutions. We're grateful for their trust and their belief in what we're building.</p>
+      <div class="partners-hero-meta">
+        <span class="gold">Palma de Mallorca</span>
+        <span class="sep"></span>
+        <span>14–15 Sep 2026</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= PARTNERS CONTENT ============================= -->
+<section class="partners-page-section">
+  <div class="container">
+
+    <div class="sponsor-logos">
+      {% for row in partners %}
+      <div class="sponsor-row {{ row.tier }}">
+        <div class="label">{{ row.label }}</div>
+        <div class="slots">
+          {% for logo in row.logos %}
+          <div class="logo-slot{% if logo.darkTile %} dark-tile{% endif %}">
+            <img src="/assets/images/{{ logo.file }}" alt="{{ logo.name }}" />
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================= CTA BANNER ============================= -->
+<section class="partners-cta-banner">
+  <div class="container">
+    <div class="partners-cta-inner">
+      <div class="partners-cta-copy">
+        <p class="eyebrow on-dark">Partner with RegSymp</p>
+        <h2 class="h2">Interested in partnering?</h2>
+        <p>RegSymp partners span the full spectrum of financial services from regulators and policymakers, banks and fintechs, payments and capital markets players, insurers, investors, and infrastructure builders, plus the local businesses and founders who help bring the programme to life.</p>
+      </div>
+      <div class="partners-cta-actions">
+        <a href="mailto:info@regsymp.com?subject=Partnership%20Enquiry%20%E2%80%94%20RegSymp%202026" class="btn btn-primary">
+          Submit a Partnership Enquiry
+          <svg class="arrow" width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12M8 1l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FOOTER ============================= -->

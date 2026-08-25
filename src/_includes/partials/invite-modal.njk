@@ -1,0 +1,56 @@
+<div class="invite-modal" id="inviteModal" role="dialog" aria-modal="true" aria-labelledby="inviteModalTitle" hidden>
+  <div class="invite-modal__backdrop" data-invite-close></div>
+  <div class="invite-modal__panel">
+    <button type="button" class="invite-modal__close" data-invite-close aria-label="Close">&times;</button>
+
+    <p class="invitation-signal">&mdash; By Invitation Only</p>
+    <h2 class="invite-modal__title" id="inviteModalTitle">Request an Invitation.</h2>
+    <p class="invite-modal__lede">Attendance is curated to ensure the right mix of seniority, sector and perspective. Tell us a little about your role and we will be in touch.</p>
+
+    <form id="inviteForm" novalidate>
+      <input type="hidden" name="startedAt" id="inviteStartedAt" value="" />
+      <div class="invite-hp" aria-hidden="true">
+        <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+      </div>
+
+      <div class="invite-field">
+        <label for="inviteName">Name <span class="req" aria-hidden="true">*</span></label>
+        <input id="inviteName" name="name" type="text" required autocomplete="name" />
+      </div>
+
+      <div class="invite-field">
+        <label for="inviteEmail">Email <span class="req" aria-hidden="true">*</span></label>
+        <input id="inviteEmail" name="email" type="email" required autocomplete="email" />
+      </div>
+
+      <div class="invite-row">
+        <div class="invite-field">
+          <label for="inviteCompany">Company <span class="req" aria-hidden="true">*</span></label>
+          <input id="inviteCompany" name="company" type="text" required autocomplete="organization" />
+        </div>
+        <div class="invite-field">
+          <label for="inviteRole">Role <span class="req" aria-hidden="true">*</span></label>
+          <input id="inviteRole" name="role" type="text" required autocomplete="organization-title" />
+        </div>
+      </div>
+
+      <div class="invite-field">
+        <label for="inviteMobile">Mobile <span class="opt">optional</span></label>
+        <input id="inviteMobile" name="mobile" type="tel" autocomplete="tel" />
+      </div>
+
+      <div class="invite-field">
+        <label for="inviteMessage">Anything you would like to add <span class="opt">optional</span></label>
+        <textarea id="inviteMessage" name="message" rows="4"></textarea>
+      </div>
+
+      <label class="invite-consent">
+        <input type="checkbox" name="consent" value="yes" required />
+        <span>I agree that RegSymp may store and use these details to assess and respond to my request, as described in the <a href="/legal/#privacy">privacy policy</a>.</span>
+      </label>
+
+      <button type="submit" class="invite-submit">Request an Invitation <span class="arrow">&rarr;</span></button>
+      <p class="invite-status" id="inviteStatus" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+</div>

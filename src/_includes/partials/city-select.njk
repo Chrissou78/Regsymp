@@ -1,0 +1,13 @@
+<div class="city-pick" id="cityPick" style="margin-right:auto;">
+  <button class="city-pick-btn" id="cityPickBtn" aria-expanded="false" aria-haspopup="listbox" aria-label="Select city edition">
+    <span id="cityPickLabel">{{ edition.label if edition else editions[0].label }}</span>
+    <svg class="chev" width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <div class="city-menu" role="listbox" aria-label="City editions">
+    {% for e in editions %}
+    <div class="city-menu-item{% if edition and e.key == edition.key %} active{% endif %}" role="option" tabindex="0"
+         data-edition-url="{{ e.url }}"
+         aria-selected="{% if edition and e.key == edition.key %}true{% else %}false{% endif %}"><span>{{ e.label }}</span></div>
+    {% endfor %}
+  </div>
+</div>

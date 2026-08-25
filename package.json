@@ -1,0 +1,19 @@
+{
+  "name": "regsymp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "eleventy",
+    "serve": "eleventy --serve --port=8091",
+    "test": "npm run build && node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "3.1.6",
+    "@11ty/eleventy-img": "7.0.0"
+  },
+  "dependencies": {
+    "resend": "6.22.1"
+  },
+  "engines": { "node": ">=22" }
+}

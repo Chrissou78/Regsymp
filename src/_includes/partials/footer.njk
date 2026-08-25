@@ -1,0 +1,51 @@
+<footer class="footer" aria-label="Site footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="/" class="brand brand-hex" style="color:var(--white); display:inline-flex; align-items:center; gap:0;">
+          <img src="/assets/images/regsymp-hex-tight.png" alt="RegSymp" style="height:54px; width:auto; display:block; filter:brightness(0) invert(1);" />
+        </a>
+        <div class="footer-social">
+          <a href="{{ site.linkedin }}" target="_blank" rel="noopener" aria-label="LinkedIn">{% include "partials/icon-linkedin.njk" %}</a>
+          <a href="{{ site.twitter }}" target="_blank" rel="noopener" aria-label="X / Twitter">{% include "partials/icon-x.njk" %}</a>
+          <a href="mailto:{{ site.email }}" aria-label="Email">{% include "partials/icon-mail.njk" %}</a>
+        </div>
+      </div>
+      <nav class="footer-nav" aria-label="Footer">
+        <div>
+          <h5>Programme</h5>
+          <ul>
+            <li><a href="/#about">About</a></li>
+            <li><a href="/speakers/">Speakers</a></li>
+            <li><a href="/#agenda">Agenda</a></li>
+            <li><a href="/faq/">FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>Attend</h5>
+          <ul>
+            <li><a href="mailto:{{ site.email }}" data-invite-trigger>Request an Invite</a></li>
+            <li><a href="/#dinner">The Thirty-Three</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>Partner</h5>
+          <ul>
+            <li><a href="/partners/">Partners</a></li>
+            <li><a href="/pillars/">The Pillars</a></li>
+          </ul>
+        </div>
+        <div class="footer-email">
+          <h5>Contact</h5>
+          <ul>
+            <li><span class="em-label">General</span><a href="mailto:{{ site.email }}">{{ site.email }}</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+    <div class="footer-bot">
+      <div class="links"><a href="/legal/">Legal</a></div>
+      <div>&copy; 2026 {{ site.legalName }}. All rights reserved.</div>
+    </div>
+  </div>
+</footer>

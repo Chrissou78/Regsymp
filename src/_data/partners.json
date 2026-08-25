@@ -1,0 +1,37 @@
+[
+  {
+    "tier": "founding-partner",
+    "label": "Founding Partner",
+    "logos": [
+      {
+        "name": "Animoca Brands",
+        "file": "Animoca-Brands.png"
+      }
+    ]
+  },
+  {
+    "tier": "strategic-partner",
+    "label": "Strategic Partner",
+    "logos": [
+      {
+        "name": "S21",
+        "file": "S21-light.jpg"
+      }
+    ]
+  },
+  {
+    "tier": "session-partner",
+    "label": "Session Partner",
+    "logos": [
+      {
+        "name": "LMAX Group",
+        "file": "lmax-group.jpg",
+        "darkTile": true
+      },
+      {
+        "name": "Asensi Abogados",
+        "file": "asensi-abogados.jpg"
+      }
+    ]
+  }
+]

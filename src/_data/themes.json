@@ -1,0 +1,27 @@
+[
+  {
+    "num": "01",
+    "title": "The Future of Finance",
+    "description": "Which countries will lead the next era of financial innovation across banking, payments, AI and digital assets?"
+  },
+  {
+    "num": "02",
+    "title": "Payments, Stablecoins & Programmable Money",
+    "description": "How embedded finance, stablecoins, tokenisation and next-generation payment infrastructure are reshaping the movement of money."
+  },
+  {
+    "num": "03",
+    "title": "AI, Wealth & The Reinvention of Banking",
+    "description": "Exploring whether AI will transform — or replace — traditional banking, wealth management and private banking models."
+  },
+  {
+    "num": "04",
+    "title": "Trust, Infrastructure & Institutional Resilience",
+    "description": "The operational backbone behind modern finance: custody, safeguarding, operational resilience, cybersecurity and scalable infrastructure."
+  },
+  {
+    "num": "05",
+    "title": "The New Financial Ecosystem",
+    "description": "How banks, fintechs, family offices, digital asset firms, investors and technology leaders are converging to build the next generation of financial services."
+  }
+]

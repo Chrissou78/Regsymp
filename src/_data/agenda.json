@@ -1,0 +1,146 @@
+{
+  "palma": {
+    "day1": [
+      {
+        "time": "08:30",
+        "title": "Breakfast",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "09:30",
+        "title": "Opening Keynote: The Future of Financial Services — Innovation, Trust & Transformation",
+        "badge": "Opening Keynote"
+      },
+      {
+        "time": "10:00",
+        "title": "Leaders Roundtable: Building the Financial Institutions of Tomorrow",
+        "badge": "Leaders Roundtable"
+      },
+      {
+        "time": "11:00",
+        "title": "Coffee Break",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "11:30",
+        "title": "Banking, Wealth & the Evolving Client",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "12:15",
+        "title": "Private Wealth, Family Offices & Alternative Investments",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "13:00",
+        "title": "Lunch",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "14:15",
+        "title": "Digital Assets, Tokenisation & Institutional Adoption",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "15:00",
+        "title": "Global Regulatory & Policy Outlook",
+        "badge": "Policy Panel"
+      },
+      {
+        "time": "15:45",
+        "title": "Break",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "16:15",
+        "title": "AI, Data & Competitive Advantage",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "17:00",
+        "title": "CROs & CCOs: The Challengers in the Boardroom",
+        "badge": "Leadership Discussion"
+      },
+      {
+        "time": "18:00",
+        "title": "Global Leaders Reception",
+        "badge": "Reception"
+      }
+    ],
+    "day2": [
+      {
+        "time": "08:30",
+        "title": "Leadership Breakfast",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "09:30",
+        "title": "AI, Wealth & the Reinvention of Financial Services",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "10:15",
+        "title": "Global Trust, Infrastructure & Institutional Resilience",
+        "badge": "Leadership Discussion"
+      },
+      {
+        "time": "11:00",
+        "title": "Coffee Break",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "11:30",
+        "title": "The Future of Capital Formation & Alternative Investments",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "12:15",
+        "title": "Payments, Stablecoins & the Future of Money",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "13:00",
+        "title": "Lunch",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "14:15",
+        "title": "Building the Financial Ecosystem of Tomorrow",
+        "badge": "Leadership Discussion"
+      },
+      {
+        "time": "15:00",
+        "title": "Legal Perspectives: Navigating a Changing Regulatory Landscape",
+        "badge": "Legal Panel"
+      },
+      {
+        "time": "15:45",
+        "title": "Break",
+        "badge": "Lounge",
+        "break": true
+      },
+      {
+        "time": "16:15",
+        "title": "The Role of Audit, Consulting & Advisory in Financial Transformation",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "17:00",
+        "title": "Academia, Research & the Future Talent Pipeline",
+        "badge": "Executive Panel"
+      },
+      {
+        "time": "17:45",
+        "title": "Closing Remarks",
+        "badge": "Chair"
+      }
+    ]
+  }
+}

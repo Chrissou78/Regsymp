@@ -1,0 +1,21 @@
+<article class="speaker-page-card" aria-label="{{ speaker.name }}">
+  <div class="speaker-page-card__photo-wrap">
+    {% if speaker.photo %}
+    <img class="speaker-page-card__photo" src="/assets/images/speakers/{{ speaker.photo }}" alt="{{ speaker.name }}" />
+    {% else %}
+    <div class="speaker-page-card__photo-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="4" stroke="white" stroke-width="1.2"/><path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
+    </div>
+    {% endif %}
+  </div>
+  <div class="speaker-page-card__body">
+    <p class="speaker-page-card__name">{{ speaker.name }}</p>
+    <p class="speaker-page-card__title">{{ speaker.role }}</p>
+    <p class="speaker-page-card__org">{% if speaker.orgHtml %}{{ speaker.orgHtml | safe }}{% else %}{{ speaker.org }}{% endif %}</p>
+    <p class="speaker-page-card__bio">{{ speaker.bio }}</p>
+    <div class="speaker-page-card__footer">
+      {% if speaker.linkedin %}<a class="speaker-page-card__linkedin" href="{{ speaker.linkedin }}" target="_blank" rel="noopener noreferrer">LinkedIn &#8599;</a>{% endif %}
+      <span class="edition-pill">Palma 2026</span>
+    </div>
+  </div>
+</article>
