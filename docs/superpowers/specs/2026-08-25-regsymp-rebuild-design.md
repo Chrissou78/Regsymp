@@ -121,7 +121,7 @@ Target: homepage under 600 KB, from 5.0 MB.
 
 Replaces the `mailto:` calls to action, which capture nothing.
 
-**Triggers:** the "Request an Invitation" / "Request an Invite" links in nav, hero, drawer and footer, plus the new button in the homepage closing section. Speaking-enquiry and general-contact `mailto:` links are left alone — different intents.
+**Triggers:** the "Request an Invitation" / "Request an Invite" links in nav, hero, drawer and footer. Speaking-enquiry and general-contact `mailto:` links are left alone — different intents.
 
 **Progressive enhancement:** the trigger stays a real `mailto:` anchor; JS upgrades it to open the modal. If scripts fail the link still works.
 
@@ -146,12 +146,20 @@ The consent checkbox links to the privacy policy. The form collects name, email,
 
 ### Homepage closing section
 
-The `#signup` section currently pairs the heading "Request an Invitation." with copy about quarterly briefings and a beehiiv **newsletter** email embed — two different intents in one block. The email field and its submit control are replaced by a single "Request an Invitation" button opening the modal.
+The `#signup` section currently pairs the heading "Request an Invitation." with copy about quarterly briefings and a beehiiv **newsletter** email embed — two different intents in one block, which is why the section reads as a bait-and-switch.
 
-Two consequences to settle before implementation:
+It is resolved by making the section honestly a newsletter block rather than by removing the newsletter. The beehiiv embed stays; the framing changes:
 
-1. The existing lede — "Quarterly briefings on the themes shaping RegSymp, and first access when the next edition opens" — describes a newsletter that will no longer be subscribable here. It needs rewording to match an invitation request.
-2. Removing the beehiiv embed removes the site's only mailing-list capture. If the newsletter still matters, it needs a home elsewhere; otherwise the beehiiv integration and its `attribution.js` script are dropped entirely.
+| | Now | After |
+|---|---|---|
+| Eyebrow | Stay Close To The Conversation | unchanged — already fits |
+| Heading | Request an Invitation. | **Stay Connected.** |
+| Lede | Quarterly briefings on the themes shaping RegSymp, and first access when the next edition opens. | Reworded to cover staying connected and receiving the latest news from each edition. |
+| Control | beehiiv email embed | unchanged |
+
+Proposed lede: "Quarterly briefings on the themes shaping RegSymp, news from each edition, and first word when the next one opens."
+
+The invitation call to action is therefore **not** duplicated here. It lives in the nav, hero, drawer and footer, all of which open the modal. This gives the page one newsletter intent and one invitation intent, in separate places, instead of two intents competing in the same block.
 
 ### API
 
