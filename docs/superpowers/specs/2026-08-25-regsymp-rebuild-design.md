@@ -132,11 +132,14 @@ Replaces the `mailto:` calls to action, which capture nothing.
 | Name | yes |
 | Email | yes |
 | Company | yes |
+| Role | yes |
 | Mobile | no |
 | Message | no |
 | Consent checkbox | yes |
 
-Required-ness of Mobile is a judgment call, not a stated requirement — making it mandatory will cost submissions. One-line change either way.
+Mobile is deliberately optional — requiring a phone number to express interest costs submissions.
+
+Role is required. Attendance is curated on seniority and sector mix, so role is the single most useful qualifying field on the form; a request without it cannot be assessed without a reply-and-wait round trip.
 
 The consent checkbox links to the privacy policy. The form collects name, email, mobile and company from EU residents for a Spanish event, so this is GDPR territory.
 
