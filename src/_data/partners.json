@@ -10,16 +10,6 @@
     ]
   },
   {
-    "tier": "strategic-partner",
-    "label": "Strategic Partner",
-    "logos": [
-      {
-        "name": "S21",
-        "file": "S21-light.jpg"
-      }
-    ]
-  },
-  {
     "tier": "session-partner",
     "label": "Session Partner",
     "logos": [
@@ -31,6 +21,20 @@
       {
         "name": "Asensi Abogados",
         "file": "asensi-abogados.jpg"
+      }
+    ]
+  },
+  {
+    "tier": "strategic-partner",
+    "label": "Strategic Partner",
+    "logos": [
+      {
+        "name": "S21",
+        "file": "S21-light.jpg"
+      },
+      {
+        "name": "OnchainLabs",
+        "file": "onchainlabs.png"
       }
     ]
   }
