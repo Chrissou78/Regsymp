@@ -7,7 +7,7 @@ import { validateSubmission } from "./validate.js";
  * without reading server logs or exposing the key.
  */
 export function configStatus() {
-  const from = env("RESEND_FROM");
+  const from = normaliseFrom(env("RESEND_FROM"));
   return {
     config: {
       RESEND_API_KEY: Boolean(env("RESEND_API_KEY")),
@@ -21,9 +21,32 @@ export function configStatus() {
     // obvious without needing shell access to the box.
     fromRaw: process.env.RESEND_FROM ?? null,
     fromResolved: from || null,
-    // proves which build is running when diagnosing config problems
-    stripsWrappingQuotes: true
+    fromLooksValid: /^[^<>]*<[^<>@\s]+@[^<>@\s]+>$|^[^<>@\s]+@[^<>@\s]+$/.test(from),
+    normalisesFrom: true
   };
+}
+
+/**
+ * Normalise an email From value.
+ *
+ * A From header is either `local@domain` or `Display Name <local@domain>`.
+ * Nothing may follow the closing angle bracket, so anything after it is
+ * config damage — we saw a lone trailing quote survive a deploy and get
+ * rejected by Resend. Truncating there is unambiguous rather than a guess,
+ * unlike stripping arbitrary stray characters.
+ */
+export function normaliseFrom(value) {
+  // Strip a matched pair wrapping the whole value first, so this is correct
+  // whether or not env() has already run. A quoted display name such as
+  // `"RegSymp, Ltd" <a@b.com>` does not end in a quote, so it is untouched.
+  const trimmed = String(value ?? "")
+    .trim()
+    .replace(/^(['"])([\s\S]*)\1$/, "$2")
+    .trim();
+
+  const close = trimmed.lastIndexOf(">");
+  if (close !== -1 && trimmed.includes("<")) return trimmed.slice(0, close + 1).trim();
+  return trimmed;
 }
 
 /**
@@ -95,7 +118,7 @@ export async function handleInvitation(body) {
   try {
     const resend = new Resend(env("RESEND_API_KEY"));
     const { error } = await resend.emails.send({
-      from: env("RESEND_FROM"),
+      from: normaliseFrom(env("RESEND_FROM")),
       to: env("INVITATION_RECIPIENT"),
       replyTo: email,
       subject: `Invitation request — ${name}, ${company}`,

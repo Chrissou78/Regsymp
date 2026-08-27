@@ -80,3 +80,33 @@ test("env() strips wrapping quotes that some runtimes keep", async () => {
   delete process.env.__ENV_TEST__;
   assert.equal(env("__NOT_SET__"), "");
 });
+
+// ----------------------------------------------------------- From normalising
+
+test("normaliseFrom truncates anything after the closing bracket", async () => {
+  const { normaliseFrom } = await import("../api/_lib/send-invitation.js");
+  const good = "RegSymp <noreply@send.regsymp.com>";
+  const cases = [
+    // the exact damage seen in production
+    ['RegSymp <noreply@send.regsymp.com>"', good],
+    ['"RegSymp <noreply@send.regsymp.com>"', good],
+    ["RegSymp <noreply@send.regsymp.com>  ", good],
+    ["RegSymp <noreply@send.regsymp.com>';", good],
+    [good, good],
+    // bare address form still works
+    ["noreply@send.regsymp.com", "noreply@send.regsymp.com"],
+    ['"noreply@send.regsymp.com"', "noreply@send.regsymp.com"],
+    ["", ""]
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normaliseFrom(input), expected, `input ${JSON.stringify(input)}`);
+  }
+});
+
+test("a quoted display name is preserved", async () => {
+  const { normaliseFrom } = await import("../api/_lib/send-invitation.js");
+  assert.equal(
+    normaliseFrom('"RegSymp, Ltd" <noreply@send.regsymp.com>'),
+    '"RegSymp, Ltd" <noreply@send.regsymp.com>'
+  );
+});
