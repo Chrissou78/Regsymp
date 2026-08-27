@@ -3,7 +3,10 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { handleInvitation, configStatus } from "./api/_lib/send-invitation.js";
+import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
+import { createAdmin } from "./admin/routes.js";
+import { createSessions } from "./admin/auth.js";
+import { randomUUID } from "node:crypto";
 
 /**
  * Production server for the built site.
@@ -47,6 +50,22 @@ const ONE_YEAR = "public, max-age=31536000, immutable";
 const REVALIDATE = "public, max-age=0, must-revalidate";
 
 const MAX_BODY_BYTES = 64 * 1024;
+
+/**
+ * The admin is disabled entirely unless GITHUB_CLIENT_ID is set, so an
+ * unconfigured deploy exposes no admin surface at all.
+ */
+const admin = env("GITHUB_CLIENT_ID")
+  ? createAdmin({
+      sessions: createSessions(),
+      clientId: env("GITHUB_CLIENT_ID"),
+      clientSecret: env("GITHUB_CLIENT_SECRET"),
+      allowlist: env("ADMIN_ALLOWLIST"),
+      repo: env("CONTENT_REPO") || "OC-Labs/regsymp",
+      branch: env("CONTENT_BRANCH") || "prod",
+      secret: env("SESSION_SECRET") || randomUUID()
+    })
+  : null;
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, {
@@ -148,6 +167,9 @@ const server = createServer(async (req, res) => {
       ...configStatus()
     });
   }
+
+  // ---- admin --------------------------------------------------------------
+  if (admin && (await admin.handle(req, res, url))) return;
 
   if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });
 
