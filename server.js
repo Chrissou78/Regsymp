@@ -1,0 +1,198 @@
+import { createServer } from "node:http";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { handleInvitation } from "./api/_lib/send-invitation.js";
+
+/**
+ * Production server for the built site.
+ *
+ * Replaces what vercel.json did declaratively — clean URLs, cache headers —
+ * and additionally runs the invitation endpoint in-process, which a purely
+ * static host cannot do.
+ *
+ * No dependencies beyond Node built-ins and resend.
+ */
+
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "_site");
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || "0.0.0.0";
+
+const MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".mp4": "video/mp4",
+  ".pdf": "application/pdf"
+};
+
+// Content-hashed output can be cached hard; HTML must revalidate.
+const IMMUTABLE = /^\/(img|assets)\//;
+const ONE_YEAR = "public, max-age=31536000, immutable";
+const REVALIDATE = "public, max-age=0, must-revalidate";
+
+const MAX_BODY_BYTES = 64 * 1024;
+
+function send(res, status, body, headers = {}) {
+  res.writeHead(status, {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    ...headers
+  });
+  res.end(body);
+}
+
+function sendJson(res, status, obj) {
+  send(res, status, JSON.stringify(obj), { "Content-Type": "application/json; charset=utf-8" });
+}
+
+async function resolveFile(urlPath) {
+  // Reject traversal before touching the filesystem.
+  const decoded = decodeURIComponent(urlPath);
+  if (decoded.includes("\0")) return null;
+  const target = path.normalize(path.join(ROOT, decoded));
+  if (target !== ROOT && !target.startsWith(ROOT + path.sep)) return null;
+
+  const candidates = decoded.endsWith("/")
+    ? [path.join(target, "index.html")]
+    : [target, target + ".html", path.join(target, "index.html")];
+
+  for (const candidate of candidates) {
+    if (candidate !== ROOT && !candidate.startsWith(ROOT + path.sep)) continue;
+    try {
+      const info = await stat(candidate);
+      if (info.isFile()) return { file: candidate, size: info.size, mtime: info.mtime };
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return null;
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error("payload too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+async function serveNotFound(res) {
+  const custom = await resolveFile("/404.html");
+  if (custom) {
+    res.writeHead(404, { "Content-Type": MIME[".html"], "Cache-Control": REVALIDATE });
+    createReadStream(custom.file).pipe(res);
+    return;
+  }
+  send(res, 404, "Not found", { "Content-Type": MIME[".txt"] });
+}
+
+const server = createServer(async (req, res) => {
+  let url;
+  try {
+    url = new URL(req.url, "http://localhost");
+  } catch {
+    return send(res, 400, "Bad request", { "Content-Type": MIME[".txt"] });
+  }
+  const pathname = url.pathname;
+
+  // ---- API ----------------------------------------------------------------
+  if (pathname === "/api/request-invitation") {
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST");
+      return sendJson(res, 405, { error: "Method not allowed." });
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse((await readBody(req)) || "{}");
+    } catch {
+      return sendJson(res, 400, { error: "Could not read that submission." });
+    }
+    const { status, body } = await handleInvitation(parsed);
+    return sendJson(res, status, body);
+  }
+
+  if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });
+
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.setHeader("Allow", "GET, HEAD");
+    return send(res, 405, "Method not allowed", { "Content-Type": MIME[".txt"] });
+  }
+
+  // ---- cleanUrls: /faq.html -> /faq (matches the old vercel.json) ----------
+  if (pathname.endsWith(".html")) {
+    const clean = pathname.replace(/(\/index)?\.html$/, "") || "/";
+    return send(res, 308, "", { Location: clean + url.search });
+  }
+  // trailingSlash: false
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return send(res, 308, "", { Location: pathname.slice(0, -1) + url.search });
+  }
+
+  // ---- static -------------------------------------------------------------
+  const found = await resolveFile(pathname);
+  if (!found) return serveNotFound(res);
+
+  const ext = path.extname(found.file).toLowerCase();
+  const etag = `W/"${found.size}-${found.mtime.getTime()}"`;
+
+  if (req.headers["if-none-match"] === etag) {
+    return send(res, 304, "", { ETag: etag });
+  }
+
+  const headers = {
+    "Content-Type": MIME[ext] || "application/octet-stream",
+    "Content-Length": String(found.size),
+    "Cache-Control": IMMUTABLE.test(pathname) ? ONE_YEAR : REVALIDATE,
+    ETag: etag
+  };
+
+  if (req.method === "HEAD") return send(res, 200, "", headers);
+
+  res.writeHead(200, headers);
+  createReadStream(found.file).pipe(res);
+});
+
+// Only bind a port when run directly, so tests can listen on an ephemeral one.
+const isEntryPoint =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntryPoint) {
+  server.listen(PORT, HOST, () => {
+    console.log(`RegSymp serving ${ROOT} on http://${HOST}:${PORT}`);
+  });
+
+  for (const signal of ["SIGTERM", "SIGINT"]) {
+    process.on(signal, () => {
+      console.log(`${signal} received, shutting down`);
+      server.close(() => process.exit(0));
+    });
+  }
+}
+
+export { server };
