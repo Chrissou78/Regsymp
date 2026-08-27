@@ -15,7 +15,14 @@ export function configStatus() {
       INVITATION_RECIPIENT: Boolean(env("INVITATION_RECIPIENT"))
     },
     // domain only; the local part and the key are never exposed
-    fromDomain: from.includes("@") ? from.split("@").pop().replace(/>$/, "").trim() : null
+    fromDomain: from.includes("@") ? from.split("@").pop().replace(/>$/, "").trim() : null,
+    // RESEND_FROM is not a secret — it appears in the From header of every
+    // message sent. Exposing it verbatim makes stray quotes or whitespace
+    // obvious without needing shell access to the box.
+    fromRaw: process.env.RESEND_FROM ?? null,
+    fromResolved: from || null,
+    // proves which build is running when diagnosing config problems
+    stripsWrappingQuotes: true
   };
 }
 
