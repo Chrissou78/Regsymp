@@ -4,3 +4,4 @@ src/assets/images/carousel/full-res/
 node_modules/
 _site/
 .eleventy-img-cache/
+.env
