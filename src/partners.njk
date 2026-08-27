@@ -30,7 +30,7 @@ description: "Meet the partners supporting RegSymp 2026 — institutions whose w
         <div class="label">{{ row.label }}</div>
         <div class="slots">
           {% for logo in row.logos %}
-          <div class="logo-slot{% if logo.darkTile %} dark-tile{% endif %}">
+          <div class="logo-slot{% if logo.modifier %} {{ logo.modifier }}{% endif %}">
             <img src="/assets/images/{{ logo.file }}" alt="{{ logo.name }}" />
           </div>
           {% endfor %}

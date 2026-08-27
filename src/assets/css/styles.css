@@ -2488,7 +2488,10 @@ body { background: var(--off-white); }
   max-width: 100%;
   max-height: none;
 }
-.sponsor-row .logo-slot.dark-tile img {
+/* LMAX supplied a 6:1 lockup whose glyphs occupy 66.0% of the image height,
+   against Asensi's 53.0%. This clamp keeps the two in an 80:100 ratio, so
+   their letters render at the same height on every viewport. */
+.sponsor-row .logo-slot.logo-lmax img {
   height: clamp(45px, 5.6vw, 80px);
   max-height: none;
 }
@@ -2498,20 +2501,6 @@ body { background: var(--off-white); }
   max-width: 100%;
   max-height: none;
 }
-
-/* Logos supplied only as white-on-black sit on their own tile so they read
-   as deliberate rather than as a stray black bar on the off-white page. */
-.logo-slot.dark-tile {
-  background: var(--navy-deep);
-  border-radius: var(--r-md);
-  padding: 18px 22px;
-  display: flex; align-items: center; justify-content: center;
-}
-/* 80px is measured, not guessed: LMAX glyphs occupy 66.3% of its image
-   height, Asensi's 53.0% of its. At Asensi's 100px its letters render
-   53.0px tall, so LMAX needs 80px for its letters to match exactly.
-   Specificity has to beat .sponsor-row.session-partner .logo-slot img. */
-.sponsor-row .logo-slot.dark-tile img { max-height: 80px; }
 
 /* ---------- Invitation modal ---------- */
 .invite-modal { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 24px; }

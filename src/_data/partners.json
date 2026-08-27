@@ -15,8 +15,8 @@
     "logos": [
       {
         "name": "LMAX Group",
-        "file": "lmax-group.jpg",
-        "darkTile": true
+        "file": "lmax-group.png",
+        "modifier": "logo-lmax"
       },
       {
         "name": "Asensi Abogados",
