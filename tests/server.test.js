@@ -182,3 +182,21 @@ test("unknown API routes 404 as JSON", async () => {
   assert.equal(res.status, 404);
   assert.match(res.headers.get("content-type"), /application\/json/);
 });
+
+// -------------------------------------------------------------------- health
+
+test("health reports config presence without leaking values", async () => {
+  const res = await get("/api/health");
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  for (const key of ["RESEND_API_KEY", "RESEND_FROM", "INVITATION_RECIPIENT"]) {
+    assert.equal(typeof body.config[key], "boolean", `${key} should be a boolean`);
+  }
+  // the actual secret must never appear in the response
+  const raw = JSON.stringify(body);
+  assert.doesNotMatch(raw, /re_[A-Za-z0-9]/, "response leaked an API key");
+  if (process.env.RESEND_API_KEY) {
+    assert.ok(!raw.includes(process.env.RESEND_API_KEY), "response leaked the API key");
+  }
+});

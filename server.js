@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { handleInvitation } from "./api/_lib/send-invitation.js";
+import { handleInvitation, configStatus } from "./api/_lib/send-invitation.js";
 
 /**
  * Production server for the built site.
@@ -135,6 +135,18 @@ const server = createServer(async (req, res) => {
     }
     const { status, body } = await handleInvitation(parsed);
     return sendJson(res, status, body);
+  }
+
+  // Reports whether config is present, never what it contains. Lets us tell
+  // "variables missing" apart from "Resend rejected the send" without
+  // reading logs, and without exposing anything secret.
+  if (pathname === "/api/health") {
+    return sendJson(res, 200, {
+      ok: true,
+      host: "self",
+      uptimeSeconds: Math.round(process.uptime()),
+      ...configStatus()
+    });
   }
 
   if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });

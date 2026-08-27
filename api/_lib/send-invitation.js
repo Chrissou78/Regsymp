@@ -1,6 +1,24 @@
 import { Resend } from "resend";
 import { validateSubmission } from "./validate.js";
 
+/**
+ * Whether the mail config is present — never what it contains.
+ * Lets us tell "variables missing" apart from "Resend rejected it"
+ * without reading server logs or exposing the key.
+ */
+export function configStatus() {
+  const from = process.env.RESEND_FROM || "";
+  return {
+    config: {
+      RESEND_API_KEY: Boolean(process.env.RESEND_API_KEY),
+      RESEND_FROM: Boolean(from),
+      INVITATION_RECIPIENT: Boolean(process.env.INVITATION_RECIPIENT)
+    },
+    // domain only; the local part and the key are never exposed
+    fromDomain: from.includes("@") ? from.split("@").pop().replace(/>$/, "").trim() : null
+  };
+}
+
 export function escapeHtml(value) {
   return String(value).replace(
     /[&<>"']/g,
