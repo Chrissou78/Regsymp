@@ -7,16 +7,30 @@ import { validateSubmission } from "./validate.js";
  * without reading server logs or exposing the key.
  */
 export function configStatus() {
-  const from = process.env.RESEND_FROM || "";
+  const from = env("RESEND_FROM");
   return {
     config: {
-      RESEND_API_KEY: Boolean(process.env.RESEND_API_KEY),
+      RESEND_API_KEY: Boolean(env("RESEND_API_KEY")),
       RESEND_FROM: Boolean(from),
-      INVITATION_RECIPIENT: Boolean(process.env.INVITATION_RECIPIENT)
+      INVITATION_RECIPIENT: Boolean(env("INVITATION_RECIPIENT"))
     },
     // domain only; the local part and the key are never exposed
     fromDomain: from.includes("@") ? from.split("@").pop().replace(/>$/, "").trim() : null
   };
+}
+
+/**
+ * Read an env var, stripping wrapping quotes.
+ *
+ * Docker's --env-file and some systemd unit styles keep quote characters as
+ * part of the value, which produced a From header of
+ * "RegSymp <noreply@...>" — quotes included — that Resend rejected.
+ */
+export function env(name) {
+  const raw = process.env[name];
+  if (typeof raw !== "string") return "";
+  // Only strip when the quotes match and wrap the whole value.
+  return raw.trim().replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
 }
 
 export function escapeHtml(value) {
@@ -61,7 +75,7 @@ export async function handleInvitation(body) {
     "</table>";
 
   const missing = ["RESEND_API_KEY", "RESEND_FROM", "INVITATION_RECIPIENT"].filter(
-    (k) => !process.env[k]
+    (k) => !env(k)
   );
   if (missing.length) {
     console.error("invitation not sent, missing env: " + missing.join(", "));
@@ -72,10 +86,10 @@ export async function handleInvitation(body) {
   }
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const resend = new Resend(env("RESEND_API_KEY"));
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM,
-      to: process.env.INVITATION_RECIPIENT,
+      from: env("RESEND_FROM"),
+      to: env("INVITATION_RECIPIENT"),
       replyTo: email,
       subject: `Invitation request — ${name}, ${company}`,
       html

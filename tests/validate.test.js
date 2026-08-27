@@ -59,3 +59,24 @@ test("tolerates a missing startedAt rather than rejecting", () => {
   const { startedAt, ...withoutTimestamp } = valid;
   assert.equal(validateSubmission(withoutTimestamp).ok, true);
 });
+
+// ------------------------------------------------------- env quote stripping
+
+test("env() strips wrapping quotes that some runtimes keep", async () => {
+  const { env } = await import("../api/_lib/send-invitation.js");
+  const cases = [
+    ['"RegSymp <a@b.com>"', "RegSymp <a@b.com>"],
+    ["'RegSymp <a@b.com>'", "RegSymp <a@b.com>"],
+    ["RegSymp <a@b.com>", "RegSymp <a@b.com>"],
+    ["  RegSymp <a@b.com>  ", "RegSymp <a@b.com>"],
+    // unmatched or interior quotes must be left alone
+    ['"unbalanced', '"unbalanced'],
+    ['say "hi" there', 'say "hi" there']
+  ];
+  for (const [input, expected] of cases) {
+    process.env.__ENV_TEST__ = input;
+    assert.equal(env("__ENV_TEST__"), expected, `input ${JSON.stringify(input)}`);
+  }
+  delete process.env.__ENV_TEST__;
+  assert.equal(env("__NOT_SET__"), "");
+});
