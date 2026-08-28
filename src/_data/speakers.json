@@ -150,5 +150,84 @@
     "bio": "Partner at Asensi Abogados, a Spanish boutique law firm based in Mallorca, focused on highly regulated sectors, especially gaming, gambling and digital assets. Marina leads the corporate and digital assets departments and has extensive experience in corporate law and M&A.",
     "photo": "marina-villalonga.jpg",
     "linkedin": "https://www.linkedin.com/in/marina-villalonga-0727137/"
+  },
+  {
+    "slug": "guillaume-bajczman",
+    "name": "Guillaume Bajczman",
+    "role": "Head of Treasury, Liquidity & OTC Trading",
+    "org": "Roxom",
+    "bio": "Focused on building Bitcoin-native treasury and capital markets infrastructure. With extensive experience across digital assets, including almost eight years at Xapo, he brings deep expertise in institutional liquidity, OTC trading, treasury management and Bitcoin markets.",
+    "photo": "guillaume-bajczman.jpeg",
+    "linkedin": "https://www.linkedin.com/in/guillaume-bajczman/"
+  },
+  {
+    "slug": "rony-vogel",
+    "name": "Rony Vogel",
+    "role": "Chief Executive Officer",
+    "org": "Acoger Family Office",
+    "bio": "Oversees investment strategy and long-term capital allocation across private markets, alternative investments and emerging opportunities, bringing a family-office perspective to the evolving intersection of traditional finance, private wealth and digital assets.",
+    "photo": "rony-vogel.png"
+  },
+  {
+    "slug": "joey-garcia",
+    "name": "Joey Garcia",
+    "role": "Executive Director, Chief Strategy, Policy & Regulatory Affairs Officer",
+    "org": "Xapo Bank",
+    "bio": "Operating at the intersection of financial innovation, international policy and digital asset regulation. More than two decades advising governments, regulators and global institutions, including a key role in shaping pioneering regulatory frameworks such as Gibraltar's world-first DLT regime.",
+    "photo": "joey-garcia.jpeg",
+    "linkedin": "https://www.linkedin.com/in/joeygarcia/"
+  },
+  {
+    "slug": "lloyd-nelson",
+    "name": "Lloyd Nelson",
+    "role": "SVP, Head of U.S. Digital Assets",
+    "org": "Howden US",
+    "bio": "After fifteen years building and scaling technology companies, he advises leading digital asset, fintech and technology companies on risk strategy. His work focuses on enabling institutional adoption by building the trust, resilience and risk frameworks that allow tokenisation and digital assets to scale.",
+    "photo": "lloyd-nelson.jpeg",
+    "linkedin": "https://www.linkedin.com/in/lloydnelson3"
+  },
+  {
+    "slug": "matthew-scicluna",
+    "name": "Matthew Scicluna",
+    "role": "Head, Financial Crime Compliance",
+    "org": "Malta Financial Services Authority",
+    "bio": "Joined the MFSA in 2010 after two years with a local bank, bringing extensive experience in financial services regulation, risk management and supervision, focusing on AML/CFT and combatting financial crime. Has held positions across Securities and Markets Supervision, Conduct Supervision and Enforcement.",
+    "photo": "matthew-sciluna.jpeg",
+    "linkedin": "https://www.linkedin.com/in/matthew-scicluna-b100b173/"
+  },
+  {
+    "slug": "matthias-wyss",
+    "name": "Matthias Wyss",
+    "role": "Chief Executive Officer",
+    "org": "Obligate",
+    "bio": "A Web3 thought leader and seasoned fintech executive with deep roots in global capital markets, driving innovation in on-chain capital markets and bridging institutional finance with DeFi infrastructure. Previously scaled an award-winning Web3 company from 8 to 60 employees as CEO, and served on the executive board of a leading Swiss fintech.",
+    "photo": "matthias-wyss.jpeg",
+    "linkedin": "https://www.linkedin.com/in/matthias-wyss/"
+  },
+  {
+    "slug": "richard-munden",
+    "name": "Richard Munden",
+    "role": "Partner, Corporate and Finance",
+    "org": "Carey Olsen",
+    "bio": "Advises clients on corporate and finance transactions, including setting up Web3 projects and structures for investing in digital assets. His work covers the regulation of exchanges, custodians, liquidity providers, RWA projects and token issuances, with deep experience of cross-border transactions such as debt issuances represented by tokens and credit facilities secured by digital assets.",
+    "photo": "richard-munden.jpeg"
+  },
+  {
+    "slug": "viktor-maier",
+    "name": "Viktor Maier",
+    "role": "Associate Director, Group Legal",
+    "org": "Baader Bank",
+    "bio": "An attorney-at-law advising on capital markets, in-house M&A transactions and crypto regulation. He was part of the internal legal team that helped Baader Bank secure its MiCAR licence from BaFin, among the first granted in Germany and Europe, allowing the bank to offer crypto services across all 27 EU member states.",
+    "photo": "viktor-maier.jpeg",
+    "linkedin": "https://www.linkedin.com/in/viktor-maier-3531a7105/"
+  },
+  {
+    "slug": "manu-fernandez",
+    "name": "Manu Fernandez",
+    "role": "Deployment Strategist, Iberia & LATAM",
+    "org": "TRM Labs",
+    "bio": "Supports law enforcement and public-sector organisations across Spain and Latin America in investigating cryptocurrency-related crime. He collaborates with investigators, delivers training programmes, and speaks at industry and law-enforcement events on blockchain intelligence and crypto investigations.",
+    "photo": "manu-fernandez.jpeg",
+    "linkedin": "https://www.linkedin.com/in/manu-fernandez-212508185/"
   }
 ]
