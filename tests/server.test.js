@@ -66,10 +66,14 @@ test("content-hashed assets are cached hard, HTML is not", async () => {
   const html = await get("/");
   assert.match(html.headers.get("cache-control"), /must-revalidate/);
 
-  const css = await get("/assets/css/styles.css");
-  assert.equal(css.status, 200);
-  assert.match(css.headers.get("cache-control"), /immutable/);
-  assert.match(css.headers.get("cache-control"), /max-age=31536000/);
+  // Find a real generated image; only /img/ filenames carry a content hash.
+  const hashed = (await (await get("/")).text()).match(/\/img\/[A-Za-z0-9_-]+\.[a-z]+/);
+  assert.ok(hashed, "expected at least one generated image on the homepage");
+
+  const img = await get(hashed[0]);
+  assert.equal(img.status, 200);
+  assert.match(img.headers.get("cache-control"), /immutable/);
+  assert.match(img.headers.get("cache-control"), /max-age=31536000/);
 });
 
 test("honours If-None-Match with a 304", async () => {
@@ -199,4 +203,21 @@ test("health reports config presence without leaking values", async () => {
   if (process.env.RESEND_API_KEY) {
     assert.ok(!raw.includes(process.env.RESEND_API_KEY), "response leaked the API key");
   }
+});
+
+test("only content-hashed assets are cached immutably", async () => {
+  // /img/ filenames carry a content hash, so they may be cached for a year.
+  // /assets/ has stable filenames — caching those immutably meant a CSS or
+  // JS change never reached a returning visitor.
+  const css = await get("/assets/css/styles.css");
+  assert.equal(css.status, 200);
+  assert.doesNotMatch(
+    css.headers.get("cache-control"),
+    /immutable/,
+    "styles.css has a stable filename and must revalidate"
+  );
+  assert.match(css.headers.get("cache-control"), /must-revalidate/);
+
+  const js = await get("/assets/js/site.js");
+  assert.doesNotMatch(js.headers.get("cache-control"), /immutable/);
 });
