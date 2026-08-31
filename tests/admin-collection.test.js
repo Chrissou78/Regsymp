@@ -21,9 +21,13 @@ const agenda = getSchema("agenda");
 test("serialise matches the formatting of the hand-written data files", async () => {
   const onDisk = await readFile("src/_data/speakers.json", "utf8");
   const parsed = JSON.parse(onDisk);
+  // Compare with line endings normalised: the assertion is about JSON
+  // formatting, and a Windows checkout may hold CRLF. .gitattributes pins
+  // the repository itself to LF.
+  const lf = (s) => s.split("\r\n").join("\n");
   assert.equal(
-    serialise(parsed),
-    onDisk,
+    lf(serialise(parsed)),
+    lf(onDisk),
     "a no-op edit must not produce a diff against the existing file"
   );
 });

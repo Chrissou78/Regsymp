@@ -1231,6 +1231,18 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 /* ------- Responsive ------- */
 @media (max-width: 1080px) {
   .nav-links { display: none; }
+
+  /* The text CTA is ~184px wide. On a 375px bar, alongside the logo and the
+     edition picker, it pushed the burger to x=434 — clean off the right edge,
+     where the nav clips it — leaving no way to open the drawer at all.
+     The drawer carries the same call to action, so hide it here. */
+  .nav-intro-link,
+  .nav-write-link { display: none; }
+
+  /* Never let the edition picker squeeze the burger out again. */
+  .nav-burger { flex: 0 0 auto; }
+  .city-pick { min-width: 0; }
+  .city-pick-btn { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .themes-grid { grid-template-columns: repeat(2, 1fr); }
   .themes-grid .theme-card:nth-child(2n)  { border-right: none; }
   .themes-grid .theme-card:nth-child(3n)  { border-right: 1px solid rgba(255,255,255,0.08); }

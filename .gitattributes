@@ -1,0 +1,18 @@
+# The site is built and served on Linux. Normalising to LF in the repository
+# keeps checkouts consistent and stops the admin's JSON writes (which always
+# emit LF) from producing whole-file diffs when edited from a Windows clone.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.ico binary
+*.mp4 binary
+*.woff binary
+*.woff2 binary
+*.docx binary
+*.pdf binary
