@@ -73,3 +73,31 @@ test("the drawer has both a closed and an open state defined", () => {
   assert.match(CSS, /\.drawer\.open\s*\{[^}]*transform:\s*translateX\(0\)/);
   assert.match(CSS, /\.drawer\.open\s*\{[^}]*visibility:\s*visible/);
 });
+
+test("stylesheet and script URLs carry a content hash", async () => {
+  // Without this, a browser holding a cached copy never sees a CSS change —
+  // and clients that cached it under the old `immutable` header will not even
+  // revalidate. Changing the URL is the only thing that reaches them.
+  const html = await readFile("_site/index.html", "utf8");
+  assert.match(
+    html,
+    /href="\/assets\/css\/styles\.css\?v=[a-f0-9]{10}"/,
+    "styles.css must be cache-busted"
+  );
+  assert.match(
+    html,
+    /src="\/assets\/js\/site\.js\?v=[a-f0-9]{10}"/,
+    "site.js must be cache-busted"
+  );
+});
+
+test("the hash changes when the file changes", async () => {
+  const { createHash } = await import("node:crypto");
+  const css = await readFile("src/assets/css/styles.css");
+  const expected = createHash("sha1").update(css).digest("hex").slice(0, 10);
+  const html = await readFile("_site/index.html", "utf8");
+  assert.ok(
+    html.includes(`styles.css?v=${expected}`),
+    "the built hash must match the current stylesheet contents"
+  );
+});
