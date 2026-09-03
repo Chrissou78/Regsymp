@@ -39,6 +39,28 @@
       {
         "name": "OnchainLabs",
         "file": "onchainlabs.png"
+      },
+      {
+        "name": "TRM Labs",
+        "file": "trm-logo.png"
+      },
+      {
+        "name": "Criptan",
+        "file": "criptan.jpg"
+      }
+    ]
+  },
+  {
+    "tier": "mallorca-experience-partner",
+    "label": "Mallorca Experience Partners",
+    "logos": [
+      {
+        "name": "Bodegues Ribas",
+        "file": "bodegues-ribas.jpg"
+      },
+      {
+        "name": "Falcao Uno",
+        "file": "falcao-uno.png"
       }
     ]
   }

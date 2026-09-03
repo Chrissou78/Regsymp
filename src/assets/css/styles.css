@@ -2469,18 +2469,35 @@ body { background: var(--off-white); }
    letterboxes to ~29px tall regardless of max-height. Letting these rows
    flow lets each logo take its natural width, so max-height actually
    governs how large it renders. */
-.sponsor-row.founding-partner .slots,
-.sponsor-row.session-partner .slots,
-.sponsor-row.strategic-partner .slots {
+/* Applies to every tier, not an enumerated list: the admin can create new
+   tiers, and one added later must lay out correctly without a CSS change. */
+.sponsor-row .slots {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: clamp(28px, 4vw, 56px);
   grid-template-columns: none;
 }
-.sponsor-row.founding-partner .logo-slot,
-.sponsor-row.session-partner .logo-slot,
-.sponsor-row.strategic-partner .logo-slot { width: auto; max-width: 100%; }
+.sponsor-row .logo-slot {
+  width: auto;
+  max-width: 100%;
+  border: none;
+  background: none;
+  height: auto;
+  justify-content: flex-start;
+}
+/* Default logo size. Individual tiers override below. */
+.sponsor-row .logo-slot img {
+  height: clamp(56px, 7vw, 100px);
+  width: auto;
+  max-width: 100%;
+  max-height: none;
+  filter: none;
+  opacity: 1;
+}
+.sponsor-row .logo-slot:hover img { filter: none; opacity: 1; }
+.sponsor-row .label { color: var(--text-muted); }
+.sponsor-row.founding-partner .label { color: var(--navy); }
 .sponsor-row.founding-partner .logo-slot img {
   height: clamp(60px, 8vw, 110px);
   width: auto;
