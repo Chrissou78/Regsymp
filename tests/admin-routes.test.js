@@ -2,12 +2,14 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { SCHEMAS } from "../admin/schemas.js";
 
-// The admin is disabled unless GITHUB_CLIENT_ID is set, and server.js reads
-// it at module scope. Static imports are hoisted above these assignments, so
-// the server must be imported dynamically *after* the environment is set.
-process.env.GITHUB_CLIENT_ID = "test-client-id";
-process.env.GITHUB_CLIENT_SECRET = "test-secret";
-process.env.ADMIN_ALLOWLIST = "test-user";
+// The admin is disabled unless ADMIN_USERS is set, and server.js reads it at
+// module scope. Static imports are hoisted above these assignments, so the
+// server must be imported dynamically *after* the environment is set.
+// A real scrypt hash for the password "correct-horse-battery" so the
+// sign-in route can be exercised end to end.
+const { hashPassword } = await import("../admin/password.js");
+process.env.ADMIN_USERS = `admin@regsymp.com:${await hashPassword("correct-horse-battery")}`;
+process.env.GITHUB_TOKEN = "test-github-token";
 process.env.SESSION_SECRET = "test-session-secret";
 
 const { server } = await import("../server.js");
@@ -53,23 +55,85 @@ test("the sign-in page is reachable without a session", async () => {
   const res = await call("/admin/signin");
   assert.equal(res.status, 200);
   const body = await res.text();
-  assert.match(body, /Sign in with GitHub/);
+  assert.match(body, /RegSymp Admin/);
+  assert.match(body, /Sign in/);
   assert.match(body, /noindex, nofollow/);
 });
 
-test("starting OAuth redirects to GitHub with a state parameter", async () => {
-  const res = await call("/admin/auth");
-  assert.equal(res.status, 302);
-  const location = new URL(res.headers.get("location"));
-  assert.equal(location.host, "github.com");
-  assert.equal(location.searchParams.get("client_id"), "test-client-id");
-  assert.ok(location.searchParams.get("state"), "state must be present");
+test("the sign-in form is a normal email and password form", async () => {
+  const body = await (await call("/admin/signin")).text();
+  assert.match(body, /name="email"/);
+  assert.match(body, /name="password"/);
+  assert.match(body, /type="password"/);
+  assert.doesNotMatch(body, /github\.com/i, "no OAuth flow should remain");
 });
 
-test("the OAuth callback rejects a forged state", async () => {
-  const res = await call("/admin/auth/callback?code=x&state=forged");
-  assert.equal(res.status, 403);
-  assert.match(await res.text(), /invalid or has expired/i);
+test("wrong credentials are rejected without revealing which part was wrong", async () => {
+  const wrongPassword = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=nope"
+  });
+  const unknownUser = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=nobody@example.com&password=nope"
+  });
+
+  assert.equal(wrongPassword.status, 401);
+  assert.equal(unknownUser.status, 401);
+  const a = await wrongPassword.text();
+  const b = await unknownUser.text();
+  assert.match(a, /do not match/);
+  assert.equal(
+    a.replace(/\s+/g, ""),
+    b.replace(/\s+/g, ""),
+    "both failures must look identical, or the form enumerates accounts"
+  );
+});
+
+test("correct credentials issue a session cookie", async () => {
+  const res = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=correct-horse-battery"
+  });
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "/admin");
+
+  const cookie = res.headers.get("set-cookie");
+  assert.match(cookie, /regsymp_admin=[a-f0-9]{32,}/);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /Secure/);
+  assert.match(cookie, /SameSite=Lax/);
+});
+
+test("a signed-in session reaches the collections index", async () => {
+  const login = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=correct-horse-battery"
+  });
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+
+  const res = await call("/admin", { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  assert.match(body, /Collections/);
+  assert.match(body, /admin@regsymp\.com/, "the signed-in account is shown");
+  for (const label of ["Speakers", "Partners", "FAQ"]) {
+    assert.ok(body.includes(label), `missing ${label}`);
+  }
+});
+
+test("the session cookie never carries the GitHub token", async () => {
+  const res = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=correct-horse-battery"
+  });
+  const cookie = res.headers.get("set-cookie");
+  assert.ok(!cookie.includes("test-github-token"), "the token must stay server-side");
 });
 
 test("admin responses are never cached", async () => {

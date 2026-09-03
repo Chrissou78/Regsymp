@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { SCHEMAS, getSchema, validateRecord } from "./schemas.js";
 import { createClient, ConflictError } from "./github.js";
-import { authorizeUrl, csrfToken, isAllowed, parseCookies, verifyCsrf } from "./auth.js";
+import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
+import { parseUsers, verifyPassword } from "./password.js";
+import { createAttemptLimiter } from "./login-attempts.js";
 import { escape, errorList, field, layout } from "./render.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
 import { slugifyFilename } from "./sanitise.js";
@@ -113,16 +115,18 @@ export function uniqueFilename(desired, existing = []) {
 export function createAdmin(config) {
   const {
     sessions,
-    clientId,
-    clientSecret,
-    allowlist,
+    users: rawUsers,
+    githubToken,
     repo,
     branch,
     secret,
-    fetchImpl = fetch
+    fetchImpl = fetch,
+    attempts = createAttemptLimiter()
   } = config;
 
-  const states = new Map();
+  // Parsed once. An empty or malformed ADMIN_USERS yields no accounts, so
+  // the admin fails closed rather than open.
+  const users = parseUsers(rawUsers);
 
   const html = (res, status, body) => {
     res.writeHead(status, {
@@ -165,94 +169,41 @@ export function createAdmin(config) {
 
     // ---------------------------------------------------- unauthenticated
     if (path === "/admin/signin") {
-      html(
-        res,
-        200,
-        layout({
-          title: "Sign in",
-          user: null,
-          body: `<div class="a-signin">
-            <h1>RegSymp Admin</h1>
-            <p>Content editing is restricted to approved GitHub accounts.</p>
-            <a class="a-btn" href="/admin/auth">Sign in with GitHub</a>
-          </div>`
-        })
-      );
-      return true;
-    }
-
-    if (path === "/admin/auth") {
-      const state = randomBytes(16).toString("hex");
-      states.set(state, Date.now() + 10 * 60 * 1000);
-      const redirectUri = `${url.protocol}//${url.host}/admin/auth/callback`;
-      redirect(res, authorizeUrl({ clientId, redirectUri, state }));
-      return true;
-    }
-
-    if (path === "/admin/auth/callback") {
-      const state = url.searchParams.get("state");
-      const expiry = states.get(state);
-      states.delete(state);
-
-      if (!expiry || expiry < Date.now()) {
-        html(
-          res,
-          403,
-          layout({
-            title: "Sign in failed",
-            user: null,
-            body: `<p>That sign-in attempt is invalid or has expired.</p>
-                   <p><a href="/admin/signin">Try again</a></p>`
-          })
-        );
+      if (req.method === "GET") {
+        html(res, 200, signinPage());
         return true;
       }
 
-      const tokenRes = await fetchImpl("https://github.com/login/oauth/access_token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          client_id: clientId,
-          client_secret: clientSecret,
-          code: url.searchParams.get("code")
-        })
-      });
-      const tokenBody = await tokenRes.json().catch(() => ({}));
-      const token = tokenBody.access_token;
-
-      if (!token) {
-        html(
-          res,
-          403,
-          layout({
-            title: "Sign in failed",
-            user: null,
-            body: `<p>GitHub did not return a token.</p>
-                   <p><a href="/admin/signin">Try again</a></p>`
-          })
-        );
+      if (req.method !== "POST") {
+        res.setHeader("Allow", "GET, POST");
+        html(res, 405, signinPage("Method not allowed."));
         return true;
       }
 
-      const userRes = await fetchImpl("https://api.github.com/user", {
-        headers: { Authorization: `Bearer ${token}`, "User-Agent": "regsymp-admin" }
-      });
-      const user = await userRes.json().catch(() => ({}));
-
-      if (!isAllowed(user.login, allowlist)) {
-        html(
-          res,
-          403,
-          layout({
-            title: "Not permitted",
-            user: null,
-            body: `<p>${escape(user.login ?? "That account")} is not on the allowlist.</p>`
-          })
-        );
+      const source = clientKey(req);
+      if (attempts.isLocked(source)) {
+        const wait = Math.ceil(attempts.retryAfter(source) / 60);
+        html(res, 429, signinPage(`Too many attempts. Try again in ${wait} minute${wait === 1 ? "" : "s"}.`));
         return true;
       }
 
-      const id = sessions.create({ login: user.login }, token);
+      const form = await readForm(req, readBody);
+      const email = String(form.fields.email ?? "").trim().toLowerCase();
+      const password = String(form.fields.password ?? "");
+
+      const stored = users.get(email);
+      // Verify even when the account is unknown, so the response time does
+      // not reveal which addresses exist.
+      const ok = await verifyPassword(password, stored ?? "scrypt$00$00");
+
+      if (!ok || !stored) {
+        attempts.fail(source);
+        html(res, 401, signinPage("That email address and password do not match."));
+        return true;
+      }
+
+      attempts.succeed(source);
+      const id = sessions.create({ email }, githubToken);
       redirect(res, "/admin", {
         "Set-Cookie":
           `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
@@ -278,7 +229,7 @@ export function createAdmin(config) {
       return true;
     }
 
-    const gh = createClient({ token: session.token, repo, branch, fetchImpl });
+    const gh = createClient({ token: githubToken, repo, branch, fetchImpl });
     const token = csrfToken(session.id, secret);
 
     if (path === "/admin") {
@@ -368,7 +319,7 @@ export function createAdmin(config) {
       const commit = await gh.putFile({
         path: schema.file,
         content: serialise(result.value),
-        message: `Update site settings via admin (${session.user.login})`,
+        message: `Update site settings via admin (${session.user.email})`,
         sha: file.sha
       });
       html(res, 200, layout({ title: "Saved", user: session.user, body: savedBody(commit, `/admin/${collection}`, schema.label) }));
@@ -425,10 +376,10 @@ export function createAdmin(config) {
 
     if (action === "delete") {
       nextList = applyDelete(list, indexPart);
-      message = `Remove ${schema.label} entry via admin (${session.user.login})`;
+      message = `Remove ${schema.label} entry via admin (${session.user.email})`;
     } else if (action === "move") {
       nextList = applyMove(list, indexPart, form.fields.direction);
-      message = `Reorder ${schema.label} via admin (${session.user.login})`;
+      message = `Reorder ${schema.label} via admin (${session.user.email})`;
     } else {
       const input = { ...form.fields };
 
@@ -452,7 +403,7 @@ export function createAdmin(config) {
         return true;
       }
       nextList = result.list;
-      message = `Update ${schema.label} via admin (${session.user.login})`;
+      message = `Update ${schema.label} via admin (${session.user.email})`;
     }
 
     const nextDoc = setList(schema, doc, listKey, nextList);
@@ -483,7 +434,7 @@ export function createAdmin(config) {
     await gh.putFile({
       path: `${dir}/${name}`,
       content: upload.data,
-      message: `Upload ${name} via admin (${session.user.login})`,
+      message: `Upload ${name} via admin (${session.user.email})`,
       isBinary: true
     });
     return name;
@@ -493,6 +444,37 @@ export function createAdmin(config) {
 }
 
 /* ------------------------------------------------------------- helpers */
+
+function clientKey(req) {
+  // Behind a proxy the socket address is the proxy's, so prefer the
+  // forwarded client address when one is present.
+  const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
+  return fwd || req.socket?.remoteAddress || "unknown";
+}
+
+function signinPage(error) {
+  return layout({
+    title: "Sign in",
+    user: null,
+    flash: error ? { kind: "error", message: error } : null,
+    body: `<div class="a-signin">
+      <h1>RegSymp Admin</h1>
+      <p>Sign in to manage speakers, partners and the rest of the site.</p>
+      <form method="post" action="/admin/signin" class="a-form a-form--signin">
+        <div class="a-field">
+          <label for="f-email">Email</label>
+          <input id="f-email" name="email" type="email" autocomplete="username" required autofocus>
+        </div>
+        <div class="a-field">
+          <label for="f-password">Password</label>
+          <input id="f-password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="a-actions"><button class="a-btn" type="submit">Sign in</button></div>
+      </form>
+    </div>`
+  });
+}
+
 
 function requireCsrf(sessionId, given, secret) {
   if (!verifyCsrf(sessionId, given, secret)) {

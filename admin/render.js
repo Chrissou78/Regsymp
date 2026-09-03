@@ -24,7 +24,7 @@ export function layout({ title, user, body, flash }) {
   <a class="a-brand" href="/admin">RegSymp Admin</a>
   <div class="a-user">${
     user
-      ? `<span>${escape(user.login)}</span><a href="/admin/signout">Sign out</a>`
+      ? `<span>${escape(user.email ?? user.login)}</span><a href="/admin/signout">Sign out</a>`
       : ""
   }</div>
 </header>

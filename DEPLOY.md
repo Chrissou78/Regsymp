@@ -70,30 +70,67 @@ and failure modes.
 ## Admin interface
 
 `/admin` manages every file in `src/_data/` and the images they reference.
-Each change is committed to git, so history, attribution and rollback come
-free.
+Each change is committed to git, so history and rollback come free.
 
-It is **disabled unless `GITHUB_CLIENT_ID` is set**, so deploying this code
-without configuring it exposes nothing.
+It is **disabled unless `ADMIN_USERS` is set**, so deploying this code without
+configuring it exposes nothing.
 
 ### Setup
 
-1. Register a GitHub OAuth app with the callback URL
-   `https://regsymp.com/admin/auth/callback`.
-2. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `ADMIN_ALLOWLIST` and
-   `SESSION_SECRET` in the environment, then restart.
-3. Sign in at `/admin` with a GitHub account on the allowlist.
+1. Create an account:
 
-Commits are made with the signed-in user's token, so the git log records who
-changed what. The allowlist fails closed: if it is empty, nobody can sign in.
+   ```bash
+   npm run admin:user
+   ```
+
+   It asks for an email and password, prints an `email:hash` line, and never
+   writes the password anywhere. Passwords are hashed with scrypt and a
+   per-account salt.
+
+2. Set the environment variables and restart:
+
+   ```
+   ADMIN_USERS=you@example.com:scrypt$...
+   GITHUB_TOKEN=github_pat_...
+   CONTENT_REPO=OC-Labs/regsymp
+   CONTENT_BRANCH=prod
+   SESSION_SECRET=<random hex>
+   ```
+
+   No quotes around any value.
+
+3. Sign in at `/admin`.
+
+`ADMIN_USERS` fails closed: empty means nobody can sign in. Add colleagues by
+comma-separating more `email:hash` pairs.
+
+### The GitHub token
+
+Content edits are committed with `GITHUB_TOKEN`, so it needs write access to
+`CONTENT_REPO`. A fine-grained personal access token with **Contents: Read and
+write**, scoped to that single repository, is sufficient — it does not need
+access to anything else.
+
+Because one token makes every commit, git records the change but not which
+person made it. The admin does put the signed-in email in each commit message,
+so the history is still attributable by reading the message.
+
+### Sign-in security
+
+- Passwords are hashed with scrypt (N=16384), never stored or logged in clear.
+- A wrong password and an unknown account return byte-identical responses, so
+  the form cannot be used to discover which addresses exist.
+- Eight failed attempts from one address triggers a 15-minute lockout, counted
+  per source so one attacker cannot lock everyone out.
+- Sessions are held server-side; the cookie carries only an opaque id, and is
+  `HttpOnly`, `Secure` and `SameSite=Lax`.
+- Sessions live in memory, so a restart or redeploy signs everyone out.
 
 ### `prod` must never be force-pushed
 
 Content now lives on `OC-Labs/regsymp@prod`. Deploys used to end with
 `git push prod prod --force-with-lease`, which rewrites that branch to match
 `main` — that would delete every content edit.
-
-Code changes flow:
 
 ```bash
 git push origin main

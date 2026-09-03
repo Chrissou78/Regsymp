@@ -55,15 +55,14 @@ const REVALIDATE = "public, max-age=0, must-revalidate";
 const MAX_BODY_BYTES = 64 * 1024;
 
 /**
- * The admin is disabled entirely unless GITHUB_CLIENT_ID is set, so an
+ * The admin is disabled entirely unless ADMIN_USERS is set, so an
  * unconfigured deploy exposes no admin surface at all.
  */
-const admin = env("GITHUB_CLIENT_ID")
+const admin = env("ADMIN_USERS")
   ? createAdmin({
       sessions: createSessions(),
-      clientId: env("GITHUB_CLIENT_ID"),
-      clientSecret: env("GITHUB_CLIENT_SECRET"),
-      allowlist: env("ADMIN_ALLOWLIST"),
+      users: env("ADMIN_USERS"),
+      githubToken: env("GITHUB_TOKEN"),
       repo: env("CONTENT_REPO") || "OC-Labs/regsymp",
       branch: env("CONTENT_BRANCH") || "prod",
       secret: env("SESSION_SECRET") || randomUUID()
