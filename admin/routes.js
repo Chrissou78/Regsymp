@@ -146,6 +146,17 @@ export function createAdmin(config) {
   // Accounts live in the content repository, so admins can be added through
   // the web interface without anyone needing server access. ADMIN_USERS
   // remains as an environment fallback for recovery.
+  /** Can the current token actually read the content repository? */
+  async function tokenWorks() {
+    if (!token$()) return false;
+    try {
+      const gh = createClient({ token: token$(), repo, branch, fetchImpl });
+      return (await gh.getFile("admin/users.json")) !== null;
+    } catch {
+      return false;
+    }
+  }
+
   const storeFor = () =>
     createUserStore({
       gh: createClient({ token: token$(), repo, branch, fetchImpl }),
@@ -199,7 +210,11 @@ export function createAdmin(config) {
     if (path.startsWith("/admin/setup/")) {
       const supplied = path.slice("/admin/setup/".length);
 
-      if (isConfigured()) {
+      // Deliberately checks whether the token *works*, not merely whether one
+      // exists. A token that cannot reach the repository would otherwise
+      // block the very page needed to replace it, leaving no way to recover
+      // short of waiting for a redeploy.
+      if (isConfigured() && (await tokenWorks())) {
         html(res, 404, layout({
           title: "Not found",
           user: null,
@@ -249,7 +264,7 @@ export function createAdmin(config) {
       return true;
     }
 
-    // Nothing else works until a token is available.
+    // Nothing else works until a usable token is available.
     if (!isConfigured()) {
       html(res, 503, layout({
         title: "Not configured",
