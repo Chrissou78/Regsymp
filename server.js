@@ -7,6 +7,7 @@ import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.
 import { createAdmin } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
 import { isConfigured as adminIsConfigured } from "./admin/runtime-config.js";
+import { contentStatus as adminContentStatus } from "./admin/content-status.js";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -174,6 +175,10 @@ const server = createServer(async (req, res) => {
       // these fields tell the two apart instead of guessing.
       adminMounted: true,
       adminConfigured: adminIsConfigured(),
+      // Whether the token can actually reach the content repository. A token
+      // that is valid but lacks access looks identical to a missing invite,
+      // because an unreadable users file yields no accounts and no invites.
+      content: await adminContentStatus(),
       ...configStatus()
     });
   }
