@@ -30,6 +30,9 @@ export function createClient({ token, repo, branch, fetchImpl = fetch }) {
   async function getFile(path) {
     const url = `${API}/repos/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`;
     const res = await fetchImpl(url, { headers });
+    // Record the status so callers can tell "bad token" from "no access" from
+    // "wrong repo". Returning a bare null made all three look identical.
+    getFile.lastStatus = res.status;
     if (!res.ok) return null;
     const body = await res.json();
     return {

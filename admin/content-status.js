@@ -22,11 +22,18 @@ export async function contentStatus() {
     const gh = createClient({ token, repo, branch });
     const file = await gh.getFile("admin/users.json");
     if (!file) {
+      const status = gh.getFile.lastStatus;
+      const reasons = {
+        401: "token rejected by GitHub - it may be revoked, expired, or mistyped",
+        403: "token lacks permission - a fine-grained token may be pending org approval",
+        404: "repo, branch or file not found for this token - check the resource owner is the org and that Contents access includes this repository"
+      };
       return {
         repo,
         branch,
         readable: false,
-        reason: "admin/users.json not readable — check the token's repository access"
+        httpStatus: status ?? null,
+        reason: reasons[status] ?? `admin/users.json not readable (HTTP ${status})`
       };
     }
     const parsed = JSON.parse(file.content);
