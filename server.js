@@ -184,10 +184,12 @@ const server = createServer(async (req, res) => {
         "x-forwarded-host": req.headers["x-forwarded-host"] ?? null,
         "x-forwarded-proto": req.headers["x-forwarded-proto"] ?? null
       },
-      // Whether the token can actually reach the content repository. A token
-      // that is valid but lacks access looks identical to a missing invite,
-      // because an unreadable users file yields no accounts and no invites.
-      content: await adminContentStatus(),
+      // Deliberately NOT checked by default: this calls the GitHub API, and
+      // a health endpoint that waits on a third party will look unhealthy
+      // whenever that third party is slow — which on a platform that probes
+      // this route means a restart loop. Ask for it explicitly instead:
+      //   /api/health?content=1
+      ...(url.searchParams.get("content") ? { content: await adminContentStatus() } : {}),
       ...configStatus()
     });
   }

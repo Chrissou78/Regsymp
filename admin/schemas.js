@@ -61,7 +61,7 @@ export const SCHEMAS = {
       F("file", "image", { dir: "src/assets/images", required: true }),
       F("modifier", "text", {
         max: 60,
-        help: "Optional CSS class for bespoke sizing, e.g. logo-lmax."
+        help: "Optional size adjustment: logo-smaller, logo-larger or logo-largest. Leave blank for the default."
       })
     ]
   },

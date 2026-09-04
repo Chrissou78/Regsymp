@@ -101,3 +101,15 @@ test("the hash changes when the file changes", async () => {
     "the built hash must match the current stylesheet contents"
   );
 });
+
+test("logo size modifiers exist and differ from the default", () => {
+  // logo-lmax was a one-off name meaning "smaller"; logo-smaller is the same
+  // rule named for what it does, and the old name is kept so existing data
+  // keeps working.
+  assert.match(CSS, /\.logo-slot\.logo-lmax img[\s\S]{0,120}height:\s*clamp\(45px/);
+  assert.match(CSS, /\.logo-slot\.logo-smaller img/);
+  assert.match(CSS, /\.logo-slot\.logo-larger img[\s\S]{0,80}height:\s*clamp\(72px/);
+  assert.match(CSS, /\.logo-slot\.logo-largest img[\s\S]{0,80}height:\s*clamp\(90px/);
+  // the default a logo gets with no modifier at all
+  assert.match(CSS, /\.sponsor-row \.logo-slot img\s*\{[\s\S]{0,120}height:\s*clamp\(56px/);
+});

@@ -227,3 +227,22 @@ test("health reports whether the admin code is present and configured", async ()
   assert.equal(body.adminMounted, true, "absence of this field means old code is running");
   assert.equal(typeof body.adminConfigured, "boolean");
 });
+
+test("health does no network I/O unless asked", async () => {
+  // A health endpoint that waits on GitHub looks unhealthy whenever GitHub is
+  // slow, which on a platform that probes this route means a restart loop.
+  const started = Date.now();
+  const res = await get("/api/health");
+  const elapsed = Date.now() - started;
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(!("content" in body), "the repo check must be opt-in");
+  assert.ok(elapsed < 500, `health took ${elapsed}ms; it must not wait on a third party`);
+});
+
+test("the repo check is available on request", async () => {
+  const body = await (await get("/api/health?content=1")).json();
+  assert.ok("content" in body);
+  assert.equal(typeof body.content.readable, "boolean");
+});

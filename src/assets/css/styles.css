@@ -2517,11 +2517,24 @@ body { background: var(--off-white); }
   max-width: 100%;
   max-height: none;
 }
-/* LMAX supplied a 6:1 lockup whose glyphs occupy 66.0% of the image height,
-   against Asensi's 53.0%. This clamp keeps the two in an 80:100 ratio, so
-   their letters render at the same height on every viewport. */
-.sponsor-row .logo-slot.logo-lmax img {
+/* Optional per-logo size adjustments.
+   Logos differ in how much of their image the lettering actually fills, so
+   two logos at the same box height can look very different. These let one be
+   nudged without touching the tier.
+
+   logo-lmax is the original name for the smaller size, kept so existing data
+   keeps working; logo-smaller is the same thing, named for what it does. */
+.sponsor-row .logo-slot.logo-lmax img,
+.sponsor-row .logo-slot.logo-smaller img {
   height: clamp(45px, 5.6vw, 80px);
+  max-height: none;
+}
+.sponsor-row .logo-slot.logo-larger img {
+  height: clamp(72px, 9vw, 130px);
+  max-height: none;
+}
+.sponsor-row .logo-slot.logo-largest img {
+  height: clamp(90px, 11vw, 165px);
   max-height: none;
 }
 .sponsor-row.strategic-partner .logo-slot img {
