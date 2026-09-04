@@ -158,3 +158,18 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   .a-row { flex-wrap: wrap; }
   .a-row-name { flex-basis: 100%; }
 }
+
+/* ---------- account management ---------- */
+.a-subhead { font-size: 15px; font-weight: 600; margin: 34px 0 6px; }
+.a-admins { margin-top: 28px; font-size: 14px; }
+.a-invite-link {
+  width: 100%;
+  padding: 9px 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  border: 1px solid var(--a-line);
+  border-radius: 3px;
+  background: #fff;
+}
+.a-form--signin { margin: 0 auto; text-align: left; max-width: 340px; }
+.a-signin .a-actions { justify-content: center; }

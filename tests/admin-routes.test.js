@@ -26,7 +26,12 @@ after(() => new Promise((resolve) => server.close(resolve)));
 const call = (path, init) => fetch(base + path, { redirect: "manual", ...init });
 
 test("every admin route requires a session", async () => {
-  const guarded = [["GET", "/admin"], ["GET", "/admin/nonexistent"]];
+  const guarded = [
+    ["GET", "/admin"],
+    ["GET", "/admin/nonexistent"],
+    ["GET", "/admin/users"],
+    ["POST", "/admin/users"]
+  ];
 
   // Derive the route list from the schemas so a collection added later is
   // covered automatically rather than being silently unguarded.
@@ -159,4 +164,58 @@ test("the admin stylesheet is served", async () => {
   const res = await call("/assets/css/admin.css");
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type"), /text\/css/);
+});
+
+// -------------------------------------------------------------- invitations
+
+test("an invalid invitation token is refused", async () => {
+  for (const token of ["nonsense", "0".repeat(64), ""]) {
+    const res = await call(`/admin/invite/${token}`);
+    assert.ok([403, 302].includes(res.status), `token ${token} returned ${res.status}`);
+    if (res.status === 403) {
+      assert.match(await res.text(), /invalid, already used, or expired/);
+    }
+  }
+});
+
+test("redeeming an invalid invitation cannot create an account", async () => {
+  const res = await call("/admin/invite/deadbeef", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "password=a-long-enough-password&confirm=a-long-enough-password"
+  });
+  assert.equal(res.status, 403);
+});
+
+test("the account management page is reachable when signed in", async () => {
+  const login = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=correct-horse-battery"
+  });
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+
+  const res = await call("/admin/users", { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  assert.match(body, /Admin accounts/);
+  assert.match(body, /Invite someone/);
+  assert.match(body, /admin@regsymp\.com/);
+});
+
+test("inviting without a CSRF token is rejected", async () => {
+  const login = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=correct-horse-battery"
+  });
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+
+  const res = await call("/admin/users", {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=attacker@example.com"
+  });
+  assert.ok(res.status >= 400, `expected a rejection, got ${res.status}`);
+  assert.doesNotMatch(await res.text(), /Invitation created/);
 });

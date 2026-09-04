@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { SCHEMAS, getSchema, validateRecord } from "./schemas.js";
 import { createClient, ConflictError } from "./github.js";
 import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
-import { parseUsers, verifyPassword } from "./password.js";
+import { createUserStore } from "./users-store.js";
 import { createAttemptLimiter } from "./login-attempts.js";
 import { escape, errorList, field, layout } from "./render.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
@@ -124,9 +124,11 @@ export function createAdmin(config) {
     attempts = createAttemptLimiter()
   } = config;
 
-  // Parsed once. An empty or malformed ADMIN_USERS yields no accounts, so
-  // the admin fails closed rather than open.
-  const users = parseUsers(rawUsers);
+  // Accounts live in the content repository, so admins can be added through
+  // the web interface without anyone needing server access. ADMIN_USERS
+  // remains as an environment fallback for recovery.
+  const contentGh = createClient({ token: githubToken, repo, branch, fetchImpl });
+  const store = createUserStore({ gh: contentGh, fallbackUsers: rawUsers });
 
   const html = (res, status, body) => {
     res.writeHead(status, {
@@ -160,7 +162,7 @@ export function createAdmin(config) {
     return session ? { id, ...session } : null;
   }
 
-  async function handle(req, res, url) {
+  async function route(req, res, url) {
     // Strip a trailing slash, but never collapse "/" itself — doing so and
     // defaulting to "/admin" made the admin swallow the site's home page.
     const raw = url.pathname;
@@ -191,12 +193,9 @@ export function createAdmin(config) {
       const email = String(form.fields.email ?? "").trim().toLowerCase();
       const password = String(form.fields.password ?? "");
 
-      const stored = users.get(email);
-      // Verify even when the account is unknown, so the response time does
-      // not reveal which addresses exist.
-      const ok = await verifyPassword(password, stored ?? "scrypt$00$00");
+      const ok = await store.verify(email, password);
 
-      if (!ok || !stored) {
+      if (!ok) {
         attempts.fail(source);
         html(res, 401, signinPage("That email address and password do not match."));
         return true;
@@ -208,6 +207,50 @@ export function createAdmin(config) {
         "Set-Cookie":
           `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
       });
+      return true;
+    }
+
+    // Redeeming an invitation is necessarily unauthenticated: the whole
+    // point is that the person does not have an account yet. The token is
+    // the credential, and it is single-use and time-limited.
+    if (path.startsWith("/admin/invite/")) {
+      const token = path.slice("/admin/invite/".length);
+      const invite = await store.findInvite(token).catch(() => null);
+
+      if (!invite) {
+        html(res, 403, layout({
+          title: "Invitation",
+          user: null,
+          flash: { kind: "error", message: "That invitation is invalid, already used, or expired." },
+          body: `<p><a href="/admin/signin">Go to sign in</a></p>`
+        }));
+        return true;
+      }
+
+      if (req.method === "GET") {
+        html(res, 200, invitePage(token, invite.email));
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      const password = String(form.fields.password ?? "");
+      const confirm = String(form.fields.confirm ?? "");
+
+      if (password !== confirm) {
+        html(res, 400, invitePage(token, invite.email, "Those passwords do not match."));
+        return true;
+      }
+
+      try {
+        const email = await store.redeemInvite(token, password);
+        const id = sessions.create({ email }, githubToken);
+        redirect(res, "/admin", {
+          "Set-Cookie":
+            `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
+        });
+      } catch (err) {
+        html(res, 400, invitePage(token, invite.email, err.message));
+      }
       return true;
     }
 
@@ -232,6 +275,38 @@ export function createAdmin(config) {
     const gh = createClient({ token: githubToken, repo, branch, fetchImpl });
     const token = csrfToken(session.id, secret);
 
+    if (path === "/admin/users") {
+      if (req.method === "GET") {
+        html(res, 200, await usersPage({ store, session, token, origin: `${url.protocol}//${url.host}` }));
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret);
+
+      try {
+        if (form.fields.action === "revoke") {
+          await store.revokeInvite(form.fields.email, session.user.email);
+        } else if (form.fields.action === "remove") {
+          await store.removeUser(form.fields.email, session.user.email);
+        } else {
+          const raw = await store.createInvite(form.fields.email, session.user.email);
+          const link = `${url.protocol}//${url.host}/admin/invite/${raw}`;
+          html(res, 200, await usersPage({
+            store, session, token, origin: `${url.protocol}//${url.host}`,
+            invited: { email: String(form.fields.email).trim().toLowerCase(), link }
+          }));
+          return true;
+        }
+        redirect(res, "/admin/users");
+      } catch (err) {
+        html(res, 400, await usersPage({
+          store, session, token, origin: `${url.protocol}//${url.host}`, error: err.message
+        }));
+      }
+      return true;
+    }
+
     if (path === "/admin") {
       const rows = Object.entries(SCHEMAS)
         .map(
@@ -248,7 +323,8 @@ export function createAdmin(config) {
           body: `<h1>Collections</h1>
             <p class="a-lede">Changes are committed to <code>${escape(repo)}</code> on
             <code>${escape(branch)}</code> and go live once the deploy completes.</p>
-            <ul class="a-list">${rows}</ul>`
+            <ul class="a-list">${rows}</ul>
+            <p class="a-admins"><a href="/admin/users">Manage admin accounts</a></p>`
         })
       );
       return true;
@@ -440,6 +516,37 @@ export function createAdmin(config) {
     return name;
   }
 
+  /**
+   * Every thrown error must still produce a response. Without this an
+   * unexpected throw — a rejected CSRF check, a GitHub outage — left the
+   * request open until the client gave up, with no page and no clue why.
+   */
+  async function handle(req, res, url) {
+    try {
+      return await route(req, res, url);
+    } catch (err) {
+      if (res.headersSent || res.writableEnded) return true;
+      const isCsrf = err?.code === "CSRF";
+      console.error("admin error:", err?.message ?? err);
+      html(
+        res,
+        isCsrf ? 403 : 500,
+        layout({
+          title: "Something went wrong",
+          user: null,
+          flash: {
+            kind: "error",
+            message: isCsrf
+              ? "That form has expired. Please reload the page and try again."
+              : "Something went wrong. Nothing was saved."
+          },
+          body: `<p><a href="/admin">Back to the admin</a></p>`
+        })
+      );
+      return true;
+    }
+  }
+
   return { handle };
 }
 
@@ -450,6 +557,100 @@ function clientKey(req) {
   // forwarded client address when one is present.
   const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
   return fwd || req.socket?.remoteAddress || "unknown";
+}
+
+
+function invitePage(token, email, error) {
+  return layout({
+    title: "Set your password",
+    user: null,
+    flash: error ? { kind: "error", message: error } : null,
+    body: `<div class="a-signin">
+      <h1>Welcome to RegSymp Admin</h1>
+      <p>Set a password for <strong>${escape(email)}</strong>. At least 12 characters.</p>
+      <form method="post" action="/admin/invite/${escape(token)}" class="a-form a-form--signin">
+        <div class="a-field">
+          <label for="f-password">Password</label>
+          <input id="f-password" name="password" type="password" autocomplete="new-password"
+                 minlength="12" required autofocus>
+        </div>
+        <div class="a-field">
+          <label for="f-confirm">Confirm password</label>
+          <input id="f-confirm" name="confirm" type="password" autocomplete="new-password"
+                 minlength="12" required>
+        </div>
+        <div class="a-actions"><button class="a-btn" type="submit">Create account</button></div>
+      </form>
+    </div>`
+  });
+}
+
+async function usersPage({ store, session, token, invited, error }) {
+  const users = await store.listUsers();
+  const invites = await store.listInvites();
+
+  const userRows = users
+    .map((u) => `<li class="a-row">
+      <span class="a-row-name">${escape(u.email)}${
+        u.source === "environment" ? ' <span class="a-count">set on the server</span>' : ""
+      }</span>
+      ${
+        u.source === "repository" && u.email !== session.user.email
+          ? `<form method="post" action="/admin/users" class="a-inline"
+                 onsubmit="return confirm('Remove ${escape(u.email)}?')">
+               <input type="hidden" name="csrf" value="${escape(token)}">
+               <input type="hidden" name="action" value="remove">
+               <input type="hidden" name="email" value="${escape(u.email)}">
+               <button class="a-danger">Remove</button>
+             </form>`
+          : '<span class="a-count">you</span>'
+      }
+    </li>`)
+    .join("");
+
+  const inviteRows = invites
+    .map((i) => `<li class="a-row">
+      <span class="a-row-name">${escape(i.email)}
+        <span class="a-count">invited, not yet accepted</span></span>
+      <form method="post" action="/admin/users" class="a-inline">
+        <input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="action" value="revoke">
+        <input type="hidden" name="email" value="${escape(i.email)}">
+        <button class="a-danger">Revoke</button>
+      </form>
+    </li>`)
+    .join("");
+
+  const invitedBlock = invited
+    ? `<div class="a-flash">
+         <p>Invitation created for <strong>${escape(invited.email)}</strong>.
+         Send them this link — it works once and expires in seven days.</p>
+         <p><input class="a-invite-link" type="text" readonly value="${escape(invited.link)}"
+                   onclick="this.select()"></p>
+       </div>`
+    : "";
+
+  return layout({
+    title: "Admin accounts",
+    user: session.user,
+    flash: error ? { kind: "error", message: error } : null,
+    body: `<h1>Admin accounts</h1>
+      <p class="a-lede">Anyone listed here can edit the site. Invitations are single-use
+      and expire after seven days.</p>
+      ${invitedBlock}
+      <ul class="a-rows">${userRows}</ul>
+      ${inviteRows ? `<h2 class="a-subhead">Pending invitations</h2><ul class="a-rows">${inviteRows}</ul>` : ""}
+      <h2 class="a-subhead">Invite someone</h2>
+      <form method="post" action="/admin/users" class="a-form">
+        <input type="hidden" name="csrf" value="${escape(token)}">
+        <div class="a-field">
+          <label for="f-invite">Email</label>
+          <input id="f-invite" name="email" type="email" required>
+        </div>
+        <div class="a-actions"><button class="a-btn" type="submit">Create invitation</button></div>
+      </form>
+      <p><a href="/admin">Back to collections</a></p>`
+  });
 }
 
 function signinPage(error) {
