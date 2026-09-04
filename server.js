@@ -55,10 +55,14 @@ const REVALIDATE = "public, max-age=0, must-revalidate";
 const MAX_BODY_BYTES = 64 * 1024;
 
 /**
- * The admin is disabled entirely unless ADMIN_USERS is set, so an
+ * The admin is disabled entirely unless GITHUB_TOKEN is set, so an
  * unconfigured deploy exposes no admin surface at all.
+ *
+ * The gate is the token, not ADMIN_USERS: accounts live in the content
+ * repository now, so ADMIN_USERS is normally empty. Without a token the
+ * admin can neither read accounts nor commit, so it has nothing to offer.
  */
-const admin = env("ADMIN_USERS")
+const admin = env("GITHUB_TOKEN")
   ? createAdmin({
       sessions: createSessions(),
       users: env("ADMIN_USERS"),

@@ -1,5 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { SCHEMAS } from "../admin/schemas.js";
 
 // The admin is disabled unless ADMIN_USERS is set, and server.js reads it at
@@ -218,4 +219,17 @@ test("inviting without a CSRF token is rejected", async () => {
   });
   assert.ok(res.status >= 400, `expected a rejection, got ${res.status}`);
   assert.doesNotMatch(await res.text(), /Invitation created/);
+});
+
+test("the admin is gated on GITHUB_TOKEN, not on ADMIN_USERS", async () => {
+  // Accounts live in the content repository, so ADMIN_USERS is normally
+  // empty. Gating on it would leave a correctly configured deploy serving
+  // 404s for every admin route.
+  const source = await readFile("server.js", "utf8");
+  assert.match(
+    source,
+    /const admin = env\("GITHUB_TOKEN"\)/,
+    "the admin must be enabled by the GitHub token"
+  );
+  assert.doesNotMatch(source, /const admin = env\("ADMIN_USERS"\)/);
 });

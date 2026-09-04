@@ -72,65 +72,77 @@ and failure modes.
 `/admin` manages every file in `src/_data/` and the images they reference.
 Each change is committed to git, so history and rollback come free.
 
-It is **disabled unless `ADMIN_USERS` is set**, so deploying this code without
-configuring it exposes nothing.
+Admin accounts live in the content repository, not the environment, so adding
+an admin needs no server access at all — an existing admin invites a colleague
+from the web interface.
+
+It is **disabled unless `GITHUB_TOKEN` is set**, so deploying this code without
+configuring it exposes nothing. The gate is the token rather than the account
+list, because without a token the admin can neither read accounts nor commit.
 
 ### Setup
 
-1. Create an account:
+Set two variables in the host's dashboard and restart:
 
-   ```bash
-   npm run admin:user
-   ```
+```
+GITHUB_TOKEN=github_pat_...
+SESSION_SECRET=<random hex>
+```
 
-   It asks for an email and password, prints an `email:hash` line, and never
-   writes the password anywhere. Passwords are hashed with scrypt and a
-   per-account salt.
+No quotes around either value. Generate the secret with:
 
-2. Set the environment variables and restart:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-   ```
-   ADMIN_USERS=you@example.com:scrypt$...
-   GITHUB_TOKEN=github_pat_...
-   CONTENT_REPO=OC-Labs/regsymp
-   CONTENT_BRANCH=prod
-   SESSION_SECRET=<random hex>
-   ```
+`CONTENT_REPO` and `CONTENT_BRANCH` default to `OC-Labs/regsymp` and `prod`,
+so they only need setting if that changes.
 
-   No quotes around any value.
-
-3. Sign in at `/admin`.
-
-`ADMIN_USERS` fails closed: empty means nobody can sign in. Add colleagues by
-comma-separating more `email:hash` pairs.
+Then open the invitation link for the first account, set a password, and sign
+in. Every account after that is created from **Manage admin accounts** inside
+the admin.
 
 ### The GitHub token
 
 Content edits are committed with `GITHUB_TOKEN`, so it needs write access to
 `CONTENT_REPO`. A fine-grained personal access token with **Contents: Read and
-write**, scoped to that single repository, is sufficient — it does not need
-access to anything else.
+write**, scoped to that single repository, is sufficient.
 
 Because one token makes every commit, git records the change but not which
-person made it. The admin does put the signed-in email in each commit message,
-so the history is still attributable by reading the message.
+person made it. The signed-in email goes into each commit message, so the
+history is still attributable by reading it.
+
+### Accounts and invitations
+
+Accounts are stored in `admin/users.json` on the content branch. That file
+exists **only on `prod`**, which is private: `main` mirrors to a public
+repository and password hashes do not belong there. It is listed in
+`.gitignore` so it cannot reach `main` by accident.
+
+- Invitations are single-use and expire after seven days.
+- Only the SHA-256 digest of an invitation token is stored, so a copy of the
+  file does not let anyone redeem an outstanding invitation.
+- The last remaining admin cannot be removed.
+- `ADMIN_USERS` still works as an environment fallback, for recovery if the
+  stored file is ever damaged. It is not needed in normal operation.
 
 ### Sign-in security
 
 - Passwords are hashed with scrypt (N=16384), never stored or logged in clear.
-- A wrong password and an unknown account return byte-identical responses, so
-  the form cannot be used to discover which addresses exist.
+- A wrong password and an unknown account return byte-identical responses, and
+  both run the full key derivation, so neither the body nor the timing reveals
+  which addresses exist.
 - Eight failed attempts from one address triggers a 15-minute lockout, counted
   per source so one attacker cannot lock everyone out.
 - Sessions are held server-side; the cookie carries only an opaque id, and is
   `HttpOnly`, `Secure` and `SameSite=Lax`.
 - Sessions live in memory, so a restart or redeploy signs everyone out.
 
-### `prod` must never be force-pushed
+### `prod` must never be force-pushed, nor merged back into `main`
 
-Content now lives on `OC-Labs/regsymp@prod`. Deploys used to end with
-`git push prod prod --force-with-lease`, which rewrites that branch to match
-`main` — that would delete every content edit.
+Content and admin accounts live on `OC-Labs/regsymp@prod`. A force-push would
+delete them, and merging `prod` into `main` would publish password hashes to
+the public mirror.
 
 ```bash
 git push origin main
