@@ -200,7 +200,7 @@ test("the account management page is reachable when signed in", async () => {
   assert.equal(res.status, 200);
   const body = await res.text();
   assert.match(body, /Admin accounts/);
-  assert.match(body, /Invite someone/);
+  assert.match(body, /Add an admin/);
   assert.match(body, /admin@regsymp\.com/);
 });
 

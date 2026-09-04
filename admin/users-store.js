@@ -86,6 +86,32 @@ export function createUserStore({ gh, path = DEFAULT_PATH, fallbackUsers = "", n
       return parseUsers(fallbackUsers).get(key) ?? null;
     },
 
+    /**
+     * Only the owner may manage accounts.
+     *
+     * The owner is whichever record carries `owner: true`, falling back to
+     * the first account in the file — the one that bootstrapped the admin.
+     * That needs no configuration and no migration, and an explicit flag can
+     * move it later without a code change.
+     */
+    async isOwner(email) {
+      const key = String(email ?? "").trim().toLowerCase();
+      if (!key) return false;
+      const data = await read();
+      // Recovery: with no accounts in the repository the only way to be
+      // signed in at all is the environment fallback, and that account must
+      // be able to repair things.
+      if (data.users.length === 0) return true;
+      const explicit = data.users.find((u) => u.owner === true);
+      if (explicit) return explicit.email === key;
+      return data.users[0]?.email === key;
+    },
+
+    async ownerEmail() {
+      const data = await read();
+      return (data.users.find((u) => u.owner === true) ?? data.users[0])?.email ?? null;
+    },
+
     async listUsers() {
       const data = await read();
       const envUsers = [...parseUsers(fallbackUsers).keys()].map((email) => ({
@@ -156,6 +182,77 @@ export function createUserStore({ gh, path = DEFAULT_PATH, fallbackUsers = "", n
 
       await write({ users, invites }, `Add admin ${invite.email}`);
       return invite.email;
+    },
+
+    /**
+     * Create an account directly, with a password chosen by the person
+     * creating it.
+     *
+     * Less private than an invitation — whoever sets the password knows it —
+     * so it is meant for a temporary credential the new admin changes on
+     * first sign-in. Any outstanding invitation for the same address is
+     * cleared, so the two routes cannot leave contradictory state.
+     */
+    async createUser(email, password, createdBy) {
+      const key = String(email ?? "").trim().toLowerCase();
+      if (!key.includes("@")) throw new Error("That does not look like an email address.");
+      if (String(password ?? "").length < 12) {
+        throw new Error("Please choose a password of at least 12 characters.");
+      }
+
+      const data = await read({ fresh: true });
+      if (data.users.some((u) => u.email === key)) {
+        throw new Error(`${key} already has an account.`);
+      }
+
+      const hash = await hashPassword(password);
+      const users = data.users.concat({
+        email: key,
+        hash,
+        createdAt: new Date(now()).toISOString(),
+        createdBy,
+        mustChangePassword: true
+      });
+      const invites = data.invites.filter((i) => i.email !== key);
+
+      await write({ users, invites }, `Add admin ${key} (by ${createdBy})`);
+      return key;
+    },
+
+    /**
+     * Change your own password.
+     *
+     * Requires the current password, so a borrowed session cannot be used to
+     * lock the real owner out. Accounts configured via ADMIN_USERS live in
+     * the environment and cannot be edited from here.
+     */
+    async changePassword(email, currentPassword, newPassword) {
+      const key = String(email ?? "").trim().toLowerCase();
+      const data = await read({ fresh: true });
+      const user = data.users.find((u) => u.email === key);
+
+      if (!user) {
+        throw new Error(
+          "This account is configured on the server and cannot be changed here."
+        );
+      }
+      if (!(await verifyPassword(currentPassword, user.hash))) {
+        throw new Error("Your current password is not correct.");
+      }
+      if (String(newPassword ?? "").length < 12) {
+        throw new Error("Please choose a password of at least 12 characters.");
+      }
+      if (await verifyPassword(newPassword, user.hash)) {
+        throw new Error("That is the same as your current password.");
+      }
+
+      const hash = await hashPassword(newPassword);
+      const users = data.users.map((u) =>
+        u.email === key
+          ? { ...u, hash, passwordChangedAt: new Date(now()).toISOString(), mustChangePassword: false }
+          : u
+      );
+      await write({ ...data, users }, `Change admin password for ${key}`);
     },
 
     async removeUser(email, removedBy) {

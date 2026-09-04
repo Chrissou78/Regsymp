@@ -40,6 +40,23 @@ export function createSessions({ ttlMs = EIGHT_HOURS } = {}) {
     destroy(id) {
       store.delete(id);
     },
+    /**
+     * Sign out every other session belonging to an account.
+     * Used after a password change: if the password was changed because it
+     * was compromised, leaving the other sessions alive defeats the point.
+     */
+    destroyOthersFor(email, keepId) {
+      const key = String(email ?? "").toLowerCase();
+      let removed = 0;
+      for (const [id, session] of store) {
+        if (id === keepId) continue;
+        if (String(session.user?.email ?? "").toLowerCase() === key) {
+          store.delete(id);
+          removed += 1;
+        }
+      }
+      return removed;
+    },
     size() {
       sweep();
       return store.size;

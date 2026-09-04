@@ -152,3 +152,131 @@ test("writes carry a descriptive commit message", async () => {
   assert.match(gh.state.writes[0], /Invite x@example\.com/);
   assert.match(gh.state.writes[1], /Add admin x@example\.com/);
 });
+
+// ------------------------------------------------- direct account creation
+
+test("an account can be created directly with a temporary password", async () => {
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+
+  const email = await s.createUser("New.Admin@Example.com", "temporary-pass-1", "boss@example.com");
+  assert.equal(email, "new.admin@example.com", "emails are lowercased");
+  assert.equal(await s.verify("new.admin@example.com", "temporary-pass-1"), true);
+  assert.equal(await s.verify("new.admin@example.com", "wrong"), false);
+
+  const [user] = await s.listUsers();
+  assert.equal(user.mustChangePassword, true, "flagged as a temporary credential");
+});
+
+test("creating an account clears any outstanding invitation for that address", async () => {
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+  const token = await s.createInvite("dup@example.com", "boss@example.com");
+  await s.createUser("dup@example.com", "temporary-pass-1", "boss@example.com");
+
+  assert.equal(await s.findInvite(token), null, "the stale invite must not survive");
+  assert.equal((await s.listInvites()).length, 0);
+});
+
+test("direct creation refuses duplicates and weak passwords", async () => {
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+  await s.createUser("one@example.com", "temporary-pass-1", "boss@example.com");
+
+  await assert.rejects(
+    () => s.createUser("one@example.com", "another-pass-12", "boss@example.com"),
+    /already has an account/
+  );
+  await assert.rejects(() => s.createUser("two@example.com", "short", "boss@example.com"), /at least 12/);
+  await assert.rejects(() => s.createUser("notanemail", "temporary-pass-1", "boss@example.com"), /email address/);
+});
+
+// ----------------------------------------------------------- password change
+
+test("a password can be changed with the current one", async () => {
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+  await s.createUser("me@example.com", "original-pass-1", "boss@example.com");
+
+  await s.changePassword("me@example.com", "original-pass-1", "replacement-pass-2");
+
+  assert.equal(await s.verify("me@example.com", "replacement-pass-2"), true);
+  assert.equal(await s.verify("me@example.com", "original-pass-1"), false, "the old one must stop working");
+
+  const [user] = await s.listUsers();
+  assert.equal(user.mustChangePassword, false, "the temporary flag is cleared");
+  assert.ok(user.passwordChangedAt);
+});
+
+test("changing a password requires the correct current one", async () => {
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+  await s.createUser("me@example.com", "original-pass-1", "boss@example.com");
+
+  await assert.rejects(
+    () => s.changePassword("me@example.com", "not-the-password", "replacement-pass-2"),
+    /current password is not correct/
+  );
+  assert.equal(await s.verify("me@example.com", "original-pass-1"), true, "unchanged after a failed attempt");
+});
+
+test("a new password must be long enough and actually new", async () => {
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+  await s.createUser("me@example.com", "original-pass-1", "boss@example.com");
+
+  await assert.rejects(() => s.changePassword("me@example.com", "original-pass-1", "short"), /at least 12/);
+  await assert.rejects(
+    () => s.changePassword("me@example.com", "original-pass-1", "original-pass-1"),
+    /same as your current/
+  );
+});
+
+test("an environment-configured account cannot be changed from the interface", async () => {
+  const { hashPassword } = await import("../admin/password.js");
+  const hash = await hashPassword("env-password-1234");
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh, { fallbackUsers: `env@example.com:${hash}` });
+
+  await assert.rejects(
+    () => s.changePassword("env@example.com", "env-password-1234", "replacement-pass-2"),
+    /configured on the server/
+  );
+});
+
+// ------------------------------------------------------------------ owner
+
+test("the first account is the owner", async () => {
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+  await s.createUser("first@example.com", "temporary-pass-1", "bootstrap");
+  await s.createUser("second@example.com", "temporary-pass-2", "first@example.com");
+
+  assert.equal(await s.isOwner("first@example.com"), true);
+  assert.equal(await s.isOwner("FIRST@EXAMPLE.COM"), true, "case-insensitive");
+  assert.equal(await s.isOwner("second@example.com"), false);
+  assert.equal(await s.ownerEmail(), "first@example.com");
+});
+
+test("an explicit owner flag wins over creation order", async () => {
+  const gh = fakeGh({
+    users: [
+      { email: "first@example.com", hash: "scrypt$00$00" },
+      { email: "boss@example.com", hash: "scrypt$00$00", owner: true }
+    ],
+    invites: []
+  });
+  const s = store(gh);
+  assert.equal(await s.isOwner("boss@example.com"), true);
+  assert.equal(await s.isOwner("first@example.com"), false);
+});
+
+test("with no stored accounts the environment account may recover", async () => {
+  // Signing in at all then requires ADMIN_USERS, and that account has to be
+  // able to repair a damaged or empty users file.
+  const gh = fakeGh({ users: [], invites: [] });
+  const s = store(gh);
+  assert.equal(await s.isOwner("recovery@example.com"), true);
+  assert.equal(await s.isOwner(""), false, "still needs an identity");
+  assert.equal(await s.ownerEmail(), null);
+});

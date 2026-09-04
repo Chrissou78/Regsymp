@@ -173,3 +173,14 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 }
 .a-form--signin { margin: 0 auto; text-align: left; max-width: 340px; }
 .a-signin .a-actions { justify-content: center; }
+
+.a-field input[type="password"],
+.a-field input[type="email"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--a-line);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 15px;
+  background: #fff;
+}

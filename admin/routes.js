@@ -381,7 +381,62 @@ export function createAdmin(config) {
     const gh = createClient({ token: token$(), repo, branch, fetchImpl });
     const token = csrfToken(session.id, secret$());
 
+    if (path === "/admin/account") {
+      if (req.method === "GET") {
+        html(res, 200, accountPage({ session, token }));
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+
+      const current = String(form.fields.currentPassword ?? "");
+      const next = String(form.fields.newPassword ?? "");
+      const confirm = String(form.fields.confirmPassword ?? "");
+
+      if (next !== confirm) {
+        html(res, 400, accountPage({ session, token, error: "Those passwords do not match." }));
+        return true;
+      }
+
+      try {
+        await storeFor().changePassword(session.user.email, current, next);
+      } catch (err) {
+        html(res, 400, accountPage({ session, token, error: err.message }));
+        return true;
+      }
+
+      // If the password was changed because it was compromised, leaving the
+      // other sessions signed in would defeat the purpose.
+      const endedElsewhere = sessions.destroyOthersFor?.(session.user.email, session.id) ?? 0;
+
+      html(res, 200, layout({
+        title: "Password changed",
+        user: session.user,
+        flash: { kind: "ok", message: "Your password has been changed." },
+        body: `<p>Use the new password next time you sign in.${
+          endedElsewhere > 0
+            ? ` Any other session for this account has been signed out.`
+            : ""
+        }</p>
+        <p><a class="a-btn" href="/admin">Back to collections</a></p>`
+      }));
+      return true;
+    }
+
     if (path === "/admin/users") {
+      // Account management is the owner's alone. Checked here rather than
+      // only hiding the link, so knowing the URL is not enough.
+      if (!(await storeFor().isOwner(session.user.email))) {
+        html(res, 403, layout({
+          title: "Not permitted",
+          user: session.user,
+          flash: { kind: "error", message: "Only the account owner can manage admins." },
+          body: `<p><a href="/admin">Back to collections</a></p>`
+        }));
+        return true;
+      }
+
       if (req.method === "GET") {
         html(res, 200, await usersPage({ store: storeFor(), session, token, origin: originFor(req) }));
         return true;
@@ -395,12 +450,15 @@ export function createAdmin(config) {
           await storeFor().revokeInvite(form.fields.email, session.user.email);
         } else if (form.fields.action === "remove") {
           await storeFor().removeUser(form.fields.email, session.user.email);
-        } else {
-          const raw = await storeFor().createInvite(form.fields.email, session.user.email);
-          const link = `${originFor(req)}/admin/invite/${raw}`;
+        } else if (form.fields.action === "create") {
+          const created = await storeFor().createUser(
+            form.fields.email,
+            String(form.fields.password ?? ""),
+            session.user.email
+          );
           html(res, 200, await usersPage({
             store: storeFor(), session, token, origin: originFor(req),
-            invited: { email: String(form.fields.email).trim().toLowerCase(), link }
+            created
           }));
           return true;
         }
@@ -420,6 +478,7 @@ export function createAdmin(config) {
             `<li><a href="/admin/${escape(key)}">${escape(schema.label)}</a></li>`
         )
         .join("");
+      const owner = await storeFor().isOwner(session.user.email);
       html(
         res,
         200,
@@ -430,7 +489,7 @@ export function createAdmin(config) {
             <p class="a-lede">Changes are committed to <code>${escape(repo)}</code> on
             <code>${escape(branch)}</code> and go live once the deploy completes.</p>
             <ul class="a-list">${rows}</ul>
-            <p class="a-admins"><a href="/admin/users">Manage admin accounts</a></p>`
+            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;
@@ -716,9 +775,8 @@ function invitePage(token, email, error) {
   });
 }
 
-async function usersPage({ store, session, token, invited, error }) {
+async function usersPage({ store, session, token, created, error }) {
   const users = await store.listUsers();
-  const invites = await store.listInvites();
 
   const userRows = users
     .map((u) => `<li class="a-row">
@@ -739,25 +797,11 @@ async function usersPage({ store, session, token, invited, error }) {
     </li>`)
     .join("");
 
-  const inviteRows = invites
-    .map((i) => `<li class="a-row">
-      <span class="a-row-name">${escape(i.email)}
-        <span class="a-count">invited, not yet accepted</span></span>
-      <form method="post" action="/admin/users" class="a-inline">
-        <input type="hidden" name="csrf" value="${escape(token)}">
-        <input type="hidden" name="action" value="revoke">
-        <input type="hidden" name="email" value="${escape(i.email)}">
-        <button class="a-danger">Revoke</button>
-      </form>
-    </li>`)
-    .join("");
-
-  const invitedBlock = invited
+  const createdBlock = created
     ? `<div class="a-flash">
-         <p>Invitation created for <strong>${escape(invited.email)}</strong>.
-         Send them this link — it works once and expires in seven days.</p>
-         <p><input class="a-invite-link" type="text" readonly value="${escape(invited.link)}"
-                   onclick="this.select()"></p>
+         <p>Account created for <strong>${escape(created)}</strong>.
+         Give them the password you just set, and ask them to change it at
+         <code>/admin/account</code> once they are signed in.</p>
        </div>`
     : "";
 
@@ -766,24 +810,67 @@ async function usersPage({ store, session, token, invited, error }) {
     user: session.user,
     flash: error ? { kind: "error", message: error } : null,
     body: `<h1>Admin accounts</h1>
-      <p class="a-lede">Anyone listed here can edit the site. Invitations are single-use
-      and expire after seven days.</p>
-      ${invitedBlock}
+      <p class="a-lede">Anyone listed here can edit the site.</p>
+      ${createdBlock}
       <ul class="a-rows">${userRows}</ul>
-      ${inviteRows ? `<h2 class="a-subhead">Pending invitations</h2><ul class="a-rows">${inviteRows}</ul>` : ""}
-      <h2 class="a-subhead">Invite someone</h2>
+      <h2 class="a-subhead">Add an admin</h2>
+      <p class="a-help">Creates the account immediately. Give them the password,
+      and ask them to change it at <a href="/admin/account">Change your password</a>
+      once they are signed in.</p>
       <form method="post" action="/admin/users" class="a-form">
         <input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="action" value="create">
         <div class="a-field">
-          <label for="f-invite">Email</label>
-          <input id="f-invite" name="email" type="email" required>
+          <label for="f-new-email">Email</label>
+          <input id="f-new-email" name="email" type="email" required>
         </div>
-        <div class="a-actions"><button class="a-btn" type="submit">Create invitation</button></div>
+        <div class="a-field">
+          <label for="f-new-pass">Password</label>
+          <input id="f-new-pass" name="password" type="text" minlength="12" required
+                 autocomplete="off" spellcheck="false">
+          <span class="a-help">At least 12 characters. Shown as text so you can copy it.</span>
+        </div>
+        <div class="a-actions"><button class="a-btn" type="submit">Create account</button></div>
       </form>
       <p><a href="/admin">Back to collections</a></p>`
   });
 }
 
+
+
+function accountPage({ session, token, error }) {
+  return layout({
+    title: "Change your password",
+    user: session.user,
+    flash: error ? { kind: "error", message: error } : null,
+    body: `<h1>Change your password</h1>
+      <p class="a-lede">Signed in as ${escape(session.user.email)}. At least 12 characters.</p>
+      <form method="post" action="/admin/account" class="a-form">
+        <input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="username" value="${escape(session.user.email)}"
+               autocomplete="username" hidden>
+        <div class="a-field">
+          <label for="f-current">Current password</label>
+          <input id="f-current" name="currentPassword" type="password"
+                 autocomplete="current-password" required autofocus>
+        </div>
+        <div class="a-field">
+          <label for="f-new">New password</label>
+          <input id="f-new" name="newPassword" type="password"
+                 autocomplete="new-password" minlength="12" required>
+        </div>
+        <div class="a-field">
+          <label for="f-confirm">Confirm new password</label>
+          <input id="f-confirm" name="confirmPassword" type="password"
+                 autocomplete="new-password" minlength="12" required>
+        </div>
+        <div class="a-actions">
+          <button class="a-btn" type="submit">Change password</button>
+          <a class="a-cancel" href="/admin">Cancel</a>
+        </div>
+      </form>`
+  });
+}
 
 function setupPage(token, error) {
   return layout({

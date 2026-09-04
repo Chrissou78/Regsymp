@@ -89,3 +89,17 @@ test("parseCookies handles multiple values and junk", () => {
   assert.deepEqual(parseCookies(undefined), {});
   assert.deepEqual(parseCookies("novalue; a=1"), { a: "1" });
 });
+
+test("changing a password can end that account's other sessions", () => {
+  const sessions = createSessions();
+  const mine = sessions.create({ email: "me@example.com" }, "t");
+  const otherDevice = sessions.create({ email: "me@example.com" }, "t");
+  const someoneElse = sessions.create({ email: "other@example.com" }, "t");
+
+  const ended = sessions.destroyOthersFor("me@example.com", mine);
+
+  assert.equal(ended, 1);
+  assert.ok(sessions.get(mine), "the current session survives");
+  assert.equal(sessions.get(otherDevice), undefined, "the other device is signed out");
+  assert.ok(sessions.get(someoneElse), "other accounts are untouched");
+});

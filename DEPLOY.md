@@ -112,19 +112,25 @@ Because one token makes every commit, git records the change but not which
 person made it. The signed-in email goes into each commit message, so the
 history is still attributable by reading it.
 
-### Accounts and invitations
+### Accounts
 
 Accounts are stored in `admin/users.json` on the content branch. That file
 exists **only on `prod`**, which is private: `main` mirrors to a public
 repository and password hashes do not belong there. It is listed in
 `.gitignore` so it cannot reach `main` by accident.
 
-- Invitations are single-use and expire after seven days.
-- Only the SHA-256 digest of an invitation token is stored, so a copy of the
-  file does not let anyone redeem an outstanding invitation.
-- The last remaining admin cannot be removed.
-- `ADMIN_USERS` still works as an environment fallback, for recovery if the
-  stored file is ever damaged. It is not needed in normal operation.
+The **owner** — whichever record carries `owner: true`, or failing that the
+first account in the file — is the only one who can manage accounts. Everyone
+else can edit content and change their own password.
+
+To add an admin: **Manage admin accounts** → enter their email and a password
+→ **Create account**. Send them the password and ask them to change it at
+**Change your password** once signed in. Changing a password signs out that
+account's other sessions, which matters if it was changed because it leaked.
+
+`ADMIN_USERS` still works as an environment fallback for recovery. With no
+accounts in the file, that account is treated as owner so it can repair
+things.
 
 ### Sign-in security
 
