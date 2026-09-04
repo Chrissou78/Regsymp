@@ -237,12 +237,22 @@ test("health does no network I/O unless asked", async () => {
 
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.ok(!("content" in body), "the repo check must be opt-in");
+  assert.ok(!("github" in body), "the repository check must be opt-in");
   assert.ok(elapsed < 500, `health took ${elapsed}ms; it must not wait on a third party`);
 });
 
-test("the repo check is available on request", async () => {
-  const body = await (await get("/api/health?content=1")).json();
-  assert.ok("content" in body);
+test("the repository check is still available on request", async () => {
+  const body = await (await get("/api/health?github=1")).json();
+  assert.ok("github" in body);
+  assert.equal(typeof body.github.readable, "boolean");
+});
+
+test("health reports where content lives and whether it is durable", async () => {
+  // A volume that was never mounted behaves exactly like one that was, right
+  // up until the next deploy erases it. This is the field that tells them
+  // apart, so it has to be present and it has to be local-only.
+  const body = await (await get("/api/health")).json();
+  assert.equal(typeof body.content.dir, "string");
   assert.equal(typeof body.content.readable, "boolean");
+  assert.ok("durable" in body.content, "durability must be reported, not assumed");
 });

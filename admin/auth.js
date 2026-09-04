@@ -5,10 +5,10 @@ const EIGHT_HOURS = 8 * 60 * 60 * 1000;
 /**
  * Server-side session store.
  *
- * Sessions hold the GitHub OAuth token, so they must never reach the
- * browser — the cookie carries only an opaque identifier. In-memory is
- * deliberate: a container restart signs everyone out, which is acceptable
- * for a handful of users and avoids adding a session store.
+ * The cookie carries only an opaque identifier; everything about the session
+ * stays here. In-memory is deliberate: a restart signs everyone out, which is
+ * acceptable for a handful of users and avoids adding a session store — and
+ * restarts are rare now that saving no longer triggers a redeploy.
  */
 export function createSessions({ ttlMs = EIGHT_HOURS } = {}) {
   const store = new Map();

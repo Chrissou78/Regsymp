@@ -1,20 +1,19 @@
+import { ConflictError } from "./conflict.js";
+
 const API = "https://api.github.com";
 
-/**
- * Raised when the file changed between load and save. The Contents API
- * requires the blob SHA of the file being replaced, which gives us
- * optimistic concurrency for free: a stale SHA is rejected rather than
- * silently overwriting someone else's edit.
- */
-export class ConflictError extends Error {
-  constructor(message = "The file changed since you loaded it.") {
-    super(message);
-    this.name = "ConflictError";
-  }
-}
+// Re-exported for the modules that already import it from here. The Contents
+// API gives us optimistic concurrency for free: it requires the blob SHA of
+// the file being replaced, so a stale SHA is rejected rather than silently
+// overwriting someone else's edit.
+export { ConflictError };
 
 /**
  * Minimal GitHub Contents API client.
+ *
+ * No longer on the save path — content lives on a volume now, see
+ * `store-fs.js`. Kept because it still reads a repository, which is what an
+ * export or a one-off migration needs.
  *
  * `fetchImpl` is injectable so tests never touch the network and never
  * commit anything.

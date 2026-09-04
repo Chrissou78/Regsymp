@@ -1,13 +1,22 @@
 import { createServer } from "node:http";
-import { createReadStream } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
 import { createAdmin, originFor } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
-import { isConfigured as adminIsConfigured } from "./admin/runtime-config.js";
-import { contentStatus as adminContentStatus } from "./admin/content-status.js";
+import { setRuntimeConfig } from "./admin/runtime-config.js";
+import { createFsStore } from "./admin/store-fs.js";
+import { rebuild, lastBuild } from "./admin/rebuild.js";
+import {
+  durability,
+  ensureContentDir,
+  mirrorFile,
+  persistentSecret,
+  syncToWorkingTree
+} from "./admin/content-dir.js";
+import { contentStatus as adminContentStatus, volumeStatus } from "./admin/content-status.js";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -57,21 +66,87 @@ const REVALIDATE = "public, max-age=0, must-revalidate";
 const MAX_BODY_BYTES = 64 * 1024;
 
 /**
- * The admin is always mounted, but does nothing until it has a GitHub token.
- * Without one it serves only the one-time setup link and a "not configured"
- * notice — it can neither read accounts nor save anything.
+ * Where the editable content lives.
  *
- * Mounting unconditionally is what lets the setup link work on a host where
- * nobody can reach the environment.
+ * A mounted volume in production, a local directory otherwise. `/data` is the
+ * conventional mount point, so it is used when it exists; `CONTENT_DIR`
+ * overrides. Getting this wrong is not silent — /api/health reports which
+ * directory was chosen and whether it has actually survived a restart.
  */
+const PROJECT_ROOT = fileURLToPath(new URL("./", import.meta.url));
+const CONTENT_DIR =
+  env("CONTENT_DIR") ||
+  (existsSync("/data") ? "/data" : path.join(PROJECT_ROOT, ".content"));
+
+/**
+ * Saving writes to the volume, then copies that one file into the working
+ * tree and rebuilds. Content changes used to be commits, which triggered a
+ * redeploy: minutes of lag, and everyone signed out when the container was
+ * replaced. This is a file write and a sub-second build.
+ */
+const store = createFsStore({
+  dir: CONTENT_DIR,
+  onWrite: async ({ path: relative, absolute }) => {
+    // Only what Eleventy builds from is copied back. Accounts are read from
+    // the volume directly, so mirroring them into the checkout would achieve
+    // nothing beyond leaving a stray copy of the password hashes on disk.
+    if (!relative.startsWith("src/")) return;
+    await mirrorFile(absolute, path.join(PROJECT_ROOT, relative));
+    await rebuild();
+  }
+});
+
 const admin = createAdmin({
   sessions: createSessions(),
   users: env("ADMIN_USERS"),
-  githubToken: env("GITHUB_TOKEN"),
-  repo: env("CONTENT_REPO") || "OC-Labs/regsymp",
-  branch: env("CONTENT_BRANCH") || "prod",
-  secret: env("SESSION_SECRET")
+  store,
+  secret: env("SESSION_SECRET"),
+  // Say so in the interface when the content directory is not persistent.
+  // Saving would otherwise look completely normal right up until a deploy
+  // threw the work away.
+  warning: async () => {
+    const state = durability({ ...contentBoot, uptimeSeconds: Math.round(process.uptime()) });
+    if (state.durable === true) return null;
+    if (state.durable === null) {
+      return `${CONTENT_DIR} was created during this deploy, so it has not yet proven it persists. Check /api/health after the next restart.`;
+    }
+    return `${CONTENT_DIR} is not a persistent volume, so anything saved here will be lost on the next deploy. Mount a volume there first.`;
+  }
 });
+
+// Filled in by bootstrap(); left empty when the module is merely imported,
+// as the tests do, so importing never touches a volume.
+let contentBoot = { marker: null, seeded: false };
+
+/**
+ * Bring the content volume up, then build from it.
+ *
+ * Order matters. The volume is the source of truth, so it is seeded from the
+ * shipped checkout only when it is new, then copied *over* the working tree,
+ * and only then does Eleventy run. Building first would render whatever the
+ * deploy happened to contain and overwrite the real content on screen.
+ */
+async function bootstrap() {
+  contentBoot = await ensureContentDir({ dir: CONTENT_DIR, root: PROJECT_ROOT });
+  const copied = await syncToWorkingTree({ dir: CONTENT_DIR, root: PROJECT_ROOT });
+  setRuntimeConfig({ SESSION_SECRET: await persistentSecret({ dir: CONTENT_DIR }) });
+
+  console.log(
+    `content: ${CONTENT_DIR}` +
+      (contentBoot.seeded ? ` (seeded ${contentBoot.marker.seededFiles} files)` : "") +
+      `, ${copied} file(s) refreshed`
+  );
+
+  // A failed build must not stop the server: the previously built _site is
+  // still on disk and still servable, and a broken build is better reported
+  // through /api/health than by refusing to start.
+  try {
+    const built = await rebuild();
+    console.log(`built in ${built.ms}ms`);
+  } catch (err) {
+    console.error("initial build failed, serving the existing _site:", err.message);
+  }
+}
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, {
@@ -174,7 +249,16 @@ const server = createServer(async (req, res) => {
       // can be current while the process itself is running older JavaScript —
       // these fields tell the two apart instead of guessing.
       adminMounted: true,
-      adminConfigured: adminIsConfigured(),
+      adminConfigured: existsSync(CONTENT_DIR),
+      // Where content is kept, and whether that directory has actually
+      // survived a restart. A volume that was never mounted works exactly
+      // like one that was, right up until the next deploy erases it, so this
+      // is the field to check after configuring the host.
+      content: {
+        ...(await volumeStatus(CONTENT_DIR)),
+        ...durability({ ...contentBoot, uptimeSeconds: Math.round(process.uptime()) }),
+        lastBuild: lastBuild()
+      },
       // What invitation links will be built from, for this exact request.
       // Links were coming out as http://localhost because they used the
       // parse-time placeholder base rather than the request headers.
@@ -184,12 +268,10 @@ const server = createServer(async (req, res) => {
         "x-forwarded-host": req.headers["x-forwarded-host"] ?? null,
         "x-forwarded-proto": req.headers["x-forwarded-proto"] ?? null
       },
-      // Deliberately NOT checked by default: this calls the GitHub API, and
-      // a health endpoint that waits on a third party will look unhealthy
-      // whenever that third party is slow — which on a platform that probes
-      // this route means a restart loop. Ask for it explicitly instead:
-      //   /api/health?content=1
-      ...(url.searchParams.get("content") ? { content: await adminContentStatus() } : {}),
+      // The GitHub repository check is no longer part of the save path, so it
+      // is only of interest when investigating an export or a migration.
+      // Still opt-in: a health endpoint must never wait on a third party.
+      ...(url.searchParams.get("github") ? { github: await adminContentStatus() } : {}),
       ...configStatus()
     });
   }
@@ -243,6 +325,8 @@ const isEntryPoint =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isEntryPoint) {
+  await bootstrap();
+
   server.listen(PORT, HOST, () => {
     console.log(`RegSymp serving ${ROOT} on http://${HOST}:${PORT}`);
   });

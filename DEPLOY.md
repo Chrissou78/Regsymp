@@ -70,67 +70,82 @@ and failure modes.
 ## Admin interface
 
 `/admin` manages every file in `src/_data/` and the images they reference.
-Each change is committed to git, so history and rollback come free.
 
-Admin accounts live in the content repository, not the environment, so adding
-an admin needs no server access at all — an existing admin invites a colleague
-from the web interface.
+A save writes to the content volume, copies that file into the working tree
+and rebuilds the site in-process — typically under a second. Nothing is
+committed, nothing is deployed, and nobody is signed out.
 
-It is **disabled unless `GITHUB_TOKEN` is set**, so deploying this code without
-configuring it exposes nothing. The gate is the token rather than the account
-list, because without a token the admin can neither read accounts nor commit.
+### Why it stopped using git
+
+Content used to be committed through the GitHub API. That worked, but every
+save triggered a redeploy, and the redeploy was the problem:
+
+- three to five minutes before an edit appeared;
+- every admin signed out when the replacement container took over;
+- any configuration held in memory was wiped — including the `GITHUB_TOKEN`
+  supplied through the setup link, which is what made saving work at all.
+
+That last one was circular: **using the admin is what broke the admin.** The
+volume removes the whole chain. There is no token, no setup link, and no
+secret to set.
 
 ### Setup
 
-Set two variables in the host's dashboard and restart:
+1. **Mount a persistent volume at `/data`.** This is the only infrastructure
+   step, and the only one that needs whoever administers the host.
+2. Deploy. First boot seeds `/data` from the deployed checkout, so the site
+   comes up with the content and the accounts it already had.
+3. Check `/api/health` and confirm `content.durable` — see below.
 
-```
-GITHUB_TOKEN=github_pat_...
-SESSION_SECRET=<random hex>
-```
+`CONTENT_DIR` overrides the location; `/data` is used automatically when it
+exists, and a local `.content/` directory otherwise.
 
-No quotes around either value. Generate the secret with:
+Nothing else is required. `SESSION_SECRET` is generated on first boot and kept
+on the volume, and `ADMIN_USERS` remains only as a recovery fallback.
+
+### Confirming the volume is real
+
+An unmounted volume behaves *exactly* like a mounted one — right up until the
+next deploy erases everything saved since. So it is verified rather than
+assumed:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+curl -s https://regsymp.com/api/health | jq .content
 ```
 
-`CONTENT_REPO` and `CONTENT_BRANCH` default to `OC-Labs/regsymp` and `prod`,
-so they only need setting if that changes.
+| `durable` | Meaning |
+|---|---|
+| `true` | The content predates this process: it survived a restart. |
+| `null` | Seeded during this boot. Unproven until the next restart. |
+| `false` | The content is younger than the process — the last restart wiped it. **Not a real volume.** |
 
-Then open the invitation link for the first account, set a password, and sign
-in. Every account after that is created from **Manage admin accounts** inside
-the admin.
-
-### The GitHub token
-
-Content edits are committed with `GITHUB_TOKEN`, so it needs write access to
-`CONTENT_REPO`. A fine-grained personal access token with **Contents: Read and
-write**, scoped to that single repository, is sufficient.
-
-Because one token makes every commit, git records the change but not which
-person made it. The signed-in email goes into each commit message, so the
-history is still attributable by reading it.
+While `durable` is not `true`, the admin shows a warning above the collections
+saying that changes are temporary. Do not rely on that warning alone: check
+after the first restart following any host change.
 
 ### Accounts
 
-Accounts are stored in `admin/users.json` on the content branch. That file
-exists **only on `prod`**, which is private: `main` mirrors to a public
-repository and password hashes do not belong there. It is listed in
-`.gitignore` so it cannot reach `main` by accident.
+Accounts live in `admin/users.json` **on the volume**. They are seeded from
+the deployed branch on first boot, so existing admins carry over.
+
+A brand-new installation with no accounts serves `/admin/first-run`, which
+creates the first account and makes it the owner. That route stops existing
+the moment an account exists, so nobody else can claim it.
 
 The **owner** — whichever record carries `owner: true`, or failing that the
-first account in the file — is the only one who can manage accounts. Everyone
-else can edit content and change their own password.
+first account — is the only one who can manage accounts. Everyone else edits
+content and changes their own password.
 
-To add an admin: **Manage admin accounts** → enter their email and a password
-→ **Create account**. Send them the password and ask them to change it at
-**Change your password** once signed in. Changing a password signs out that
-account's other sessions, which matters if it was changed because it leaked.
+To add an admin: **Manage admin accounts** → email and a password → **Create
+account**. Send them the password; they change it at **Change your password**,
+which also signs out that account's other sessions.
 
-`ADMIN_USERS` still works as an environment fallback for recovery. With no
-accounts in the file, that account is treated as owner so it can repair
-things.
+### History and rollback
+
+Committing gave history for free, and dropping git would have lost it, so the
+store keeps its own. Every overwrite copies the previous version to
+`.revisions/<path>/<timestamp>.bak` on the volume, capped at 50 per file. Data
+files are a few KB, so this costs almost nothing.
 
 ### Sign-in security
 
@@ -142,20 +157,33 @@ things.
   per source so one attacker cannot lock everyone out.
 - Sessions are held server-side; the cookie carries only an opaque id, and is
   `HttpOnly`, `Secure` and `SameSite=Lax`.
-- Sessions live in memory, so a restart or redeploy signs everyone out.
+- Sessions live in memory, so a restart signs everyone out — but restarts are
+  now rare, because saving no longer causes one.
 
-### `prod` must never be force-pushed, nor merged back into `main`
+### The volume outranks git
 
-Content and admin accounts live on `OC-Labs/regsymp@prod`. A force-push would
-delete them, and merging `prod` into `main` would publish password hashes to
-the public mirror.
+Once seeded, the volume is the source of truth. Editing `src/_data/*.json` in
+the repository **no longer changes the live site**: boot copies the volume over
+the working tree before building. To change content, use the admin.
+
+This also means the repository's data files drift behind the live site over
+time. That is expected. To capture the live state back into git, copy the
+volume's `src/_data/` and `src/assets/images/` into a checkout and commit.
+
+### Branches
+
+`main` mirrors to a public repository; `prod` is what deploys.
 
 ```bash
 git push origin main
 git checkout prod && git merge main --no-edit
-git push prod prod          # no --force
+git push prod prod          # never --force
 git checkout main
 ```
+
+`prod` still carries the last committed content and the accounts file, which is
+what a fresh volume seeds from — so it must never be force-pushed, and never
+merged back into `main`.
 
 ### Images
 

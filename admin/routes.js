@@ -1,11 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { SCHEMAS, getSchema, validateRecord } from "./schemas.js";
-import { createClient, ConflictError } from "./github.js";
+import { ConflictError } from "./conflict.js";
 import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
 import { createUserStore } from "./users-store.js";
 import { createAttemptLimiter } from "./login-attempts.js";
-import { configValue, isConfigured, setRuntimeConfig, setupTokenMatches } from "./runtime-config.js";
+import { configValue } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
 import { slugifyFilename } from "./sanitise.js";
@@ -115,53 +114,43 @@ export function uniqueFilename(desired, existing = []) {
 /* ------------------------------------------------------------------ HTTP */
 
 export function createAdmin(config) {
-  // Digest of the one-time setup token, shipped with the code so the setup
-  // link works before any environment variable exists. Only the digest is
-  // stored, so possessing this file does not grant setup access.
-  let setupTokenHash = "";
-  try {
-    setupTokenHash = JSON.parse(
-      readFileSync(new URL("./setup-token.json", import.meta.url), "utf8")
-    ).tokenHash ?? "";
-  } catch {
-    setupTokenHash = "";
-  }
-
   const {
     sessions,
     users: rawUsers,
-    githubToken,
-    repo,
-    branch,
+    store,
     secret,
-    fetchImpl = fetch,
+    // Returns a warning to show above the collections, or null. Used to say
+    // out loud when the content directory is not actually persistent: edits
+    // would appear to work and then vanish on the next deploy.
+    warning = () => null,
     attempts = createAttemptLimiter()
   } = config;
 
-  // Read lazily rather than at construction: a one-time setup link can
-  // supply the token after the process has already started.
-  const token$ = () => githubToken || configValue("GITHUB_TOKEN");
   const secret$ = () => secret || configValue("SESSION_SECRET");
 
-  // Accounts live in the content repository, so admins can be added through
-  // the web interface without anyone needing server access. ADMIN_USERS
-  // remains as an environment fallback for recovery.
-  /** Can the current token actually read the content repository? */
-  async function tokenWorks() {
-    if (!token$()) return false;
-    try {
-      const gh = createClient({ token: token$(), repo, branch, fetchImpl });
-      return (await gh.getFile("admin/users.json")) !== null;
-    } catch {
-      return false;
-    }
+  // Accounts live beside the content, so admins can be added through the web
+  // interface without anyone needing server access. ADMIN_USERS remains as an
+  // environment fallback for recovery.
+  const storeFor = () => createUserStore({ gh: store, fallbackUsers: rawUsers });
+
+  /** Is there anywhere to save to? */
+  function writable() {
+    return Boolean(store);
   }
 
-  const storeFor = () =>
-    createUserStore({
-      gh: createClient({ token: token$(), repo, branch, fetchImpl }),
-      fallbackUsers: rawUsers
-    });
+  /**
+   * How many accounts exist, counting the environment fallback.
+   * Zero means this is a fresh installation and needs its first account.
+   */
+  async function accountCount() {
+    try {
+      return (await storeFor().listUsers()).length;
+    } catch {
+      // Unreadable is not the same as empty: do not offer to claim an admin
+      // that might already have owners.
+      return 1;
+    }
+  }
 
   const html = (res, status, body) => {
     res.writeHead(status, {
@@ -176,6 +165,18 @@ export function createAdmin(config) {
   const redirect = (res, to, headers = {}) => {
     res.writeHead(302, { Location: to, "Cache-Control": "no-store", ...headers });
     res.end();
+  };
+
+  const notWritable = (res) => {
+    html(res, 503, layout({
+      title: "No content store",
+      user: null,
+      flash: { kind: "error", message: "The admin has nowhere to save to." },
+      body: `<p>The content directory is not available, so nothing can be read or
+             written. Check that the volume is mounted and that
+             <code>CONTENT_DIR</code> points at it.</p>`
+    }));
+    return true;
   };
 
   async function readBody(req) {
@@ -202,78 +203,61 @@ export function createAdmin(config) {
     const path = raw.length > 1 ? raw.replace(/\/+$/, "") : raw;
     if (path !== "/admin" && !path.startsWith("/admin/")) return false;
 
-    // ------------------------------------------------------------- setup
-    // A one-time link for hosts where nobody can reach the environment.
-    // Only reachable while the admin is unconfigured; once a token is in
-    // place this route stops existing. Values are held in memory, so a
-    // process restart requires a fresh link.
-    if (path.startsWith("/admin/setup/")) {
-      const supplied = path.slice("/admin/setup/".length);
+    // ----------------------------------------------------------- first run
+    // With content on a volume there is nothing to configure — no token, no
+    // secret — so the only thing a new installation still needs is its first
+    // account. This route creates it, and exists only while there are none.
+    if (path === "/admin/first-run") {
+      if (!writable()) return notWritable(res);
 
-      // Deliberately checks whether the token *works*, not merely whether one
-      // exists. A token that cannot reach the repository would otherwise
-      // block the very page needed to replace it, leaving no way to recover
-      // short of waiting for a redeploy.
-      if (isConfigured() && (await tokenWorks())) {
+      if ((await accountCount()) > 0) {
         html(res, 404, layout({
           title: "Not found",
           user: null,
-          body: `<p>The admin is already configured.</p>
+          body: `<p>This admin already has an account.</p>
                  <p><a href="/admin/signin">Go to sign in</a></p>`
         }));
         return true;
       }
 
-      if (!setupTokenMatches(supplied, setupTokenHash)) {
-        html(res, 403, layout({
-          title: "Setup",
-          user: null,
-          flash: { kind: "error", message: "That setup link is not valid." },
-          body: ""
-        }));
-        return true;
-      }
-
       if (req.method === "GET") {
-        html(res, 200, setupPage(supplied));
+        html(res, 200, firstRunPage());
         return true;
       }
 
       const form = await readForm(req, readBody);
-      const supplied$ = String(form.fields.githubToken ?? "").trim();
-      if (!supplied$) {
-        html(res, 400, setupPage(supplied, "Please paste a GitHub token."));
+      const email = String(form.fields.email ?? "").trim().toLowerCase();
+      const password = String(form.fields.password ?? "");
+      if (password !== String(form.fields.confirm ?? "")) {
+        html(res, 400, firstRunPage("Those passwords do not match.", email));
         return true;
       }
 
-      setRuntimeConfig({
-        GITHUB_TOKEN: supplied$,
-        SESSION_SECRET: String(form.fields.sessionSecret ?? "").trim() || randomBytes(32).toString("hex")
-      });
+      try {
+        await storeFor().createUser(email, password, "first run");
+      } catch (err) {
+        html(res, 400, firstRunPage(err.message, email));
+        return true;
+      }
 
       html(res, 200, layout({
-        title: "Setup complete",
+        title: "Account created",
         user: null,
-        flash: { kind: "ok", message: "The admin is configured." },
-        body: `<p>You can now open your invitation link, or
-               <a href="/admin/signin">sign in</a> if you already have an account.</p>
-               <p class="a-note">This was stored in memory. If the server process
-               restarts you will need a new setup link — setting
-               <code>GITHUB_TOKEN</code> in the host's environment makes it permanent.</p>`
+        flash: { kind: "ok", message: `${escape(email)} is now the owner.` },
+        body: `<p><a class="a-btn" href="/admin/signin">Sign in</a></p>`
       }));
       return true;
     }
 
-    // Nothing else works until a usable token is available.
-    if (!isConfigured()) {
-      html(res, 503, layout({
-        title: "Not configured",
-        user: null,
-        flash: { kind: "error", message: "The admin has not been configured yet." },
-        body: `<p>It needs a GitHub token before it can read accounts or save changes.</p>`
-      }));
+    // Send a brand-new installation somewhere useful rather than to a sign-in
+    // form that no account can satisfy.
+    if (writable() && (await accountCount()) === 0) {
+      redirect(res, "/admin/first-run");
       return true;
     }
+
+    // Nothing works without somewhere to save to.
+    if (!writable()) return notWritable(res);
 
     // ---------------------------------------------------- unauthenticated
     if (path === "/admin/signin") {
@@ -308,7 +292,7 @@ export function createAdmin(config) {
       }
 
       attempts.succeed(source);
-      const id = sessions.create({ email }, token$());
+      const id = sessions.create({ email }, null);
       redirect(res, "/admin", {
         "Set-Cookie":
           `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
@@ -349,7 +333,7 @@ export function createAdmin(config) {
 
       try {
         const email = await storeFor().redeemInvite(token, password);
-        const id = sessions.create({ email }, token$());
+        const id = sessions.create({ email }, null);
         redirect(res, "/admin", {
           "Set-Cookie":
             `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
@@ -378,7 +362,7 @@ export function createAdmin(config) {
       return true;
     }
 
-    const gh = createClient({ token: token$(), repo, branch, fetchImpl });
+    const gh = store;
     const token = csrfToken(session.id, secret$());
 
     if (path === "/admin/account") {
@@ -479,6 +463,7 @@ export function createAdmin(config) {
         )
         .join("");
       const owner = await storeFor().isOwner(session.user.email);
+      const warn = await warning();
       html(
         res,
         200,
@@ -486,8 +471,9 @@ export function createAdmin(config) {
           title: "Collections",
           user: session.user,
           body: `<h1>Collections</h1>
-            <p class="a-lede">Changes are committed to <code>${escape(repo)}</code> on
-            <code>${escape(branch)}</code> and go live once the deploy completes.</p>
+            ${warn ? `<p class="a-warning"><strong>Changes here are temporary.</strong> ${escape(warn)}</p>` : ""}
+            <p class="a-lede">Changes are saved to the content volume and rebuilt
+            immediately &mdash; no deploy, and nothing signs you out.</p>
             <ul class="a-list">${rows}</ul>
             <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
@@ -965,28 +951,33 @@ function accountPage({ session, token, error }) {
   });
 }
 
-function setupPage(token, error) {
+function firstRunPage(error, email = "") {
   return layout({
-    title: "Configure the admin",
+    title: "Create the first account",
     user: null,
     flash: error ? { kind: "error", message: error } : null,
     body: `<div class="a-signin">
-      <h1>Configure the admin</h1>
-      <p>Paste a GitHub token with write access to the content repository.
-      This is held in memory only — a process restart will need a new link.</p>
-      <form method="post" action="/admin/setup/${escape(token)}" class="a-form a-form--signin">
+      <h1>Create the first account</h1>
+      <p>This admin has no accounts yet. The one you create here becomes the
+      owner, and can add the others. This page disappears once it exists.</p>
+      <form method="post" action="/admin/first-run" class="a-form a-form--signin">
         <div class="a-field">
-          <label for="f-token">GitHub token</label>
-          <input id="f-token" name="githubToken" type="password" required autofocus
-                 autocomplete="off" spellcheck="false">
+          <label for="f-email">Email</label>
+          <input id="f-email" name="email" type="email" required autofocus
+                 autocomplete="username" value="${escape(email)}">
         </div>
         <div class="a-field">
-          <label for="f-secret">Session secret <span class="opt">optional</span></label>
-          <input id="f-secret" name="sessionSecret" type="password" autocomplete="off"
-                 spellcheck="false">
-          <span class="a-help">Leave blank and one will be generated.</span>
+          <label for="f-password">Password</label>
+          <input id="f-password" name="password" type="password" required
+                 autocomplete="new-password" minlength="12">
+          <span class="a-help">At least 12 characters.</span>
         </div>
-        <div class="a-actions"><button class="a-btn" type="submit">Save</button></div>
+        <div class="a-field">
+          <label for="f-confirm">Confirm password</label>
+          <input id="f-confirm" name="confirm" type="password" required
+                 autocomplete="new-password" minlength="12">
+        </div>
+        <div class="a-actions"><button class="a-btn" type="submit">Create account</button></div>
       </form>
     </div>`
   });
@@ -1035,13 +1026,11 @@ async function readForm(req, readBody) {
 }
 
 function savedBody(commit, backTo, label) {
-  const link = commit.commit.htmlUrl
-    ? ` <a href="${escape(commit.commit.htmlUrl)}" target="_blank" rel="noopener">View commit</a>`
-    : "";
   return `<div class="a-saved">
     <h1>Saved</h1>
-    <p>Committed as <code>${escape((commit.commit.sha ?? "").slice(0, 7))}</code>.${link}</p>
-    <p class="a-note">The change goes live once the deploy finishes, usually a minute or two.</p>
+    <p>Version <code>${escape((commit.commit.sha ?? "").slice(0, 7))}</code> is live now.</p>
+    <p class="a-note">The site was rebuilt as you saved it. The previous version is
+    kept, so a bad edit can be undone.</p>
     <p><a class="a-btn" href="${escape(backTo)}">Back to ${escape(label)}</a></p>
   </div>`;
 }
