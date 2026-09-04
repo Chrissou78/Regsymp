@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
 import { createAdmin } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
+import { isConfigured as adminIsConfigured } from "./admin/runtime-config.js";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -168,6 +169,11 @@ const server = createServer(async (req, res) => {
       ok: true,
       host: "self",
       uptimeSeconds: Math.round(process.uptime()),
+      // Dates the running code. Content is served from _site on disk, so it
+      // can be current while the process itself is running older JavaScript —
+      // these fields tell the two apart instead of guessing.
+      adminMounted: true,
+      adminConfigured: adminIsConfigured(),
       ...configStatus()
     });
   }

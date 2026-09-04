@@ -221,3 +221,9 @@ test("only content-hashed assets are cached immutably", async () => {
   const js = await get("/assets/js/site.js");
   assert.doesNotMatch(js.headers.get("cache-control"), /immutable/);
 });
+
+test("health reports whether the admin code is present and configured", async () => {
+  const body = await (await get("/api/health")).json();
+  assert.equal(body.adminMounted, true, "absence of this field means old code is running");
+  assert.equal(typeof body.adminConfigured, "boolean");
+});
