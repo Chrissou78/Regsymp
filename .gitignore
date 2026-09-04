@@ -5,3 +5,4 @@ node_modules/
 _site/
 .eleventy-img-cache/
 .env
+admin/users.json
