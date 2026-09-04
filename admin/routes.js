@@ -667,7 +667,7 @@ export function createAdmin(config) {
  * links — invitation links came out pointing at localhost. The real host is
  * in the headers, and behind a proxy the scheme is only in x-forwarded-proto.
  */
-function originFor(req) {
+export function originFor(req) {
   const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "")
     .split(",")[0]
     .trim();

@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
-import { createAdmin } from "./admin/routes.js";
+import { createAdmin, originFor } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
 import { isConfigured as adminIsConfigured } from "./admin/runtime-config.js";
 import { contentStatus as adminContentStatus } from "./admin/content-status.js";
@@ -175,6 +175,15 @@ const server = createServer(async (req, res) => {
       // these fields tell the two apart instead of guessing.
       adminMounted: true,
       adminConfigured: adminIsConfigured(),
+      // What invitation links will be built from, for this exact request.
+      // Links were coming out as http://localhost because they used the
+      // parse-time placeholder base rather than the request headers.
+      requestOrigin: originFor(req),
+      forwardedHeaders: {
+        host: req.headers.host ?? null,
+        "x-forwarded-host": req.headers["x-forwarded-host"] ?? null,
+        "x-forwarded-proto": req.headers["x-forwarded-proto"] ?? null
+      },
       // Whether the token can actually reach the content repository. A token
       // that is valid but lacks access looks identical to a missing invite,
       // because an unreadable users file yields no accounts and no invites.
