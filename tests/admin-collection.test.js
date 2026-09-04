@@ -179,9 +179,41 @@ test("group order survives a round trip through serialise", async () => {
   assert.deepEqual(parsed.map((g) => g.tier), ["a", "b"], "render order is array order");
 });
 
-test("a group's required fields are enforced", async () => {
+test("a group requires a label, but not a styling class", async () => {
   const partners = getSchema("partners");
-  const out = applyEdit(partners, [], "new", { tier: "", label: "X" }, partners.fields);
-  assert.equal(out.ok, false);
-  assert.ok(out.errors.some((e) => e.field === "tier"));
+
+  const noLabel = applyEdit(partners, [], "new", { label: "" }, partners.fields);
+  assert.equal(noLabel.ok, false);
+  assert.ok(noLabel.errors.some((e) => e.field === "label"));
+
+  // tier is derived, so its absence is not an error
+  const noTier = applyEdit(partners, [], "new", { label: "Media Partners" }, partners.fields);
+  assert.equal(noTier.ok, true);
+});
+
+test("a partner group's styling class is derived from its label", async () => {
+  const partners = getSchema("partners");
+
+  // Left blank, it follows the label — the editor never has to think about it.
+  const derived = applyEdit(partners, [], "new", { label: "Media Partners" }, partners.fields);
+  assert.equal(derived.ok, true);
+  assert.equal(derived.list[0].tier, "media-partners");
+  assert.equal(derived.list[0].label, "Media Partners");
+
+  // Supplied explicitly, it is respected but normalised to a usable class.
+  const explicit = applyEdit(partners, [], "new", {
+    label: "Media Partners",
+    tier: "Media Partner!"
+  }, partners.fields);
+  assert.equal(explicit.list[0].tier, "media-partner");
+});
+
+test("the existing partner groups still validate unchanged", async () => {
+  const partners = getSchema("partners");
+  const doc = JSON.parse(await readFile("src/_data/partners.json", "utf8"));
+  for (const group of doc) {
+    const out = applyEdit(partners, [], "new", group, partners.fields);
+    assert.equal(out.ok, true, `${group.label}: ${JSON.stringify(out.errors)}`);
+    assert.equal(out.list[0].tier, group.tier, "the existing class must not shift");
+  }
 });

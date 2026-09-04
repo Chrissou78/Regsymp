@@ -45,12 +45,16 @@ export const SCHEMAS = {
     childKey: "logos",
     childLabel: "Logos",
     fields: [
-      F("tier", "text", {
+      F("label", "text", {
         required: true,
         max: 60,
-        help: "CSS class, e.g. session-partner. Controls the tier's styling."
+        help: "The heading shown on the partners page, e.g. Session Partner."
       }),
-      F("label", "text", { required: true, max: 60 })
+      F("tier", "slug", {
+        from: "label",
+        max: 60,
+        help: "Styling class. Leave blank and it is derived from the label."
+      })
     ],
     childFields: [
       F("name", "text", { required: true, max: 120 }),
