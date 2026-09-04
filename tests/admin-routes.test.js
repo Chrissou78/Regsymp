@@ -228,3 +228,15 @@ test("the admin is never gated on ADMIN_USERS", async () => {
   const source = await readFile("server.js", "utf8");
   assert.doesNotMatch(source, /const admin = env\("ADMIN_USERS"\)/);
 });
+
+test("links are built from the request host, not the parse-time placeholder", async () => {
+  // server.js parses request URLs against a fixed "http://localhost" base, so
+  // url.host is always localhost. Invitation links must come from the headers.
+  const source = await readFile("admin/routes.js", "utf8");
+  assert.doesNotMatch(
+    source,
+    /\$\{url\.protocol\}\/\/\$\{url\.host\}/,
+    "links must not be built from the placeholder base URL"
+  );
+  assert.match(source, /function originFor\(req\)/);
+});

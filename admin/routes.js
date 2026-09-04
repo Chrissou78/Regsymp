@@ -383,7 +383,7 @@ export function createAdmin(config) {
 
     if (path === "/admin/users") {
       if (req.method === "GET") {
-        html(res, 200, await usersPage({ store: storeFor(), session, token, origin: `${url.protocol}//${url.host}` }));
+        html(res, 200, await usersPage({ store: storeFor(), session, token, origin: originFor(req) }));
         return true;
       }
 
@@ -397,9 +397,9 @@ export function createAdmin(config) {
           await storeFor().removeUser(form.fields.email, session.user.email);
         } else {
           const raw = await storeFor().createInvite(form.fields.email, session.user.email);
-          const link = `${url.protocol}//${url.host}/admin/invite/${raw}`;
+          const link = `${originFor(req)}/admin/invite/${raw}`;
           html(res, 200, await usersPage({
-            store: storeFor(), session, token, origin: `${url.protocol}//${url.host}`,
+            store: storeFor(), session, token, origin: originFor(req),
             invited: { email: String(form.fields.email).trim().toLowerCase(), link }
           }));
           return true;
@@ -407,7 +407,7 @@ export function createAdmin(config) {
         redirect(res, "/admin/users");
       } catch (err) {
         html(res, 400, await usersPage({
-          store: storeFor(), session, token, origin: `${url.protocol}//${url.host}`, error: err.message
+          store: storeFor(), session, token, origin: originFor(req), error: err.message
         }));
       }
       return true;
@@ -657,6 +657,31 @@ export function createAdmin(config) {
 }
 
 /* ------------------------------------------------------------- helpers */
+
+
+/**
+ * The public origin of a request.
+ *
+ * server.js parses the request URL against a fixed "http://localhost" base,
+ * which is fine for reading the path but makes url.host useless for building
+ * links — invitation links came out pointing at localhost. The real host is
+ * in the headers, and behind a proxy the scheme is only in x-forwarded-proto.
+ */
+function originFor(req) {
+  const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "")
+    .split(",")[0]
+    .trim();
+  if (!host) return "";
+
+  const forwarded = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0].trim();
+  const isLocal = /^(localhost|127\.|\[::1\])/.test(host);
+  // A proxy tells us the scheme; failing that, anything not local is public
+  // and therefore HTTPS. Defaulting to http would hand out insecure links.
+  const proto = forwarded || (req.socket?.encrypted ? "https" : isLocal ? "http" : "https");
+
+  return `${proto}://${host}`;
+}
+
 
 function clientKey(req) {
   // Behind a proxy the socket address is the proxy's, so prefer the
