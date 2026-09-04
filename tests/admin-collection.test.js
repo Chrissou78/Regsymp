@@ -140,3 +140,48 @@ test("uniqueFilename avoids overwriting an existing image", () => {
     "rony-vogel-3.png"
   );
 });
+
+// -------------------------------------------------- partner group handling
+
+test("a new partner group starts with an empty logo list", async () => {
+  const partners = getSchema("partners");
+  const groups = [{ tier: "founding-partner", label: "Founding Partner", logos: [{ name: "A", file: "a.png" }] }];
+
+  const out = applyEdit(partners, groups, "new", {
+    tier: "media-partner",
+    label: "Media Partners"
+  }, partners.fields);
+
+  assert.equal(out.ok, true);
+  assert.equal(out.list.length, 2);
+  assert.equal(out.list[1].tier, "media-partner");
+  assert.equal(out.list[0].logos.length, 1, "the existing group is untouched");
+});
+
+test("partner groups reorder like any other list", async () => {
+  const groups = [
+    { tier: "a", label: "A", logos: [] },
+    { tier: "b", label: "B", logos: [] },
+    { tier: "c", label: "C", logos: [] }
+  ];
+  assert.deepEqual(applyMove(groups, "2", "up").map((g) => g.tier), ["a", "c", "b"]);
+  assert.deepEqual(applyMove(groups, "0", "up").map((g) => g.tier), ["a", "b", "c"]);
+  assert.deepEqual(applyMove(groups, "0", "down").map((g) => g.tier), ["b", "a", "c"]);
+  assert.deepEqual(groups.map((g) => g.tier), ["a", "b", "c"], "input not mutated");
+});
+
+test("group order survives a round trip through serialise", async () => {
+  const groups = [
+    { tier: "b", label: "B", logos: [] },
+    { tier: "a", label: "A", logos: [] }
+  ];
+  const parsed = JSON.parse(serialise(applyMove(groups, "1", "up")));
+  assert.deepEqual(parsed.map((g) => g.tier), ["a", "b"], "render order is array order");
+});
+
+test("a group's required fields are enforced", async () => {
+  const partners = getSchema("partners");
+  const out = applyEdit(partners, [], "new", { tier: "", label: "X" }, partners.fields);
+  assert.equal(out.ok, false);
+  assert.ok(out.errors.some((e) => e.field === "tier"));
+});

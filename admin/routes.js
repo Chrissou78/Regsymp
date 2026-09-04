@@ -573,12 +573,105 @@ export function createAdmin(config) {
     const indexPart = schema.kind === "array" ? parts[2] : parts[3];
     const action = schema.kind === "array" ? parts[3] : parts[4];
 
+    // ---- managing the groups themselves (partner tiers) ------------------
+    // Addressed under /tier/ so it cannot collide with /admin/partners/0,
+    // which addresses the logos *inside* tier 0.
+    if (schema.kind === "nested" && parts[2] === "tier") {
+      const tierIndex = parts[3];
+      const tierAction = parts[4];
+      const groups = Array.isArray(doc) ? doc : [];
+      const groupBase = `/admin/${collection}`;
+
+      if (req.method === "GET") {
+        const record = tierIndex === "new" ? {} : (groups[Number(tierIndex)] ?? {});
+        html(res, 200, layout({
+          title: schema.label,
+          user: session.user,
+          body: recordForm({
+            schema,
+            action: `${groupBase}/tier/${tierIndex}`,
+            record,
+            token,
+            fields: schema.fields,
+            backTo: groupBase
+          })
+        }));
+        return true;
+      }
+
+      const tierForm = await readForm(req, readBody);
+      requireCsrf(session.id, tierForm.fields.csrf, secret$());
+
+      let nextGroups;
+      let tierMessage;
+
+      if (tierAction === "delete") {
+        const target = groups[Number(tierIndex)];
+        if ((target?.[schema.childKey] ?? []).length > 0) {
+          html(res, 400, layout({
+            title: schema.label,
+            user: session.user,
+            flash: {
+              kind: "error",
+              message: `Remove the logos from "${target.label}" before deleting the group.`
+            },
+            body: `<p><a href="${escape(groupBase)}">Back to ${escape(schema.label)}</a></p>`
+          }));
+          return true;
+        }
+        nextGroups = applyDelete(groups, tierIndex);
+        tierMessage = `Remove ${schema.label} group via admin (${session.user.email})`;
+      } else if (tierAction === "move") {
+        nextGroups = applyMove(groups, tierIndex, tierForm.fields.direction);
+        tierMessage = `Reorder ${schema.label} groups via admin (${session.user.email})`;
+      } else {
+        const result = applyEdit(schema, groups, tierIndex, tierForm.fields, schema.fields);
+        if (!result.ok) {
+          html(res, 400, layout({
+            title: schema.label,
+            user: session.user,
+            body:
+              errorList(result.errors) +
+              recordForm({
+                schema,
+                action: `${groupBase}/tier/${tierIndex}`,
+                record: tierForm.fields,
+                token,
+                fields: schema.fields,
+                backTo: groupBase
+              })
+          }));
+          return true;
+        }
+        // A new group starts with an empty child list so the shape stays valid.
+        nextGroups = result.list.map((g, i) =>
+          i === result.list.length - 1 && tierIndex === "new"
+            ? { ...g, [schema.childKey]: [] }
+            : g
+        );
+        tierMessage = `Update ${schema.label} group via admin (${session.user.email})`;
+      }
+
+      const commit = await gh.putFile({
+        path: schema.file,
+        content: serialise(nextGroups),
+        message: tierMessage,
+        sha: file.sha
+      });
+      html(res, 200, layout({
+        title: "Saved",
+        user: session.user,
+        body: savedBody(commit, groupBase, schema.label)
+      }));
+      return true;
+    }
+
     // Index page for collections that need a list chosen first.
     if (schema.kind !== "array" && listKey === undefined) {
       html(res, 200, layout({
         title: schema.label,
         user: session.user,
-        body: groupIndex(schema, doc, collection)
+        body: groupIndex(schema, doc, collection, token)
       }));
       return true;
     }
@@ -953,16 +1046,32 @@ function savedBody(commit, backTo, label) {
   </div>`;
 }
 
-function groupIndex(schema, doc, collection) {
+function groupIndex(schema, doc, collection, token) {
   if (schema.kind === "nested") {
     const rows = doc
       .map(
-        (group, i) =>
-          `<li><a href="/admin/${escape(collection)}/${i}">${escape(group.label)}</a>
-           <span class="a-count">${(group[schema.childKey] ?? []).length}</span></li>`
+        (group, i) => `<li class="a-row">
+        <a class="a-row-name" href="/admin/${escape(collection)}/${i}">${escape(group.label)}</a>
+        <span class="a-count">${(group[schema.childKey] ?? []).length}</span>
+        <a class="a-edit" href="/admin/${escape(collection)}/tier/${i}">Edit</a>
+        <form method="post" action="/admin/${escape(collection)}/tier/${i}/move" class="a-inline">
+          <input type="hidden" name="csrf" value="${escape(token)}">
+          <button name="direction" value="up" aria-label="Move up">&uarr;</button>
+          <button name="direction" value="down" aria-label="Move down">&darr;</button>
+        </form>
+        <form method="post" action="/admin/${escape(collection)}/tier/${i}/delete" class="a-inline"
+              onsubmit="return confirm('Remove the ${escape(group.label)} group?')">
+          <input type="hidden" name="csrf" value="${escape(token)}">
+          <button class="a-danger">Remove</button>
+        </form>
+      </li>`
       )
       .join("");
-    return `<h1>${escape(schema.label)}</h1><ul class="a-list">${rows}</ul>`;
+    return `<h1>${escape(schema.label)}</h1>
+      <p class="a-lede">Groups appear on the page in this order. Open one to manage
+      the logos inside it.</p>
+      <p><a class="a-btn" href="/admin/${escape(collection)}/tier/new">Add a group</a></p>
+      <ul class="a-rows">${rows}</ul>`;
   }
 
   // agenda: edition -> day

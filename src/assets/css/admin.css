@@ -184,3 +184,6 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   font-size: 15px;
   background: #fff;
 }
+
+.a-edit { font-size: 13px; text-decoration: none; color: var(--a-muted); }
+.a-edit:hover { color: var(--a-gold); }

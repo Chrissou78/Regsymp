@@ -34,6 +34,16 @@ test("every admin route requires a session", async () => {
     ["POST", "/admin/users"]
   ];
 
+  // Group management for nested collections (partner tiers).
+  for (const [name, schema] of Object.entries(SCHEMAS)) {
+    if (schema.kind !== "nested") continue;
+    guarded.push(["GET", `/admin/${name}/tier/new`]);
+    guarded.push(["GET", `/admin/${name}/tier/0`]);
+    guarded.push(["POST", `/admin/${name}/tier/0`]);
+    guarded.push(["POST", `/admin/${name}/tier/0/delete`]);
+    guarded.push(["POST", `/admin/${name}/tier/0/move`]);
+  }
+
   // Derive the route list from the schemas so a collection added later is
   // covered automatically rather than being silently unguarded.
   for (const name of Object.keys(SCHEMAS)) {
