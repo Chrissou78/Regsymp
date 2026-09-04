@@ -221,15 +221,10 @@ test("inviting without a CSRF token is rejected", async () => {
   assert.doesNotMatch(await res.text(), /Invitation created/);
 });
 
-test("the admin is gated on GITHUB_TOKEN, not on ADMIN_USERS", async () => {
+test("the admin is never gated on ADMIN_USERS", async () => {
   // Accounts live in the content repository, so ADMIN_USERS is normally
-  // empty. Gating on it would leave a correctly configured deploy serving
-  // 404s for every admin route.
+  // empty. Gating on it left every admin route serving 404 on a correctly
+  // configured deploy.
   const source = await readFile("server.js", "utf8");
-  assert.match(
-    source,
-    /const admin = env\("GITHUB_TOKEN"\)/,
-    "the admin must be enabled by the GitHub token"
-  );
   assert.doesNotMatch(source, /const admin = env\("ADMIN_USERS"\)/);
 });

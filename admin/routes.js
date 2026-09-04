@@ -1,9 +1,11 @@
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { SCHEMAS, getSchema, validateRecord } from "./schemas.js";
 import { createClient, ConflictError } from "./github.js";
 import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
 import { createUserStore } from "./users-store.js";
 import { createAttemptLimiter } from "./login-attempts.js";
+import { configValue, isConfigured, setRuntimeConfig, setupTokenMatches } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
 import { slugifyFilename } from "./sanitise.js";
@@ -113,6 +115,18 @@ export function uniqueFilename(desired, existing = []) {
 /* ------------------------------------------------------------------ HTTP */
 
 export function createAdmin(config) {
+  // Digest of the one-time setup token, shipped with the code so the setup
+  // link works before any environment variable exists. Only the digest is
+  // stored, so possessing this file does not grant setup access.
+  let setupTokenHash = "";
+  try {
+    setupTokenHash = JSON.parse(
+      readFileSync(new URL("./setup-token.json", import.meta.url), "utf8")
+    ).tokenHash ?? "";
+  } catch {
+    setupTokenHash = "";
+  }
+
   const {
     sessions,
     users: rawUsers,
@@ -124,11 +138,19 @@ export function createAdmin(config) {
     attempts = createAttemptLimiter()
   } = config;
 
+  // Read lazily rather than at construction: a one-time setup link can
+  // supply the token after the process has already started.
+  const token$ = () => githubToken || configValue("GITHUB_TOKEN");
+  const secret$ = () => secret || configValue("SESSION_SECRET");
+
   // Accounts live in the content repository, so admins can be added through
   // the web interface without anyone needing server access. ADMIN_USERS
   // remains as an environment fallback for recovery.
-  const contentGh = createClient({ token: githubToken, repo, branch, fetchImpl });
-  const store = createUserStore({ gh: contentGh, fallbackUsers: rawUsers });
+  const storeFor = () =>
+    createUserStore({
+      gh: createClient({ token: token$(), repo, branch, fetchImpl }),
+      fallbackUsers: rawUsers
+    });
 
   const html = (res, status, body) => {
     res.writeHead(status, {
@@ -169,6 +191,75 @@ export function createAdmin(config) {
     const path = raw.length > 1 ? raw.replace(/\/+$/, "") : raw;
     if (path !== "/admin" && !path.startsWith("/admin/")) return false;
 
+    // ------------------------------------------------------------- setup
+    // A one-time link for hosts where nobody can reach the environment.
+    // Only reachable while the admin is unconfigured; once a token is in
+    // place this route stops existing. Values are held in memory, so a
+    // process restart requires a fresh link.
+    if (path.startsWith("/admin/setup/")) {
+      const supplied = path.slice("/admin/setup/".length);
+
+      if (isConfigured()) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: null,
+          body: `<p>The admin is already configured.</p>
+                 <p><a href="/admin/signin">Go to sign in</a></p>`
+        }));
+        return true;
+      }
+
+      if (!setupTokenMatches(supplied, setupTokenHash)) {
+        html(res, 403, layout({
+          title: "Setup",
+          user: null,
+          flash: { kind: "error", message: "That setup link is not valid." },
+          body: ""
+        }));
+        return true;
+      }
+
+      if (req.method === "GET") {
+        html(res, 200, setupPage(supplied));
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      const supplied$ = String(form.fields.githubToken ?? "").trim();
+      if (!supplied$) {
+        html(res, 400, setupPage(supplied, "Please paste a GitHub token."));
+        return true;
+      }
+
+      setRuntimeConfig({
+        GITHUB_TOKEN: supplied$,
+        SESSION_SECRET: String(form.fields.sessionSecret ?? "").trim() || randomBytes(32).toString("hex")
+      });
+
+      html(res, 200, layout({
+        title: "Setup complete",
+        user: null,
+        flash: { kind: "ok", message: "The admin is configured." },
+        body: `<p>You can now open your invitation link, or
+               <a href="/admin/signin">sign in</a> if you already have an account.</p>
+               <p class="a-note">This was stored in memory. If the server process
+               restarts you will need a new setup link — setting
+               <code>GITHUB_TOKEN</code> in the host's environment makes it permanent.</p>`
+      }));
+      return true;
+    }
+
+    // Nothing else works until a token is available.
+    if (!isConfigured()) {
+      html(res, 503, layout({
+        title: "Not configured",
+        user: null,
+        flash: { kind: "error", message: "The admin has not been configured yet." },
+        body: `<p>It needs a GitHub token before it can read accounts or save changes.</p>`
+      }));
+      return true;
+    }
+
     // ---------------------------------------------------- unauthenticated
     if (path === "/admin/signin") {
       if (req.method === "GET") {
@@ -193,7 +284,7 @@ export function createAdmin(config) {
       const email = String(form.fields.email ?? "").trim().toLowerCase();
       const password = String(form.fields.password ?? "");
 
-      const ok = await store.verify(email, password);
+      const ok = await storeFor().verify(email, password);
 
       if (!ok) {
         attempts.fail(source);
@@ -202,7 +293,7 @@ export function createAdmin(config) {
       }
 
       attempts.succeed(source);
-      const id = sessions.create({ email }, githubToken);
+      const id = sessions.create({ email }, token$());
       redirect(res, "/admin", {
         "Set-Cookie":
           `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
@@ -215,7 +306,7 @@ export function createAdmin(config) {
     // the credential, and it is single-use and time-limited.
     if (path.startsWith("/admin/invite/")) {
       const token = path.slice("/admin/invite/".length);
-      const invite = await store.findInvite(token).catch(() => null);
+      const invite = await storeFor().findInvite(token).catch(() => null);
 
       if (!invite) {
         html(res, 403, layout({
@@ -242,8 +333,8 @@ export function createAdmin(config) {
       }
 
       try {
-        const email = await store.redeemInvite(token, password);
-        const id = sessions.create({ email }, githubToken);
+        const email = await storeFor().redeemInvite(token, password);
+        const id = sessions.create({ email }, token$());
         redirect(res, "/admin", {
           "Set-Cookie":
             `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
@@ -272,28 +363,28 @@ export function createAdmin(config) {
       return true;
     }
 
-    const gh = createClient({ token: githubToken, repo, branch, fetchImpl });
-    const token = csrfToken(session.id, secret);
+    const gh = createClient({ token: token$(), repo, branch, fetchImpl });
+    const token = csrfToken(session.id, secret$());
 
     if (path === "/admin/users") {
       if (req.method === "GET") {
-        html(res, 200, await usersPage({ store, session, token, origin: `${url.protocol}//${url.host}` }));
+        html(res, 200, await usersPage({ store: storeFor(), session, token, origin: `${url.protocol}//${url.host}` }));
         return true;
       }
 
       const form = await readForm(req, readBody);
-      requireCsrf(session.id, form.fields.csrf, secret);
+      requireCsrf(session.id, form.fields.csrf, secret$());
 
       try {
         if (form.fields.action === "revoke") {
-          await store.revokeInvite(form.fields.email, session.user.email);
+          await storeFor().revokeInvite(form.fields.email, session.user.email);
         } else if (form.fields.action === "remove") {
-          await store.removeUser(form.fields.email, session.user.email);
+          await storeFor().removeUser(form.fields.email, session.user.email);
         } else {
-          const raw = await store.createInvite(form.fields.email, session.user.email);
+          const raw = await storeFor().createInvite(form.fields.email, session.user.email);
           const link = `${url.protocol}//${url.host}/admin/invite/${raw}`;
           html(res, 200, await usersPage({
-            store, session, token, origin: `${url.protocol}//${url.host}`,
+            store: storeFor(), session, token, origin: `${url.protocol}//${url.host}`,
             invited: { email: String(form.fields.email).trim().toLowerCase(), link }
           }));
           return true;
@@ -301,7 +392,7 @@ export function createAdmin(config) {
         redirect(res, "/admin/users");
       } catch (err) {
         html(res, 400, await usersPage({
-          store, session, token, origin: `${url.protocol}//${url.host}`, error: err.message
+          store: storeFor(), session, token, origin: `${url.protocol}//${url.host}`, error: err.message
         }));
       }
       return true;
@@ -381,7 +472,7 @@ export function createAdmin(config) {
         return true;
       }
       const form = await readForm(req, readBody);
-      requireCsrf(session.id, form.fields.csrf, secret);
+      requireCsrf(session.id, form.fields.csrf, secret$());
       const result = validateRecord(schema, form.fields);
       if (!result.ok) {
         html(res, 400, layout({
@@ -445,7 +536,7 @@ export function createAdmin(config) {
 
     // ---- mutations ------------------------------------------------------
     const form = await readForm(req, readBody);
-    requireCsrf(session.id, form.fields.csrf, secret);
+    requireCsrf(session.id, form.fields.csrf, secret$());
 
     let nextList;
     let message;
@@ -650,6 +741,34 @@ async function usersPage({ store, session, token, invited, error }) {
         <div class="a-actions"><button class="a-btn" type="submit">Create invitation</button></div>
       </form>
       <p><a href="/admin">Back to collections</a></p>`
+  });
+}
+
+
+function setupPage(token, error) {
+  return layout({
+    title: "Configure the admin",
+    user: null,
+    flash: error ? { kind: "error", message: error } : null,
+    body: `<div class="a-signin">
+      <h1>Configure the admin</h1>
+      <p>Paste a GitHub token with write access to the content repository.
+      This is held in memory only — a process restart will need a new link.</p>
+      <form method="post" action="/admin/setup/${escape(token)}" class="a-form a-form--signin">
+        <div class="a-field">
+          <label for="f-token">GitHub token</label>
+          <input id="f-token" name="githubToken" type="password" required autofocus
+                 autocomplete="off" spellcheck="false">
+        </div>
+        <div class="a-field">
+          <label for="f-secret">Session secret <span class="opt">optional</span></label>
+          <input id="f-secret" name="sessionSecret" type="password" autocomplete="off"
+                 spellcheck="false">
+          <span class="a-help">Leave blank and one will be generated.</span>
+        </div>
+        <div class="a-actions"><button class="a-btn" type="submit">Save</button></div>
+      </form>
+    </div>`
   });
 }
 

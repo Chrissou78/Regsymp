@@ -55,23 +55,21 @@ const REVALIDATE = "public, max-age=0, must-revalidate";
 const MAX_BODY_BYTES = 64 * 1024;
 
 /**
- * The admin is disabled entirely unless GITHUB_TOKEN is set, so an
- * unconfigured deploy exposes no admin surface at all.
+ * The admin is always mounted, but does nothing until it has a GitHub token.
+ * Without one it serves only the one-time setup link and a "not configured"
+ * notice — it can neither read accounts nor save anything.
  *
- * The gate is the token, not ADMIN_USERS: accounts live in the content
- * repository now, so ADMIN_USERS is normally empty. Without a token the
- * admin can neither read accounts nor commit, so it has nothing to offer.
+ * Mounting unconditionally is what lets the setup link work on a host where
+ * nobody can reach the environment.
  */
-const admin = env("GITHUB_TOKEN")
-  ? createAdmin({
-      sessions: createSessions(),
-      users: env("ADMIN_USERS"),
-      githubToken: env("GITHUB_TOKEN"),
-      repo: env("CONTENT_REPO") || "OC-Labs/regsymp",
-      branch: env("CONTENT_BRANCH") || "prod",
-      secret: env("SESSION_SECRET") || randomUUID()
-    })
-  : null;
+const admin = createAdmin({
+  sessions: createSessions(),
+  users: env("ADMIN_USERS"),
+  githubToken: env("GITHUB_TOKEN"),
+  repo: env("CONTENT_REPO") || "OC-Labs/regsymp",
+  branch: env("CONTENT_BRANCH") || "prod",
+  secret: env("SESSION_SECRET")
+});
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, {
@@ -175,7 +173,7 @@ const server = createServer(async (req, res) => {
   }
 
   // ---- admin --------------------------------------------------------------
-  if (admin && (await admin.handle(req, res, url))) return;
+  if (await admin.handle(req, res, url)) return;
 
   if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });
 

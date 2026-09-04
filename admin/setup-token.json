@@ -1,0 +1,4 @@
+{
+  "tokenHash": "d99930f893dca0226779063d86a13e893ed363db6ef8c609f7f9704565ef8034",
+  "note": "SHA-256 of a one-time setup token. The route is only reachable while the admin is unconfigured."
+}
