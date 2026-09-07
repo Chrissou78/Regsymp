@@ -854,6 +854,7 @@ async function credentialsPage({ credentials, session, token, error }) {
           entry.set ? `set &middot; ${escape(entry.source ?? "")}` : "not set"
         }</span>
       </div>
+      ${entry.help ? `<p class="a-help">${escape(entry.help)}</p>` : ""}
       ${
         entry.updatedAt
           ? `<p class="a-note">Last changed ${escape(

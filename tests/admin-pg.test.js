@@ -378,6 +378,32 @@ test("only known credentials can be written", opts, async () => {
   assert.ok(!MANAGED.includes("DATABASE_URL"), "the connection string must not be manageable");
 });
 
+test("every managed credential is described, and the connection string is not one", opts, async () => {
+  // A column of bare constant names is how a value gets pasted into the wrong
+  // box. And DATABASE_URL must never be manageable: reading this table needs
+  // the connection that value opens.
+  const status = await secretStatus(db);
+  for (const entry of status) {
+    assert.ok(entry.help && entry.help.length > 20, `${entry.name} has no description`);
+  }
+  assert.ok(!MANAGED.includes("DATABASE_URL"));
+  for (const expected of ["PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET", "PINATA_GATEWAY"]) {
+    assert.ok(MANAGED.includes(expected), `${expected} is not manageable`);
+  }
+});
+
+test("a Pinata JWT is stored whole, however long it is", opts, async () => {
+  // JWTs run to several hundred characters; a truncated one fails at pin time
+  // with an authentication error that looks like a wrong key.
+  await reset();
+  const jwt = "eyJhbGciOiJIUzI1NiJ9." + "x".repeat(600) + ".signature";
+  await setSecret(db, "PINATA_JWT", jwt, "chris@onchainlabs.ch");
+  await applySecrets(db);
+  assert.equal(process.env.PINATA_JWT, jwt);
+  assert.equal(process.env.PINATA_JWT.length, jwt.length);
+  delete process.env.PINATA_JWT;
+});
+
 test("the session secret is generated once and then reused", opts, async () => {
   await reset();
   delete process.env.SESSION_SECRET;

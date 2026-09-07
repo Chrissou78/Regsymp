@@ -23,8 +23,30 @@ export const MANAGED = Object.freeze([
   "RESEND_API_KEY",
   "RESEND_FROM",
   "INVITATION_RECIPIENT",
-  "SESSION_SECRET"
+  "SESSION_SECRET",
+  "PINATA_JWT",
+  "PINATA_API_KEY",
+  "PINATA_API_SECRET",
+  "PINATA_GATEWAY"
 ]);
+
+/**
+ * What each credential is for, shown beside its field.
+ *
+ * Without this the page is a column of shouty constant names and no clue
+ * which value belongs in which box — which is how a secret ends up pasted
+ * into the wrong field and then wondered about.
+ */
+export const DESCRIPTIONS = Object.freeze({
+  RESEND_API_KEY: "From the Resend dashboard. Starts with re_. Sends the invitation emails.",
+  RESEND_FROM: "Sender address, on a domain verified in Resend. e.g. RegSymp <noreply@send.regsymp.com>",
+  INVITATION_RECIPIENT: "Where invitation requests are delivered. e.g. info@regsymp.com",
+  SESSION_SECRET: "Signs CSRF tokens. Generated automatically; replace it only to invalidate every open form.",
+  PINATA_JWT: "Pinata API Key JWT. This alone is enough to pin files — prefer it over the key and secret pair.",
+  PINATA_API_KEY: "Pinata legacy API key. Only needed if you are using the older v2 authentication.",
+  PINATA_API_SECRET: "Pinata legacy API secret, paired with the key above.",
+  PINATA_GATEWAY: "Your dedicated gateway host, e.g. something.mypinata.cloud. No https://, no trailing slash."
+});
 
 export function isManaged(name) {
   return MANAGED.includes(String(name));
@@ -79,6 +101,7 @@ export async function secretStatus(db) {
   const stored = new Map(rows.map((r) => [r.name, r]));
   return MANAGED.map((name) => ({
     name,
+    help: DESCRIPTIONS[name] ?? "",
     set: Boolean(process.env[name]),
     source: stored.has(name) ? "database" : process.env[name] ? "environment" : null,
     updatedAt: stored.get(name)?.updated_at ?? null,
