@@ -13,7 +13,14 @@ import { createDb, migrate } from "./admin/db.js";
 import { createPgStore } from "./admin/store-pg.js";
 import { createPgUserStore } from "./admin/users-store-pg.js";
 import { createUserStore } from "./admin/users-store.js";
-import { applySecrets, clearSecret, ensureSessionSecret, secretStatus, setSecret } from "./admin/secrets.js";
+import {
+  applySecrets,
+  clearSecret,
+  ensureEncryptionKey,
+  ensureSessionSecret,
+  secretStatus,
+  setSecret
+} from "./admin/secrets.js";
 import { materialise, seedAdmins, seedContent, writeThrough } from "./admin/db-bootstrap.js";
 import { createPinner } from "./admin/ipfs.js";
 import { backfill, listPins, pinDocument, pinStatus } from "./admin/pins.js";
@@ -156,7 +163,13 @@ const admin = createAdmin({
     ? {
         list: () => secretStatus(db),
         set: (name, value, by) => setSecret(db, name, value, by),
-        clear: (name) => clearSecret(db, name)
+        clear: (name) => clearSecret(db, name),
+        // Deliberate exception to "values are never displayed". Encryption
+        // keeps a copy of nothing if the key dies with the database, so this
+        // one has to be escrowable somewhere else.
+        escrowable: ["IPFS_ENCRYPTION_KEY"],
+        reveal: (name) =>
+          name === "IPFS_ENCRYPTION_KEY" ? process.env.IPFS_ENCRYPTION_KEY ?? null : null
       }
     : null,
   ipfs: db
@@ -227,6 +240,9 @@ async function bootstrapDatabase() {
   {
     const applied = await migrate(db);
     await ensureSessionSecret(db);
+    // Encryption on by default. IPFS cannot un-publish anything, so the time
+    // to decide is before the first upload, not after.
+    await ensureEncryptionKey(db);
     const credentials = await applySecrets(db);
     const content = await seedContent({ db, store, root: PROJECT_ROOT });
     const admins = await seedAdmins({ db, root: PROJECT_ROOT });

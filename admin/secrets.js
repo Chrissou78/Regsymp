@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { generateKey } from "./crypto.js";
 
 /**
  * Service credentials held in the database.
@@ -27,7 +28,8 @@ export const MANAGED = Object.freeze([
   "PINATA_JWT",
   "PINATA_API_KEY",
   "PINATA_API_SECRET",
-  "PINATA_GATEWAY"
+  "PINATA_GATEWAY",
+  "IPFS_ENCRYPTION_KEY"
 ]);
 
 /**
@@ -45,7 +47,9 @@ export const DESCRIPTIONS = Object.freeze({
   PINATA_JWT: "Pinata API Key JWT. This alone is enough to pin files — prefer it over the key and secret pair.",
   PINATA_API_KEY: "Pinata legacy API key. Only needed if you are using the older v2 authentication.",
   PINATA_API_SECRET: "Pinata legacy API secret, paired with the key above.",
-  PINATA_GATEWAY: "Your dedicated gateway host, e.g. something.mypinata.cloud. No https://, no trailing slash."
+  PINATA_GATEWAY: "Your dedicated gateway host, e.g. something.mypinata.cloud. No https://, no trailing slash.",
+  IPFS_ENCRYPTION_KEY:
+    "Encrypts every image before it is pinned. Generated automatically. Keep a copy somewhere else: lose it and the pinned copies are unreadable."
 });
 
 export function isManaged(name) {
@@ -121,5 +125,23 @@ export async function ensureSessionSecret(db) {
   }
   const generated = process.env.SESSION_SECRET || randomBytes(32).toString("hex");
   await setSecret(db, "SESSION_SECRET", generated, "generated on first boot");
+  return generated;
+}
+
+/**
+ * The key used to encrypt images before they are pinned.
+ *
+ * Generated on first use rather than required as configuration, so encryption
+ * is on by default — IPFS is public, and an unencrypted upload cannot be
+ * recalled once its CID is known.
+ */
+export async function ensureEncryptionKey(db) {
+  const { rows } = await db.query("select value from app_secrets where name = 'IPFS_ENCRYPTION_KEY'");
+  if (rows[0]?.value) {
+    process.env.IPFS_ENCRYPTION_KEY = rows[0].value;
+    return rows[0].value;
+  }
+  const generated = process.env.IPFS_ENCRYPTION_KEY || generateKey();
+  await setSecret(db, "IPFS_ENCRYPTION_KEY", generated, "generated on first use");
   return generated;
 }

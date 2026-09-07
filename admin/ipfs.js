@@ -111,5 +111,25 @@ export function createPinner({ jwt, gateway, fetchImpl = fetch, endpoint = ENDPO
     return dedicated ? `https://${dedicated}/ipfs/${cid}` : `https://ipfs.io/ipfs/${cid}`;
   }
 
-  return { configured, testAuth, pin, gatewayUrl };
+  /**
+   * Remove a pin.
+   *
+   * Used to retire the plaintext copies after the same images have been
+   * re-pinned encrypted. Unpinning does not erase anything already fetched by
+   * someone else — nothing on IPFS can be recalled — but it does stop this
+   * account serving it.
+   */
+  async function unpin(cid) {
+    if (!configured()) throw new Error("Pinning is not configured: PINATA_JWT is missing.");
+    const res = await fetchImpl(`${endpoint}/pinning/unpin/${encodeURIComponent(cid)}`, {
+      method: "DELETE",
+      headers: headers()
+    });
+    // Already gone is a success: the goal is that it is not pinned.
+    if (res.ok || res.status === 404) return { removed: true };
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Pinata returned ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
+
+  return { configured, testAuth, pin, unpin, gatewayUrl };
 }

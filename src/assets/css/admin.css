@@ -206,3 +206,14 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 .a-row--stack .a-note { margin: 4px 0 8px; font-size: 13px; }
 .a-row--stack .a-inline { display: inline-flex; gap: 8px; margin-right: 8px; }
 .a-row--stack input[type="password"] { min-width: 240px; }
+
+/* A revealed key: long, and needs to be selectable in one go. */
+.a-reveal {
+  display: block;
+  word-break: break-all;
+  user-select: all;
+  padding: 10px 12px;
+  background: #F4F4F2;
+  border-radius: 3px;
+  font-size: 13px;
+}

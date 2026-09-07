@@ -162,6 +162,32 @@ request cannot outlive a proxy — click again until it reports none left. It is
 deliberately never done on boot: the first run uploads every image on the
 site, and a deploy is not the moment to discover how long that takes.
 
+### Encryption
+
+Images are encrypted with AES-256-GCM before they are uploaded, so a CID on
+its own reveals nothing. This is done before the bytes leave the process, not
+after: IPFS cannot un-publish anything, so a plaintext upload is permanent
+whatever happens next.
+
+`IPFS_ENCRYPTION_KEY` is generated on first boot and kept in `app_secrets`.
+**Keep a copy elsewhere.** A key that only exists in the database dies with it,
+and the pinned copies then stop being a backup and become noise. The owner can
+display it once from **/admin/credentials** — the one deliberate exception to
+values never being shown.
+
+Turning encryption on re-pins each image and unpins the plaintext copy. That
+stops this account serving it; it cannot recall anything already fetched by
+somebody else, which is why the order matters.
+
+A gateway link therefore returns ciphertext rather than a picture. That is the
+intended behaviour, and the admin says so rather than looking broken.
+
+Worth being clear about what this does and does not buy: these same images are
+public on the website, so encryption does not make them secret. It stops the
+IPFS copy being an independently readable dump of the site's assets, and it
+puts the mechanism in place before genuinely private material — attendee
+photos, profile data — exists.
+
 `PINATA_JWT` alone is enough. The legacy key and secret are only for accounts
 still on v2 auth. `PINATA_GATEWAY` should be the bare host — the public
 ipfs.io gateway is rate-limited, and is only the fallback.

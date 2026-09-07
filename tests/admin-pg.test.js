@@ -18,6 +18,7 @@ import {
 } from "../admin/secrets.js";
 import { hashPassword } from "../admin/password.js";
 import { backfill, findCid, listPins, pinDocument, pinStatus, recordPin } from "../admin/pins.js";
+import { decrypt, generateKey, isEncrypted } from "../admin/crypto.js";
 
 /**
  * These need a real Postgres, because what they are testing *is* the SQL:
@@ -619,4 +620,127 @@ test("recording a pin twice updates rather than failing", opts, async () => {
   await recordPin(db, { digest: "d1", cid: "bafy1", bytes: 10, filename: "a.png" });
   await recordPin(db, { digest: "d1", cid: "bafy2", bytes: 20, filename: "a.png" });
   assert.equal(await findCid(db, "d1"), "bafy2");
+});
+
+// ----------------------------------------------------------- encrypted pins
+
+/** A pinner that keeps whatever it was handed, so uploads can be inspected. */
+function recordingPinner() {
+  const uploads = new Map();
+  return {
+    uploads,
+    configured: () => true,
+    gatewayUrl: (cid) => `https://gw.test/ipfs/${cid}`,
+    async pin({ buffer, filename, mime }) {
+      const cid = `bafy${uploads.size}`;
+      uploads.set(cid, { buffer, filename, mime });
+      return { cid, size: buffer.length };
+    },
+    async unpin(cid) {
+      uploads.delete(cid);
+      return { removed: true };
+    }
+  };
+}
+
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwACAQEAlSbBpQAAAABJRU5ErkJggg==",
+  "base64"
+);
+
+test("nothing leaves the process in the clear once a key is set", opts, async () => {
+  // IPFS cannot un-publish anything, so encrypting after upload would be no
+  // protection at all. What matters is what actually crossed the boundary.
+  await reset();
+  const store = createPgStore({ db });
+  await store.putFile({ path: "src/assets/images/a.png", content: PNG });
+
+  const key = generateKey();
+  const pinner = recordingPinner();
+  await backfill(db, store, pinner, { limit: 10, });
+
+  // backfill reads the key from the environment, as the server does.
+  const previous = process.env.IPFS_ENCRYPTION_KEY;
+  process.env.IPFS_ENCRYPTION_KEY = key;
+  await db.query("truncate asset_pins");
+  pinner.uploads.clear();
+  await backfill(db, store, pinner, { limit: 10 });
+  if (previous === undefined) delete process.env.IPFS_ENCRYPTION_KEY;
+  else process.env.IPFS_ENCRYPTION_KEY = previous;
+
+  const upload = [...pinner.uploads.values()][0];
+  assert.ok(isEncrypted(upload.buffer), "the upload was not encrypted");
+  assert.ok(!upload.buffer.includes(Buffer.from([0x89, 0x50, 0x4e, 0x47])), "PNG header survived");
+  assert.deepEqual(decrypt(upload.buffer, key), PNG, "does not decrypt to the original");
+  assert.equal(upload.mime, "application/octet-stream", "labelled as an image");
+});
+
+test("turning encryption on re-pins and retires the plaintext copy", opts, async () => {
+  // Leaving the plaintext pinned would defeat the whole exercise.
+  await reset();
+  const store = createPgStore({ db });
+  await store.putFile({ path: "src/assets/images/a.png", content: PNG });
+  const pinner = recordingPinner();
+
+  const previous = process.env.IPFS_ENCRYPTION_KEY;
+  delete process.env.IPFS_ENCRYPTION_KEY;
+  await backfill(db, store, pinner, { limit: 10 });
+  const plaintextCid = [...pinner.uploads.keys()][0];
+  assert.equal((await pinStatus(db)).plaintext, 1);
+
+  process.env.IPFS_ENCRYPTION_KEY = generateKey();
+  const again = await backfill(db, store, pinner, { limit: 10 });
+  if (previous === undefined) delete process.env.IPFS_ENCRYPTION_KEY;
+  else process.env.IPFS_ENCRYPTION_KEY = previous;
+
+  assert.equal(again.considered, 1, "a plaintext pin was treated as already done");
+  assert.ok(!pinner.uploads.has(plaintextCid), "the plaintext copy is still pinned");
+
+  const status = await pinStatus(db);
+  assert.equal(status.encrypted, 1);
+  assert.equal(status.plaintext, 0);
+});
+
+test("an already-encrypted pin is not uploaded again", opts, async () => {
+  await reset();
+  const store = createPgStore({ db });
+  await store.putFile({ path: "src/assets/images/a.png", content: PNG });
+
+  const previous = process.env.IPFS_ENCRYPTION_KEY;
+  process.env.IPFS_ENCRYPTION_KEY = generateKey();
+  const pinner = recordingPinner();
+  await backfill(db, store, pinner, { limit: 10 });
+  const after = await backfill(db, store, pinner, { limit: 10 });
+  if (previous === undefined) delete process.env.IPFS_ENCRYPTION_KEY;
+  else process.env.IPFS_ENCRYPTION_KEY = previous;
+
+  assert.equal(after.considered, 0);
+  assert.equal(pinner.uploads.size, 1, "uploaded the same file twice");
+});
+
+test("a save encrypts without being asked", opts, async () => {
+  // The key is read from the environment, so an editor uploading a photo gets
+  // encryption without knowing it exists.
+  await reset();
+  const key = generateKey();
+  const pinner = recordingPinner();
+
+  // Save it the way the admin does, so the document exists to be counted.
+  const store = createPgStore({ db });
+  await store.putFile({ path: "src/assets/images/new.png", content: PNG });
+  const saved = await store.getFile("src/assets/images/new.png");
+
+  const result = await pinDocument(db, pinner, {
+    path: "src/assets/images/new.png",
+    digest: saved.sha,
+    buffer: saved.buffer,
+    key
+  });
+
+  assert.equal(result.encrypted, true);
+  assert.deepEqual(decrypt([...pinner.uploads.values()][0].buffer, key), PNG);
+
+  const status = await pinStatus(db);
+  assert.equal(status.encrypted, 1);
+  assert.equal(status.plaintext, 0);
 });

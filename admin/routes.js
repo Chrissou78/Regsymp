@@ -462,6 +462,16 @@ export function createAdmin(config) {
       requireCsrf(session.id, form.fields.csrf, secret$());
 
       try {
+        if (form.fields.action === "reveal") {
+          const name = String(form.fields.name ?? "");
+          if (!(credentials.escrowable ?? []).includes(name)) {
+            throw new Error(`${name} cannot be displayed.`);
+          }
+          html(res, 200, await credentialsPage({
+            credentials, session, token, revealed: { name, value: credentials.reveal(name) }
+          }));
+          return true;
+        }
         if (form.fields.action === "clear") {
           await credentials.clear(form.fields.name);
         } else {
@@ -922,7 +932,9 @@ async function ipfsPage({ ipfs, session, token, result }) {
     .map((pin) => `<li class="a-row">
       <span class="a-row-name">${escape(pin.path.replace(/^src\/assets\/images\//, ""))}</span>
       <a class="a-count" href="${escape(ipfs.gatewayUrl(pin.cid))}" target="_blank"
-         rel="noopener">${escape(pin.cid.slice(0, 12))}&hellip;</a>
+         rel="noopener" title="${pin.encrypted ? "Encrypted — downloads ciphertext" : "Unencrypted"}">${
+           pin.encrypted ? "&#128274; " : ""
+         }${escape(pin.cid.slice(0, 12))}&hellip;</a>
     </li>`)
     .join("");
 
@@ -937,10 +949,11 @@ async function ipfsPage({ ipfs, session, token, result }) {
         .join("")}</ul>`
     : "";
 
+  const remaining = status.unpinned + status.plaintext;
   const summary = result
-    ? `<div class="a-flash"><p>Pinned ${result.pinned ?? 0}${
+    ? `<div class="a-flash"><p>Processed ${result.pinned ?? 0}${
         result.failed ? `, ${result.failed} failed` : ""
-      }.${status.unpinned > 0 ? ` ${status.unpinned} still to go — run it again.` : " All done."}</p></div>`
+      }.${remaining > 0 ? ` ${remaining} still to go — run it again.` : " All done."}</p></div>`
     : "";
 
   return layout({
@@ -950,20 +963,37 @@ async function ipfsPage({ ipfs, session, token, result }) {
       ? null
       : { kind: "error", message: `Pinata is not usable: ${auth.reason ?? "unknown"}` },
     body: `<h1>IPFS</h1>
-      <p class="a-lede">Originals are pinned to IPFS as the record. The site keeps
-      serving its own optimised versions, so pages stay fast and no page load
-      depends on a gateway.</p>
+      <p class="a-lede">Originals are pinned to IPFS as the record, encrypted
+      before they leave the server. The site keeps serving its own optimised
+      versions, so pages stay fast and no page load depends on a gateway.</p>
+      <p class="a-note">A gateway link returns ciphertext, not a picture &mdash;
+      that is the point. Decrypting needs the key in
+      <a href="/admin/credentials">service credentials</a>, so keep a copy of it
+      somewhere else: without it these copies are unreadable.</p>
       ${summary}
       <ul class="a-list">
         <li class="a-row"><span class="a-row-name">Images</span><span class="a-count">${status.images}</span></li>
-        <li class="a-row"><span class="a-row-name">Pinned</span><span class="a-count">${status.pinned}</span></li>
+        <li class="a-row"><span class="a-row-name">Pinned, encrypted</span><span class="a-count">${status.encrypted}</span></li>
+        <li class="a-row"><span class="a-row-name">Pinned in the clear</span><span class="a-count">${status.plaintext}</span></li>
         <li class="a-row"><span class="a-row-name">Not pinned</span><span class="a-count">${status.unpinned}</span></li>
       </ul>
       ${
-        status.unpinned > 0 && auth.ok
+        status.plaintext > 0
+          ? `<p class="a-warning">${status.plaintext} image${status.plaintext === 1 ? " is" : "s are"}
+             pinned unencrypted. Running the button below re-pins ${
+               status.plaintext === 1 ? "it" : "them"
+             } encrypted and removes the plain copy from the service &mdash; though
+             anything already fetched by someone else cannot be recalled.</p>`
+          : ""
+      }
+      ${
+        (status.unpinned > 0 || status.plaintext > 0) && auth.ok
           ? `<form method="post" action="/admin/ipfs">
                <input type="hidden" name="csrf" value="${escape(token)}">
-               <button class="a-btn">Pin the next ${Math.min(status.unpinned, 20)}</button>
+               <button class="a-btn">Process the next ${Math.min(
+                 status.unpinned + status.plaintext,
+                 20
+               )}</button>
              </form>`
           : ""
       }
@@ -973,7 +1003,7 @@ async function ipfsPage({ ipfs, session, token, result }) {
   });
 }
 
-async function credentialsPage({ credentials, session, token, error }) {
+async function credentialsPage({ credentials, session, token, error, revealed }) {
   const rows = (await credentials.list())
     .map((entry) => `<li class="a-row a-row--stack">
       <div class="a-row-head">
@@ -998,6 +1028,16 @@ async function credentialsPage({ credentials, session, token, error }) {
         <button class="a-btn">Save</button>
       </form>
       ${
+        (credentials.escrowable ?? []).includes(entry.name) && entry.set
+          ? `<form method="post" action="/admin/credentials" class="a-inline">
+               <input type="hidden" name="csrf" value="${escape(token)}">
+               <input type="hidden" name="name" value="${escape(entry.name)}">
+               <input type="hidden" name="action" value="reveal">
+               <button>Show once</button>
+             </form>`
+          : ""
+      }
+      ${
         entry.source === "database"
           ? `<form method="post" action="/admin/credentials" class="a-inline"
                    onsubmit="return confirm('Clear ${escape(entry.name)}?')">
@@ -1016,6 +1056,14 @@ async function credentialsPage({ credentials, session, token, error }) {
     user: session.user,
     flash: error ? { kind: "error", message: error } : null,
     body: `<h1>Service credentials</h1>
+      ${
+        revealed?.value
+          ? `<div class="a-flash"><p><strong>${escape(revealed.name)}</strong> &mdash; copy this
+             into your password manager now. Losing it makes every encrypted
+             copy unreadable, and this is the only page that will show it.</p>
+             <p><code class="a-reveal">${escape(revealed.value)}</code></p></div>`
+          : ""
+      }
       <p class="a-lede">Held in the database, so they can be changed here rather
       than by whoever has access to the host. Values are never displayed.</p>
       <ul class="a-list">${rows}</ul>

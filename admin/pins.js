@@ -1,4 +1,5 @@
 import { isImagePath } from "./ipfs.js";
+import { encrypt } from "./crypto.js";
 
 /**
  * Recording which images are on IPFS.
@@ -17,18 +18,23 @@ export async function findCid(db, digest) {
   return rows[0]?.cid ?? null;
 }
 
-export async function recordPin(db, { digest, cid, bytes, filename, provider = "pinata" }) {
+export async function recordPin(
+  db,
+  { digest, cid, bytes, filename, provider = "pinata", encrypted = false, algo = null }
+) {
   await db.tx(async (client) => {
     await client.query(
-      `insert into asset_pins (digest, cid, bytes, filename, provider)
-       values ($1, $2, $3, $4, $5)
+      `insert into asset_pins (digest, cid, bytes, filename, provider, encrypted, algo)
+       values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (digest) do update
           set cid = excluded.cid,
               bytes = excluded.bytes,
               filename = excluded.filename,
               provider = excluded.provider,
+              encrypted = excluded.encrypted,
+              algo = excluded.algo,
               pinned_at = now()`,
-      [digest, cid, bytes, filename ?? null, provider]
+      [digest, cid, bytes, filename ?? null, provider, encrypted, algo]
     );
     // It worked, so any recorded reason for it not having worked is stale.
     await client.query("delete from asset_pin_failures where digest = $1", [digest]);
@@ -54,24 +60,60 @@ async function recordFailure(db, { digest, path, error }) {
  * Returns what happened rather than throwing: every caller here is on a path
  * where failing loudly would be worse than carrying on.
  */
-export async function pinDocument(db, pinner, { path, digest, buffer }) {
+export async function pinDocument(db, pinner, { path, digest, buffer, key = process.env.IPFS_ENCRYPTION_KEY }) {
   if (!isImagePath(path)) return { skipped: "not an image" };
   if (!pinner.configured()) return { skipped: "pinning not configured" };
 
-  const existing = await findCid(db, digest);
-  if (existing) return { cid: existing, alreadyPinned: true };
+  const existing = await pinFor(db, digest);
+  // Already pinned and already in the state we want. A plaintext pin from
+  // before encryption was turned on is deliberately *not* treated as done.
+  if (existing && existing.encrypted === Boolean(key)) {
+    return { cid: existing.cid, alreadyPinned: true };
+  }
+
+  const filename = path.split("/").pop();
 
   try {
+    // Encrypted before it leaves this process. IPFS cannot un-publish
+    // anything, so uploading plaintext first and encrypting later would be
+    // no protection at all.
+    const payload = key ? encrypt(buffer, key) : buffer;
     const { cid, size } = await pinner.pin({
-      buffer,
-      filename: path.split("/").pop()
+      buffer: payload,
+      filename: key ? `${filename}.enc` : filename,
+      // Encrypted bytes are not an image and should not be labelled as one.
+      ...(key ? { mime: "application/octet-stream" } : {})
     });
-    await recordPin(db, { digest, cid, bytes: size, filename: path.split("/").pop() });
-    return { cid, pinned: true };
+
+    await recordPin(db, {
+      digest,
+      cid,
+      bytes: size,
+      filename,
+      encrypted: Boolean(key),
+      algo: key ? "aes-256-gcm" : null
+    });
+
+    // The plaintext copy is now redundant, and leaving it pinned would defeat
+    // the encryption entirely.
+    const retired = existing && existing.cid !== cid && !existing.encrypted
+      ? await pinner.unpin(existing.cid).then(() => existing.cid, () => null)
+      : null;
+
+    return { cid, pinned: true, encrypted: Boolean(key), retired };
   } catch (err) {
     await recordFailure(db, { digest, path, error: err.message });
     return { failed: err.message };
   }
+}
+
+/** The current pin for a digest, with its encryption state. */
+export async function pinFor(db, digest) {
+  const { rows } = await db.query(
+    "select cid, encrypted, algo from asset_pins where digest = $1",
+    [digest]
+  );
+  return rows[0] ?? null;
 }
 
 /**
@@ -84,14 +126,18 @@ export async function pinDocument(db, pinner, { path, digest, buffer }) {
 export async function backfill(db, store, pinner, { limit = 500, onProgress = null } = {}) {
   if (!pinner.configured()) return { skipped: "pinning not configured" };
 
+  // Not yet pinned, or pinned in the wrong state — a plaintext copy when a
+  // key is set, or an encrypted one when it is not.
+  const wantEncrypted = Boolean(process.env.IPFS_ENCRYPTION_KEY);
   const { rows } = await db.query(
     `select d.path, d.digest
        from content_documents d
        left join asset_pins p on p.digest = d.digest
       where p.digest is null
+         or p.encrypted is distinct from $2
       order by d.path
       limit $1`,
-    [limit]
+    [limit, wantEncrypted]
   );
 
   const images = rows.filter((r) => isImagePath(r.path));
@@ -121,7 +167,7 @@ export async function backfill(db, store, pinner, { limit = 500, onProgress = nu
  * How much of the site is on IPFS. Counts and reasons, never a credential.
  */
 export async function pinStatus(db) {
-  const [images, pinned, failures] = await Promise.all([
+  const [images, pinned, encrypted, failures] = await Promise.all([
     db.query(
       `select count(*)::int n from content_documents
         where path ~* '\\.(jpe?g|png|webp|avif|gif|svg)$'`
@@ -130,6 +176,12 @@ export async function pinStatus(db) {
       `select count(*)::int n from content_documents d
          join asset_pins p on p.digest = d.digest
         where d.path ~* '\\.(jpe?g|png|webp|avif|gif|svg)$'`
+    ),
+    db.query(
+      `select count(*)::int n from content_documents d
+         join asset_pins p on p.digest = d.digest
+        where p.encrypted
+          and d.path ~* '\\.(jpe?g|png|webp|avif|gif|svg)$'`
     ),
     db.query(
       `select path, error, attempts, last_attempt
@@ -142,6 +194,8 @@ export async function pinStatus(db) {
   return {
     images: images.rows[0].n,
     pinned: pinned.rows[0].n,
+    encrypted: encrypted.rows[0].n,
+    plaintext: pinned.rows[0].n - encrypted.rows[0].n,
     unpinned: images.rows[0].n - pinned.rows[0].n,
     failures: failures.rows.map((r) => ({
       path: r.path,
@@ -155,7 +209,7 @@ export async function pinStatus(db) {
 /** Every pinned image with its CID, for the admin and for exports. */
 export async function listPins(db) {
   const { rows } = await db.query(
-    `select d.path, p.cid, p.bytes, p.pinned_at
+    `select d.path, p.cid, p.bytes, p.pinned_at, p.encrypted, p.digest
        from content_documents d
        join asset_pins p on p.digest = d.digest
       order by d.path`
@@ -164,6 +218,8 @@ export async function listPins(db) {
     path: r.path,
     cid: r.cid,
     bytes: r.bytes,
-    pinnedAt: r.pinned_at
+    pinnedAt: r.pinned_at,
+    encrypted: r.encrypted,
+    digest: r.digest
   }));
 }
