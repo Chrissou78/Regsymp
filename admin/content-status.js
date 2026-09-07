@@ -4,6 +4,38 @@ import { createClient } from "./github.js";
 import { configValue } from "./runtime-config.js";
 
 /**
+ * What is in the database: counts and names, never a hash and never a value.
+ *
+ * `durable: true` is not optimism — a reachable database is durable by
+ * construction, which is the entire reason content moved here from a volume
+ * nobody had mounted.
+ */
+export async function pgStatus(db) {
+  try {
+    const [content, revisions, admins, migrations] = await Promise.all([
+      db.query("select count(*)::int n, coalesce(sum(length(body)),0)::bigint bytes from content_documents"),
+      db.query("select count(*)::int n from content_revisions"),
+      db.query("select count(*)::int n from admin_users"),
+      db.query("select version from schema_migrations order by version")
+    ]);
+    return {
+      backend: "postgres",
+      readable: true,
+      durable: true,
+      documents: content.rows[0].n,
+      bytes: Number(content.rows[0].bytes),
+      revisions: revisions.rows[0].n,
+      accounts: admins.rows[0].n,
+      migrations: migrations.rows.map((r) => r.version)
+    };
+  } catch (err) {
+    // Report the failure rather than throwing: a health endpoint that 500s
+    // when the database is unreachable tells a probe nothing useful.
+    return { backend: "postgres", readable: false, durable: false, reason: err.message };
+  }
+}
+
+/**
  * What is actually in the content directory.
  *
  * Reports names, counts and booleans only — never a password hash and never

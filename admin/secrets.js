@@ -1,0 +1,102 @@
+import { randomBytes } from "node:crypto";
+
+/**
+ * Service credentials held in the database.
+ *
+ * They are loaded once at boot and assigned into `process.env`, which is what
+ * every existing consumer already reads. That keeps one configuration path for
+ * both this server and the Vercel functions, which have no database.
+ *
+ * DATABASE_URL is not manageable here and never can be: reading this table
+ * needs a connection, and the connection needs that value. It stays an
+ * environment variable, and it is the only one that has to.
+ */
+
+/**
+ * Only these names may be written.
+ *
+ * This list is a security boundary, not tidiness. Assigning arbitrary names
+ * into process.env from a web form would let anyone who reached the page set
+ * NODE_OPTIONS or PATH and run code in the server process.
+ */
+export const MANAGED = Object.freeze([
+  "RESEND_API_KEY",
+  "RESEND_FROM",
+  "INVITATION_RECIPIENT",
+  "SESSION_SECRET"
+]);
+
+export function isManaged(name) {
+  return MANAGED.includes(String(name));
+}
+
+export async function loadSecrets(db) {
+  const { rows } = await db.query("select name, value from app_secrets");
+  return new Map(rows.filter((r) => isManaged(r.name)).map((r) => [r.name, r.value]));
+}
+
+/**
+ * Load and apply. The database wins over an existing environment variable on
+ * purpose: otherwise changing a credential in the admin would appear to work
+ * and silently do nothing, because a stale dashboard value still shadowed it.
+ */
+export async function applySecrets(db) {
+  const secrets = await loadSecrets(db);
+  for (const [name, value] of secrets) process.env[name] = value;
+  return [...secrets.keys()];
+}
+
+export async function setSecret(db, name, value, updatedBy) {
+  if (!isManaged(name)) throw new Error(`${name} is not a managed credential.`);
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) throw new Error("A value is required.");
+
+  await db.query(
+    `insert into app_secrets (name, value, updated_by, updated_at)
+     values ($1, $2, $3, now())
+     on conflict (name) do update
+        set value = excluded.value,
+            updated_by = excluded.updated_by,
+            updated_at = now()`,
+    [name, trimmed, updatedBy ?? null]
+  );
+  process.env[name] = trimmed;
+}
+
+export async function clearSecret(db, name) {
+  if (!isManaged(name)) throw new Error(`${name} is not a managed credential.`);
+  await db.query("delete from app_secrets where name = $1", [name]);
+  delete process.env[name];
+}
+
+/**
+ * Which credentials are configured and where from — names, booleans and
+ * timestamps only. A status endpoint that echoes a secret is worse than no
+ * status endpoint.
+ */
+export async function secretStatus(db) {
+  const { rows } = await db.query("select name, updated_at, updated_by from app_secrets");
+  const stored = new Map(rows.map((r) => [r.name, r]));
+  return MANAGED.map((name) => ({
+    name,
+    set: Boolean(process.env[name]),
+    source: stored.has(name) ? "database" : process.env[name] ? "environment" : null,
+    updatedAt: stored.get(name)?.updated_at ?? null,
+    updatedBy: stored.get(name)?.updated_by ?? null
+  }));
+}
+
+/**
+ * A session secret that outlives the process, so restarts do not invalidate
+ * every open form's CSRF token. Generated once, then read back.
+ */
+export async function ensureSessionSecret(db) {
+  const { rows } = await db.query("select value from app_secrets where name = 'SESSION_SECRET'");
+  if (rows[0]?.value) {
+    process.env.SESSION_SECRET = rows[0].value;
+    return rows[0].value;
+  }
+  const generated = process.env.SESSION_SECRET || randomBytes(32).toString("hex");
+  await setSecret(db, "SESSION_SECRET", generated, "generated on first boot");
+  return generated;
+}

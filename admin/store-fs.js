@@ -27,6 +27,11 @@ const KEEP_REVISIONS = 50;
 // so snapshotting them would only burn disk. Data files are a few KB.
 const MAX_REVISION_BYTES = 1024 * 1024;
 
+/** Is this already a sequence of bytes, rather than something to encode? */
+export function isBytes(value) {
+  return Buffer.isBuffer(value) || value instanceof Uint8Array;
+}
+
 export function digestOf(buffer) {
   return createHash("sha1").update(buffer).digest("hex");
 }
@@ -105,7 +110,12 @@ export function createFsStore({
 
   async function putFile({ path: relative, content, message, sha, isBinary = false }) {
     const { target, clean } = resolve(relative);
-    const next = isBinary ? Buffer.from(content) : Buffer.from(String(content), "utf8");
+    // Bytes in, the same bytes out. Decoding a buffer to a string and back
+    // replaces invalid UTF-8 with U+FFFD, corrupting any file that is not
+    // clean UTF-8 text. `isBinary` is metadata, not an encoding instruction.
+    const next = isBytes(content)
+      ? Buffer.from(content)
+      : Buffer.from(String(content), "utf8");
 
     if (sha) {
       const current = await getFile(clean);

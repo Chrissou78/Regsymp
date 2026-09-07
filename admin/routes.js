@@ -2,7 +2,6 @@ import { randomBytes } from "node:crypto";
 import { SCHEMAS, getSchema, validateRecord } from "./schemas.js";
 import { ConflictError } from "./conflict.js";
 import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
-import { createUserStore } from "./users-store.js";
 import { createAttemptLimiter } from "./login-attempts.js";
 import { configValue } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
@@ -118,7 +117,11 @@ export function createAdmin(config) {
     sessions,
     users: rawUsers,
     store,
+    userStore,
     secret,
+    // Service credentials, when there is a database to hold them. Injected
+    // rather than imported so the routes stay unaware of the storage.
+    credentials = null,
     // Returns a warning to show above the collections, or null. Used to say
     // out loud when the content directory is not actually persistent: edits
     // would appear to work and then vanish on the next deploy.
@@ -128,10 +131,9 @@ export function createAdmin(config) {
 
   const secret$ = () => secret || configValue("SESSION_SECRET");
 
-  // Accounts live beside the content, so admins can be added through the web
-  // interface without anyone needing server access. ADMIN_USERS remains as an
-  // environment fallback for recovery.
-  const storeFor = () => createUserStore({ gh: store, fallbackUsers: rawUsers });
+  // Injected, so the admin works the same whether accounts are rows in
+  // Postgres or a document in the content store.
+  const storeFor = () => userStore;
 
   /** Is there anywhere to save to? */
   function writable() {
@@ -303,47 +305,6 @@ export function createAdmin(config) {
     // Redeeming an invitation is necessarily unauthenticated: the whole
     // point is that the person does not have an account yet. The token is
     // the credential, and it is single-use and time-limited.
-    if (path.startsWith("/admin/invite/")) {
-      const token = path.slice("/admin/invite/".length);
-      const invite = await storeFor().findInvite(token).catch(() => null);
-
-      if (!invite) {
-        html(res, 403, layout({
-          title: "Invitation",
-          user: null,
-          flash: { kind: "error", message: "That invitation is invalid, already used, or expired." },
-          body: `<p><a href="/admin/signin">Go to sign in</a></p>`
-        }));
-        return true;
-      }
-
-      if (req.method === "GET") {
-        html(res, 200, invitePage(token, invite.email));
-        return true;
-      }
-
-      const form = await readForm(req, readBody);
-      const password = String(form.fields.password ?? "");
-      const confirm = String(form.fields.confirm ?? "");
-
-      if (password !== confirm) {
-        html(res, 400, invitePage(token, invite.email, "Those passwords do not match."));
-        return true;
-      }
-
-      try {
-        const email = await storeFor().redeemInvite(token, password);
-        const id = sessions.create({ email }, null);
-        redirect(res, "/admin", {
-          "Set-Cookie":
-            `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
-        });
-      } catch (err) {
-        html(res, 400, invitePage(token, invite.email, err.message));
-      }
-      return true;
-    }
-
     // ------------------------------------------------------------- guard
     // Everything below here requires a session. Routes added after this
     // point are protected by default.
@@ -408,6 +369,56 @@ export function createAdmin(config) {
       return true;
     }
 
+    if (path === "/admin/credentials") {
+      // Only meaningful with a database. Without one the credentials are in
+      // the host environment and this page could not change them.
+      if (!credentials) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: session.user,
+          body: `<p>Credentials are held in the host environment on this deployment.</p>
+                 <p><a href="/admin">Back to collections</a></p>`
+        }));
+        return true;
+      }
+
+      if (!(await storeFor().isOwner(session.user.email))) {
+        html(res, 403, layout({
+          title: "Not permitted",
+          user: session.user,
+          flash: { kind: "error", message: "Only the account owner can manage credentials." },
+          body: `<p><a href="/admin">Back to collections</a></p>`
+        }));
+        return true;
+      }
+
+      if (req.method === "GET") {
+        html(res, 200, await credentialsPage({ credentials, session, token }));
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+
+      try {
+        if (form.fields.action === "clear") {
+          await credentials.clear(form.fields.name);
+        } else {
+          await credentials.set(
+            form.fields.name,
+            String(form.fields.value ?? ""),
+            session.user.email
+          );
+        }
+        redirect(res, "/admin/credentials");
+      } catch (err) {
+        html(res, 400, await credentialsPage({
+          credentials, session, token, error: err.message
+        }));
+      }
+      return true;
+    }
+
     if (path === "/admin/users") {
       // Account management is the owner's alone. Checked here rather than
       // only hiding the link, so knowing the URL is not enough.
@@ -430,9 +441,7 @@ export function createAdmin(config) {
       requireCsrf(session.id, form.fields.csrf, secret$());
 
       try {
-        if (form.fields.action === "revoke") {
-          await storeFor().revokeInvite(form.fields.email, session.user.email);
-        } else if (form.fields.action === "remove") {
+        if (form.fields.action === "remove") {
           await storeFor().removeUser(form.fields.email, session.user.email);
         } else if (form.fields.action === "create") {
           const created = await storeFor().createUser(
@@ -475,7 +484,7 @@ export function createAdmin(config) {
             <p class="a-lede">Changes are saved to the content volume and rebuilt
             immediately &mdash; no deploy, and nothing signs you out.</p>
             <ul class="a-list">${rows}</ul>
-            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;
@@ -829,28 +838,62 @@ function clientKey(req) {
 }
 
 
-function invitePage(token, email, error) {
-  return layout({
-    title: "Set your password",
-    user: null,
-    flash: error ? { kind: "error", message: error } : null,
-    body: `<div class="a-signin">
-      <h1>Welcome to RegSymp Admin</h1>
-      <p>Set a password for <strong>${escape(email)}</strong>. At least 12 characters.</p>
-      <form method="post" action="/admin/invite/${escape(token)}" class="a-form a-form--signin">
-        <div class="a-field">
-          <label for="f-password">Password</label>
-          <input id="f-password" name="password" type="password" autocomplete="new-password"
-                 minlength="12" required autofocus>
-        </div>
-        <div class="a-field">
-          <label for="f-confirm">Confirm password</label>
-          <input id="f-confirm" name="confirm" type="password" autocomplete="new-password"
-                 minlength="12" required>
-        </div>
-        <div class="a-actions"><button class="a-btn" type="submit">Create account</button></div>
+/**
+ * Service credentials.
+ *
+ * Stored values are never rendered — only whether each is set, and where it
+ * came from. A page that echoes a credential back is a page that leaks one to
+ * anybody who gets a session, a screenshot, or a browser cache.
+ */
+async function credentialsPage({ credentials, session, token, error }) {
+  const rows = (await credentials.list())
+    .map((entry) => `<li class="a-row a-row--stack">
+      <div class="a-row-head">
+        <span class="a-row-name"><code>${escape(entry.name)}</code></span>
+        <span class="a-count">${
+          entry.set ? `set &middot; ${escape(entry.source ?? "")}` : "not set"
+        }</span>
+      </div>
+      ${
+        entry.updatedAt
+          ? `<p class="a-note">Last changed ${escape(
+              new Date(entry.updatedAt).toISOString().slice(0, 16).replace("T", " ")
+            )}${entry.updatedBy ? ` by ${escape(entry.updatedBy)}` : ""}</p>`
+          : ""
+      }
+      <form method="post" action="/admin/credentials" class="a-inline">
+        <input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="name" value="${escape(entry.name)}">
+        <input type="password" name="value" autocomplete="off" spellcheck="false"
+               placeholder="${entry.set ? "Replace this value" : "Set a value"}" required>
+        <button class="a-btn">Save</button>
       </form>
-    </div>`
+      ${
+        entry.source === "database"
+          ? `<form method="post" action="/admin/credentials" class="a-inline"
+                   onsubmit="return confirm('Clear ${escape(entry.name)}?')">
+               <input type="hidden" name="csrf" value="${escape(token)}">
+               <input type="hidden" name="name" value="${escape(entry.name)}">
+               <input type="hidden" name="action" value="clear">
+               <button class="a-danger">Clear</button>
+             </form>`
+          : ""
+      }
+    </li>`)
+    .join("");
+
+  return layout({
+    title: "Service credentials",
+    user: session.user,
+    flash: error ? { kind: "error", message: error } : null,
+    body: `<h1>Service credentials</h1>
+      <p class="a-lede">Held in the database, so they can be changed here rather
+      than by whoever has access to the host. Values are never displayed.</p>
+      <ul class="a-list">${rows}</ul>
+      <p class="a-note">The database connection string is deliberately absent:
+      reading these rows requires it, so it cannot be one of them. It stays an
+      environment variable on the host.</p>
+      <p><a class="a-btn" href="/admin">Back to collections</a></p>`
   });
 }
 
@@ -863,7 +906,7 @@ async function usersPage({ store, session, token, created, error }) {
         u.source === "environment" ? ' <span class="a-count">set on the server</span>' : ""
       }</span>
       ${
-        u.source === "repository" && u.email !== session.user.email
+        u.source !== "environment" && u.email !== session.user.email
           ? `<form method="post" action="/admin/users" class="a-inline"
                  onsubmit="return confirm('Remove ${escape(u.email)}?')">
                <input type="hidden" name="csrf" value="${escape(token)}">

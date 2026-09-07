@@ -50,6 +50,16 @@ test("a directory answers with a listing, as the GitHub API did", async () => {
   assert.deepEqual(listing.map((e) => e.name).sort(), ["a.png", "b.png"]);
 });
 
+test("bytes that are not valid UTF-8 survive unchanged", async () => {
+  // Storing a file as "text" used to decode and re-encode it, turning every
+  // invalid byte into U+FFFD and inflating two real SVGs by over 50%.
+  const store = createFsStore({ dir: await temp() });
+  const awkward = Buffer.from([0x3c, 0x73, 0x76, 0x67, 0xc3, 0x28, 0xa0, 0xff, 0xfe, 0x3e]);
+
+  await store.putFile({ path: "src/assets/images/awkward.svg", content: awkward });
+  assert.deepEqual((await store.getFile("src/assets/images/awkward.svg")).buffer, awkward);
+});
+
 test("every overwrite keeps the version it replaced", async () => {
   // Committing gave us history for free. Losing that when we left git would
   // have meant a bad edit was unrecoverable.

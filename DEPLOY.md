@@ -85,23 +85,64 @@ save triggered a redeploy, and the redeploy was the problem:
 - any configuration held in memory was wiped — including the `GITHUB_TOKEN`
   supplied through the setup link, which is what made saving work at all.
 
-That last one was circular: **using the admin is what broke the admin.** The
-volume removes the whole chain. There is no token, no setup link, and no
-secret to set.
+That last one was circular: **using the admin is what broke the admin.** A
+database removes the whole chain, and unlike a volume it needs nothing mounted.
 
 ### Setup
 
-1. **Mount a persistent volume at `/data`.** This is the only infrastructure
-   step, and the only one that needs whoever administers the host.
-2. Deploy. First boot seeds `/data` from the deployed checkout, so the site
-   comes up with the content and the accounts it already had.
-3. Check `/api/health` and confirm `content.durable` — see below.
+Set one variable on the host:
 
-`CONTENT_DIR` overrides the location; `/data` is used automatically when it
-exists, and a local `.content/` directory otherwise.
+```
+DATABASE_URL=postgresql://user:password@host:port/database
+```
 
-Nothing else is required. `SESSION_SECRET` is generated on first boot and kept
-on the volume, and `ADMIN_USERS` remains only as a recovery fallback.
+That is the only one required. On first boot the server:
+
+1. applies any pending migrations in `admin/migrations/`;
+2. generates a session secret and stores it in the database;
+3. seeds `content_documents` from the deployed checkout — but only if it is
+   empty, so a later deploy can never overwrite live edits;
+4. migrates `admin/users.json` into `admin_users`, hashes intact, so existing
+   admins keep their passwords;
+5. writes the documents to disk and builds.
+
+Steps 3 and 4 are the migration. There is nothing to export or import.
+
+Without `DATABASE_URL` the server falls back to a local content directory,
+which is fine for a checkout and **not durable in production** — the admin
+says so above the collections when that is the case.
+
+### Service credentials
+
+`RESEND_API_KEY`, `RESEND_FROM`, `INVITATION_RECIPIENT` and `SESSION_SECRET`
+live in the `app_secrets` table and are loaded into the environment at boot.
+The owner manages them at **/admin/credentials**; values are never displayed.
+
+The database wins over a host environment variable of the same name. That is
+deliberate: otherwise changing a credential in the admin would appear to work
+while a stale dashboard value silently shadowed it.
+
+Only those four names can be written. That list is a security boundary, not
+tidiness — accepting arbitrary names from a web form would let someone set
+`NODE_OPTIONS` and run code in the server process.
+
+`DATABASE_URL` is deliberately not manageable there, and cannot be: reading
+`app_secrets` requires a connection, and the connection requires that value.
+It is the one credential that has to stay in the host environment.
+
+### Confirming storage is real
+
+```bash
+curl -s https://regsymp.com/api/health | jq .content
+```
+
+`backend` is `postgres` or `filesystem`. With Postgres, `durable` is `true` by
+construction and the response also reports document, revision and account
+counts plus which migrations have run. With the filesystem fallback, see
+below — an unmounted volume looks identical to a mounted one until a deploy
+erases it.
+
+### Confirming the volume is real
 
 ### Confirming the volume is real
 

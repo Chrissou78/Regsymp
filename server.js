@@ -6,6 +6,12 @@ import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
 import { createAdmin, originFor } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
+import { createDb, migrate } from "./admin/db.js";
+import { createPgStore } from "./admin/store-pg.js";
+import { createPgUserStore } from "./admin/users-store-pg.js";
+import { createUserStore } from "./admin/users-store.js";
+import { applySecrets, clearSecret, ensureSessionSecret, secretStatus, setSecret } from "./admin/secrets.js";
+import { materialise, seedAdmins, seedContent, writeThrough } from "./admin/db-bootstrap.js";
 import { setRuntimeConfig } from "./admin/runtime-config.js";
 import { createFsStore } from "./admin/store-fs.js";
 import { rebuild, lastBuild } from "./admin/rebuild.js";
@@ -16,7 +22,7 @@ import {
   persistentSecret,
   syncToWorkingTree
 } from "./admin/content-dir.js";
-import { contentStatus as adminContentStatus, volumeStatus } from "./admin/content-status.js";
+import { contentStatus as adminContentStatus, pgStatus, volumeStatus } from "./admin/content-status.js";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -68,74 +74,126 @@ const MAX_BODY_BYTES = 64 * 1024;
 /**
  * Where the editable content lives.
  *
- * A mounted volume in production, a local directory otherwise. `/data` is the
- * conventional mount point, so it is used when it exists; `CONTENT_DIR`
- * overrides. Getting this wrong is not silent — /api/health reports which
- * directory was chosen and whether it has actually survived a restart.
+ * Postgres when DATABASE_URL is set, which is how production runs: content,
+ * admin accounts and service credentials all live there, so the host needs
+ * exactly one environment variable and nothing has to be mounted.
+ *
+ * Without it, a local directory — so a checkout runs with no database.
  */
 const PROJECT_ROOT = fileURLToPath(new URL("./", import.meta.url));
+const DATABASE_URL = env("DATABASE_URL");
 const CONTENT_DIR =
   env("CONTENT_DIR") ||
   (existsSync("/data") ? "/data" : path.join(PROJECT_ROOT, ".content"));
 
+const db = DATABASE_URL ? createDb({ url: DATABASE_URL }) : null;
+
 /**
- * Saving writes to the volume, then copies that one file into the working
- * tree and rebuilds. Content changes used to be commits, which triggered a
- * redeploy: minutes of lag, and everyone signed out when the container was
- * replaced. This is a file write and a sub-second build.
+ * A save writes to the store, puts that one file on disk, and rebuilds.
+ *
+ * Content changes used to be commits, and every commit triggered a redeploy:
+ * minutes of lag, everyone signed out, and the in-memory token that made
+ * saving work wiped in the process. This is one write and a sub-second build.
  */
-const store = createFsStore({
-  dir: CONTENT_DIR,
-  onWrite: async ({ path: relative, absolute }) => {
-    // Only what Eleventy builds from is copied back. Accounts are read from
-    // the volume directly, so mirroring them into the checkout would achieve
-    // nothing beyond leaving a stray copy of the password hashes on disk.
-    if (!relative.startsWith("src/")) return;
-    await mirrorFile(absolute, path.join(PROJECT_ROOT, relative));
-    await rebuild();
-  }
-});
+const store = db
+  ? createPgStore({
+      db,
+      onWrite: async ({ path: relative, buffer }) => {
+        if (!relative.startsWith("src/")) return;
+        await writeThrough({ root: PROJECT_ROOT, relative, buffer });
+        await rebuild();
+      }
+    })
+  : createFsStore({
+      dir: CONTENT_DIR,
+      onWrite: async ({ path: relative, absolute }) => {
+        // Only what Eleventy builds from is copied back. Accounts are read
+        // from the store directly, so mirroring them into the checkout would
+        // achieve nothing beyond leaving a copy of the hashes on disk.
+        if (!relative.startsWith("src/")) return;
+        await mirrorFile(absolute, path.join(PROJECT_ROOT, relative));
+        await rebuild();
+      }
+    });
+
+/**
+ * Accounts are rows in Postgres when there is one. ADMIN_USERS survives only
+ * as a local-development convenience: in production the owner account lives
+ * in the database like every other, because a credential in a host dashboard
+ * is one nobody can rotate without the host dashboard.
+ */
+const userStore = db
+  ? createPgUserStore({ db })
+  : createUserStore({ gh: store, fallbackUsers: env("ADMIN_USERS") });
 
 const admin = createAdmin({
   sessions: createSessions(),
-  users: env("ADMIN_USERS"),
   store,
+  userStore,
   secret: env("SESSION_SECRET"),
-  // Say so in the interface when the content directory is not persistent.
-  // Saving would otherwise look completely normal right up until a deploy
-  // threw the work away.
+  credentials: db
+    ? {
+        list: () => secretStatus(db),
+        set: (name, value, by) => setSecret(db, name, value, by),
+        clear: (name) => clearSecret(db, name)
+      }
+    : null,
+  // Say so in the interface when content is not actually persistent. Saving
+  // to an unmounted volume looks entirely normal right up until a deploy
+  // throws the work away. A database is durable by construction.
   warning: async () => {
+    if (db) return null;
     const state = durability({ ...contentBoot, uptimeSeconds: Math.round(process.uptime()) });
     if (state.durable === true) return null;
     if (state.durable === null) {
       return `${CONTENT_DIR} was created during this deploy, so it has not yet proven it persists. Check /api/health after the next restart.`;
     }
-    return `${CONTENT_DIR} is not a persistent volume, so anything saved here will be lost on the next deploy. Mount a volume there first.`;
+    return `${CONTENT_DIR} is not a persistent volume, so anything saved here will be lost on the next deploy. Set DATABASE_URL, or mount a volume there.`;
   }
 });
 
 // Filled in by bootstrap(); left empty when the module is merely imported,
-// as the tests do, so importing never touches a volume.
+// as the tests do, so importing never touches a volume or a database.
 let contentBoot = { marker: null, seeded: false };
+let dbBoot = null;
 
 /**
- * Bring the content volume up, then build from it.
+ * Bring storage up, then build from it.
  *
- * Order matters. The volume is the source of truth, so it is seeded from the
- * shipped checkout only when it is new, then copied *over* the working tree,
- * and only then does Eleventy run. Building first would render whatever the
- * deploy happened to contain and overwrite the real content on screen.
+ * Order matters. The store is the source of truth, so it is seeded from the
+ * shipped checkout only when empty, then written *over* the working tree, and
+ * only then does Eleventy run. Building first would render whatever the deploy
+ * happened to contain and put that on screen in place of the real content.
  */
 async function bootstrap() {
-  contentBoot = await ensureContentDir({ dir: CONTENT_DIR, root: PROJECT_ROOT });
-  const copied = await syncToWorkingTree({ dir: CONTENT_DIR, root: PROJECT_ROOT });
-  setRuntimeConfig({ SESSION_SECRET: await persistentSecret({ dir: CONTENT_DIR }) });
+  if (db) {
+    const applied = await migrate(db);
+    await ensureSessionSecret(db);
+    const credentials = await applySecrets(db);
+    const content = await seedContent({ db, store, root: PROJECT_ROOT });
+    const admins = await seedAdmins({ db, root: PROJECT_ROOT });
+    const written = await materialise({ db, store, root: PROJECT_ROOT });
+    dbBoot = { applied, credentials, content, admins, written };
 
-  console.log(
-    `content: ${CONTENT_DIR}` +
-      (contentBoot.seeded ? ` (seeded ${contentBoot.marker.seededFiles} files)` : "") +
-      `, ${copied} file(s) refreshed`
-  );
+    console.log(
+      `postgres: ${applied.length ? `migrated ${applied.join(", ")}; ` : ""}` +
+        `${content.documents} documents` +
+        (content.seeded ? " (seeded from the checkout)" : "") +
+        `, ${admins.accounts} account(s)` +
+        (admins.seeded ? " (migrated)" : "") +
+        `, ${written.written} file(s) written, ` +
+        `credentials from db: ${credentials.length ? credentials.join(", ") : "none"}`
+    );
+  } else {
+    contentBoot = await ensureContentDir({ dir: CONTENT_DIR, root: PROJECT_ROOT });
+    const copied = await syncToWorkingTree({ dir: CONTENT_DIR, root: PROJECT_ROOT });
+    setRuntimeConfig({ SESSION_SECRET: await persistentSecret({ dir: CONTENT_DIR }) });
+    console.log(
+      `content: ${CONTENT_DIR}` +
+        (contentBoot.seeded ? ` (seeded ${contentBoot.marker.seededFiles} files)` : "") +
+        `, ${copied} file(s) refreshed`
+    );
+  }
 
   // A failed build must not stop the server: the previously built _site is
   // still on disk and still servable, and a broken build is better reported
@@ -249,16 +307,22 @@ const server = createServer(async (req, res) => {
       // can be current while the process itself is running older JavaScript —
       // these fields tell the two apart instead of guessing.
       adminMounted: true,
-      adminConfigured: existsSync(CONTENT_DIR),
+      adminConfigured: Boolean(db) || existsSync(CONTENT_DIR),
       // Where content is kept, and whether that directory has actually
       // survived a restart. A volume that was never mounted works exactly
       // like one that was, right up until the next deploy erases it, so this
       // is the field to check after configuring the host.
-      content: {
-        ...(await volumeStatus(CONTENT_DIR)),
-        ...durability({ ...contentBoot, uptimeSeconds: Math.round(process.uptime()) }),
-        lastBuild: lastBuild()
-      },
+      content: db
+        ? { ...(await pgStatus(db)), boot: dbBoot, lastBuild: lastBuild() }
+        : {
+            backend: "filesystem",
+            ...(await volumeStatus(CONTENT_DIR)),
+            ...durability({ ...contentBoot, uptimeSeconds: Math.round(process.uptime()) }),
+            lastBuild: lastBuild()
+          },
+      // Which service credentials are configured and where they came from.
+      // Names and booleans only.
+      credentials: db ? await secretStatus(db) : null,
       // What invitation links will be built from, for this exact request.
       // Links were coming out as http://localhost because they used the
       // parse-time placeholder base rather than the request headers.
