@@ -128,3 +128,34 @@ test("health still answers when the database is the broken thing", { timeout: 90
     await stop(child);
   }
 });
+
+/**
+ * Booting against a database that works must also build the site.
+ *
+ * This is the case the outage tests above cannot cover, and it broke exactly
+ * once: the build sat inside the no-database branch, and the database branch
+ * returned before reaching it. Content was written to disk and never
+ * rendered, so anything changed in the database alone stayed invisible.
+ */
+const WORKING_DB = process.env.TEST_DATABASE_URL;
+const dbOpts = WORKING_DB
+  ? { timeout: 120_000 }
+  : { skip: "set TEST_DATABASE_URL to run this", timeout: 120_000 };
+
+test("booting with a working database builds the site", dbOpts, async () => {
+  const { child, output } = await startWith(WORKING_DB);
+
+  try {
+    const health = await (await fetch(`http://127.0.0.1:${PORT}/api/health`)).json();
+    assert.equal(health.content.backend, "postgres");
+    assert.ok(!health.content.bootError, `boot failed: ${health.content.bootError}`);
+    assert.ok(
+      health.content.lastBuild,
+      "the site was never built, so database-only changes would stay invisible"
+    );
+    assert.equal(health.content.lastBuild.ok, true);
+    assert.match(output(), /built in \d+ms/);
+  } finally {
+    await stop(child);
+  }
+});

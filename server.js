@@ -221,7 +221,6 @@ async function bootstrap() {
   if (db) {
     try {
       await bootstrapDatabase();
-      return;
     } catch (err) {
       // Deliberately not fatal. The built site is already on disk from the
       // image build, so the public pages serve correctly either way; killing
@@ -229,11 +228,23 @@ async function bootstrap() {
       // host would restart it straight back into the same failure.
       dbBootError = err.message;
       console.error(`postgres unavailable, serving the built site anyway: ${err.message}`);
-      return;
     }
+  } else {
+    await bootstrapContentDir();
   }
 
-  await bootstrapContentDir();
+  // Every path builds. This once sat inside the content-directory branch,
+  // where the database branch returned before reaching it: content was
+  // written to disk and then never rendered, so anything changed in the
+  // database alone stayed invisible until something else triggered a build.
+  // A failed build is not fatal either — the previous _site is still servable,
+  // and /api/health reports the failure.
+  try {
+    const built = await rebuild();
+    console.log(`built in ${built.ms}ms`);
+  } catch (err) {
+    console.error("initial build failed, serving the existing _site:", err.message);
+  }
 }
 
 async function bootstrapDatabase() {
@@ -271,16 +282,6 @@ async function bootstrapContentDir() {
         (contentBoot.seeded ? ` (seeded ${contentBoot.marker.seededFiles} files)` : "") +
         `, ${copied} file(s) refreshed`
     );
-  }
-
-  // A failed build must not stop the server: the previously built _site is
-  // still on disk and still servable, and a broken build is better reported
-  // through /api/health than by refusing to start.
-  try {
-    const built = await rebuild();
-    console.log(`built in ${built.ms}ms`);
-  } catch (err) {
-    console.error("initial build failed, serving the existing _site:", err.message);
   }
 }
 
