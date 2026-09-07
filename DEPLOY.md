@@ -96,7 +96,14 @@ Set one variable on the host:
 DATABASE_URL=postgresql://user:password@host:port/database
 ```
 
-That is the only one required. On first boot the server:
+That is the only one required. Either a host-injected environment variable or
+a `.env` file at the application root works — a variable already in the
+environment wins, since a host setting is more specific than a file in the
+image. `/api/health` reports which arrived and from where, under `env`.
+
+Note that a `.env` file inside the container is only useful if the platform
+persists or re-injects it; a file written into an ephemeral container goes with
+the container. On first boot the server:
 
 1. applies any pending migrations in `admin/migrations/`;
 2. generates a session secret and stores it in the database;
@@ -129,6 +136,24 @@ tidiness — accepting arbitrary names from a web form would let someone set
 `DATABASE_URL` is deliberately not manageable there, and cannot be: reading
 `app_secrets` requires a connection, and the connection requires that value.
 It is the one credential that has to stay in the host environment.
+
+### Keeping tests away from live data
+
+The Postgres tests truncate tables, so two guards stand between `npm test` and
+live content:
+
+- every test that boots the server sets `SKIP_ENV_FILE=1` and clears
+  `DATABASE_URL`, so a real `.env` cannot reach it. Deleting the variable
+  alone would not do it — absent is exactly when the loader fills it in from
+  the file;
+- the Postgres tests use a separate `TEST_DATABASE_URL` and refuse to run
+  unless it is plainly local, printing why. `ALLOW_DESTRUCTIVE_DB_TESTS=1`
+  overrides that, deliberately awkwardly.
+
+```bash
+docker run -d --name regsymp-dev-pg -e POSTGRES_PASSWORD=dev   -e POSTGRES_DB=regsymp -p 55432:5432 postgres:18
+TEST_DATABASE_URL=postgresql://postgres:dev@127.0.0.1:55432/regsymp npm test
+```
 
 ### Confirming storage is real
 

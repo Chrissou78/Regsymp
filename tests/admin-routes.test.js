@@ -8,6 +8,19 @@ import { SCHEMAS } from "../admin/schemas.js";
 // server must be imported dynamically *after* the environment is set.
 // A real scrypt hash for the password "correct-horse-battery" so the
 // sign-in route can be exercised end to end.
+/**
+ * No test may touch a real database.
+ *
+ * Adding .env loading meant a production DATABASE_URL could reach these
+ * tests, and the save test signs in and writes -- editing live content from
+ * `npm test`. Both halves are needed: SKIP_ENV_FILE stops the .env file being
+ * read at all, and the delete drops anything the shell already exported.
+ * Deleting alone is worse than useless, because absent is precisely when the
+ * loader fills it in from the file.
+ */
+process.env.SKIP_ENV_FILE = "1";
+delete process.env.DATABASE_URL;
+
 const { hashPassword } = await import("../admin/password.js");
 process.env.ADMIN_USERS = `admin@regsymp.com:${await hashPassword("correct-horse-battery")}`;
 process.env.GITHUB_TOKEN = "test-github-token";

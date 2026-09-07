@@ -13,6 +13,19 @@ process.env.CONTENT_DIR = CONTENT_DIR;
 process.env.SESSION_SECRET = "test-session-secret";
 delete process.env.ADMIN_USERS; // no environment account: this is a blank slate
 
+/**
+ * No test may touch a real database.
+ *
+ * Adding .env loading meant a production DATABASE_URL could reach these
+ * tests, and the save test signs in and writes -- editing live content from
+ * `npm test`. Both halves are needed: SKIP_ENV_FILE stops the .env file being
+ * read at all, and the delete drops anything the shell already exported.
+ * Deleting alone is worse than useless, because absent is precisely when the
+ * loader fills it in from the file.
+ */
+process.env.SKIP_ENV_FILE = "1";
+delete process.env.DATABASE_URL;
+
 const { ensureContentDir } = await import("../admin/content-dir.js");
 // Seed the data files but deliberately not the accounts file, so the volume
 // starts with content and no admins — exactly a new installation.

@@ -29,12 +29,44 @@ import { hashPassword } from "../admin/password.js";
  * then set TEST_DATABASE_URL before running the suite.
  */
 const URL = process.env.TEST_DATABASE_URL;
-const opts = URL ? {} : { skip: "set TEST_DATABASE_URL to run the Postgres tests" };
+
+/**
+ * These tests truncate tables, so they must never reach a live database.
+ * Refused unless the target is plainly local, or somebody has said out loud
+ * that they mean it.
+ */
+const LOCAL = /@(localhost|127\.0\.0\.1|\[::1\]|host\.docker\.internal)[:/]/;
+const unsafe =
+  URL &&
+  !LOCAL.test(URL) &&
+  process.env.ALLOW_DESTRUCTIVE_DB_TESTS !== "1";
+
+const opts = !URL
+  ? { skip: "set TEST_DATABASE_URL to run the Postgres tests" }
+  : unsafe
+    ? {
+        skip:
+          "REFUSED: TEST_DATABASE_URL is not a local database and these tests " +
+          "truncate content_documents and admin_users. Point it at a throwaway " +
+          "Postgres, or set ALLOW_DESTRUCTIVE_DB_TESTS=1 if you truly mean it."
+      }
+    : {};
+
+if (unsafe) {
+  console.error(
+    [
+      "",
+      "  refusing to run the Postgres tests: TEST_DATABASE_URL is not local.",
+      "  they truncate tables, so this would delete live content and accounts.",
+      ""
+    ].join("\n")
+  );
+}
 
 let db;
 
 before(async () => {
-  if (!URL) return;
+  if (!URL || unsafe) return;
   db = createDb({ url: URL });
   await migrate(db);
 });

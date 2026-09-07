@@ -1,3 +1,6 @@
+// First, deliberately: this populates process.env from a .env file if one
+// exists, and everything below reads process.env at module scope.
+import { loaded as envFile } from "./admin/load-env.js";
 import { createServer } from "node:http";
 import { createReadStream, existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -308,6 +311,18 @@ const server = createServer(async (req, res) => {
       // these fields tell the two apart instead of guessing.
       adminMounted: true,
       adminConfigured: Boolean(db) || existsSync(CONTENT_DIR),
+      // Whether the database URL arrived at all, and where from. Names and
+      // booleans only. Without this, "still on the filesystem" gives no clue
+      // whether the variable is missing, misspelled, or in a file nothing read.
+      env: {
+        DATABASE_URL: Boolean(env("DATABASE_URL")),
+        envFile: envFile.file,
+        fromEnvFile: envFile.applied,
+        shadowedByHost: envFile.skipped,
+        databaseCandidates: Object.keys(process.env)
+          .filter((k) => /DATABASE|POSTGRES|^PG/i.test(k))
+          .sort()
+      },
       // Where content is kept, and whether that directory has actually
       // survived a restart. A volume that was never mounted works exactly
       // like one that was, right up until the next deploy erases it, so this

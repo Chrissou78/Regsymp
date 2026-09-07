@@ -1,6 +1,20 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { server } from "../server.js";
+
+/**
+ * No test may touch a real database.
+ *
+ * Adding .env loading meant a production DATABASE_URL could reach these
+ * tests, and the save test signs in and writes -- editing live content from
+ * `npm test`. Both halves are needed: SKIP_ENV_FILE stops the .env file being
+ * read at all, and the delete drops anything the shell already exported.
+ * Deleting alone is worse than useless, because absent is precisely when the
+ * loader fills it in from the file.
+ */
+process.env.SKIP_ENV_FILE = "1";
+delete process.env.DATABASE_URL;
+
+const { server } = await import("../server.js");
 
 let base;
 
@@ -220,6 +234,14 @@ test("only content-hashed assets are cached immutably", async () => {
 
   const js = await get("/assets/js/site.js");
   assert.doesNotMatch(js.headers.get("cache-control"), /immutable/);
+});
+
+test("the tests never run against a database", async () => {
+  // The guard at the top of this file is what stands between `npm test` and
+  // somebody's live content. Assert it actually held.
+  const body = await (await get("/api/health")).json();
+  assert.equal(body.content.backend, "filesystem", "a test run picked up a database");
+  assert.equal(body.env.DATABASE_URL, false);
 });
 
 test("health reports whether the admin code is present and configured", async () => {
