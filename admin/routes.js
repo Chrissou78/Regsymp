@@ -127,6 +127,9 @@ export function createAdmin(config) {
     credentials = null,
     // IPFS pinning, likewise injected.
     ipfs = null,
+    // Why the store cannot be reached, if it cannot. Reported rather than
+    // left to surface as an opaque failure on whatever page is opened first.
+    unavailable = () => null,
     // Returns a warning to show above the collections, or null. Used to say
     // out loud when the content directory is not actually persistent: edits
     // would appear to work and then vanish on the next deploy.
@@ -265,6 +268,21 @@ export function createAdmin(config) {
 
     // Nothing works without somewhere to save to.
     if (!writable()) return notWritable(res);
+
+    // Configured, but not reachable. Saying so beats every page failing with
+    // "something went wrong" and no indication of what or why.
+    const outage = unavailable();
+    if (outage) {
+      html(res, 503, layout({
+        title: "Database unavailable",
+        user: null,
+        flash: { kind: "error", message: "The admin cannot reach the database." },
+        body: `<p>The site itself is unaffected and is serving normally. Nothing
+               can be read or saved here until the connection is restored.</p>
+               <p class="a-note">${escape(outage)}</p>`
+      }));
+      return true;
+    }
 
     // ---------------------------------------------------- unauthenticated
     if (path === "/admin/signin") {

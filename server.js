@@ -174,7 +174,9 @@ const admin = createAdmin({
   // Say so in the interface when content is not actually persistent. Saving
   // to an unmounted volume looks entirely normal right up until a deploy
   // throws the work away. A database is durable by construction.
+  unavailable: () => dbBootError,
   warning: async () => {
+    if (dbBootError) return `The database is unreachable: ${dbBootError}`;
     if (db) return null;
     const state = durability({ ...contentBoot, uptimeSeconds: Math.round(process.uptime()) });
     if (state.durable === true) return null;
@@ -190,6 +192,10 @@ const admin = createAdmin({
 let contentBoot = { marker: null, seeded: false };
 let dbBoot = null;
 
+// Why the database is not in use, when one was configured. A wrong password or
+// an unreachable host must degrade, not take the site down with it.
+let dbBootError = null;
+
 /**
  * Bring storage up, then build from it.
  *
@@ -200,6 +206,25 @@ let dbBoot = null;
  */
 async function bootstrap() {
   if (db) {
+    try {
+      await bootstrapDatabase();
+      return;
+    } catch (err) {
+      // Deliberately not fatal. The built site is already on disk from the
+      // image build, so the public pages serve correctly either way; killing
+      // the process would turn a mistyped password into an outage, and the
+      // host would restart it straight back into the same failure.
+      dbBootError = err.message;
+      console.error(`postgres unavailable, serving the built site anyway: ${err.message}`);
+      return;
+    }
+  }
+
+  await bootstrapContentDir();
+}
+
+async function bootstrapDatabase() {
+  {
     const applied = await migrate(db);
     await ensureSessionSecret(db);
     const credentials = await applySecrets(db);
@@ -217,7 +242,11 @@ async function bootstrap() {
         `, ${written.written} file(s) written, ` +
         `credentials from db: ${credentials.length ? credentials.join(", ") : "none"}`
     );
-  } else {
+  }
+}
+
+async function bootstrapContentDir() {
+  {
     contentBoot = await ensureContentDir({ dir: CONTENT_DIR, root: PROJECT_ROOT });
     const copied = await syncToWorkingTree({ dir: CONTENT_DIR, root: PROJECT_ROOT });
     setRuntimeConfig({ SESSION_SECRET: await persistentSecret({ dir: CONTENT_DIR }) });
@@ -246,6 +275,19 @@ function send(res, status, body, headers = {}) {
     ...headers
   });
   res.end(body);
+}
+
+/**
+ * Run a reporting query, returning the reason instead of throwing.
+ * A health endpoint that 500s when the database is down tells a probe
+ * nothing, exactly when knowing would help most.
+ */
+async function safely(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    return { unavailable: err.message };
+  }
 }
 
 function sendJson(res, status, obj) {
@@ -358,7 +400,7 @@ const server = createServer(async (req, res) => {
       // like one that was, right up until the next deploy erases it, so this
       // is the field to check after configuring the host.
       content: db
-        ? { ...(await pgStatus(db)), boot: dbBoot, lastBuild: lastBuild() }
+        ? { ...(await pgStatus(db)), boot: dbBoot, bootError: dbBootError, lastBuild: lastBuild() }
         : {
             backend: "filesystem",
             ...(await volumeStatus(CONTENT_DIR)),
@@ -367,9 +409,9 @@ const server = createServer(async (req, res) => {
           },
       // Which service credentials are configured and where they came from.
       // Names and booleans only.
-      credentials: db ? await secretStatus(db) : null,
+      credentials: db ? await safely(() => secretStatus(db)) : null,
       ipfs: db
-        ? { configured: pinner.configured(), ...(await pinStatus(db)) }
+        ? { configured: pinner.configured(), ...(await safely(() => pinStatus(db))) }
         : { configured: pinner.configured() },
       // What invitation links will be built from, for this exact request.
       // Links were coming out as http://localhost because they used the
