@@ -27,7 +27,12 @@ const CREDENTIALS = [
 ];
 
 /** Files that legitimately contain credential-shaped test fixtures. */
-const FIXTURES = new Set(["tests/no-secrets.test.js", "tests/load-env.test.js", "tests/admin-pg.test.js"]);
+const FIXTURES = new Set([
+  "tests/no-secrets.test.js",
+  "tests/load-env.test.js",
+  "tests/admin-pg.test.js",
+  "tests/db-outage.test.js"
+]);
 
 function trackedFiles() {
   return execFileSync("git", ["ls-files"], { encoding: "utf8" })

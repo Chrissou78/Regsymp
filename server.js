@@ -485,10 +485,37 @@ if (isEntryPoint) {
     console.log(`RegSymp serving ${ROOT} on http://${HOST}:${PORT}`);
   });
 
+  // A redeploy is a SIGTERM, so this runs on every routine deploy. It has to
+  // finish promptly and exit zero, or the platform reports an ordinary deploy
+  // as a crashed process.
+  let shuttingDown = false;
+
   for (const signal of ["SIGTERM", "SIGINT"]) {
     process.on(signal, () => {
+      if (shuttingDown) return; // a second signal must not race the first
+      shuttingDown = true;
       console.log(`${signal} received, shutting down`);
-      server.close(() => process.exit(0));
+
+      let finished = false;
+      const finish = async () => {
+        if (finished) return;
+        finished = true;
+        // Return the connections rather than letting the pool be severed
+        // mid-query when the process goes.
+        await db?.end().catch(() => {});
+        process.exit(0);
+      };
+
+      server.close(finish);
+      // Idle keep-alive connections would otherwise hold server.close open
+      // until the platform loses patience and SIGKILLs, which is precisely
+      // what makes a clean shutdown look like a failure.
+      server.closeIdleConnections?.();
+
+      setTimeout(() => {
+        server.closeAllConnections?.();
+        finish();
+      }, 5000).unref();
     });
   }
 }
