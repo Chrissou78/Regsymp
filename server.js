@@ -15,6 +15,8 @@ import { createPgUserStore } from "./admin/users-store-pg.js";
 import { createUserStore } from "./admin/users-store.js";
 import { applySecrets, clearSecret, ensureSessionSecret, secretStatus, setSecret } from "./admin/secrets.js";
 import { materialise, seedAdmins, seedContent, writeThrough } from "./admin/db-bootstrap.js";
+import { createPinner } from "./admin/ipfs.js";
+import { backfill, listPins, pinDocument, pinStatus } from "./admin/pins.js";
 import { setRuntimeConfig } from "./admin/runtime-config.js";
 import { createFsStore } from "./admin/store-fs.js";
 import { rebuild, lastBuild } from "./admin/rebuild.js";
@@ -92,6 +94,14 @@ const CONTENT_DIR =
 const db = DATABASE_URL ? createDb({ url: DATABASE_URL }) : null;
 
 /**
+ * Images are pinned to IPFS as the record of the original. Not the serving
+ * path: the build produces responsive derivatives, and serving full-size
+ * originals through a gateway would undo that and put a third party in front
+ * of every page load.
+ */
+const pinner = createPinner();
+
+/**
  * A save writes to the store, puts that one file on disk, and rebuilds.
  *
  * Content changes used to be commits, and every commit triggered a redeploy:
@@ -101,10 +111,18 @@ const db = DATABASE_URL ? createDb({ url: DATABASE_URL }) : null;
 const store = db
   ? createPgStore({
       db,
-      onWrite: async ({ path: relative, buffer }) => {
+      onWrite: async ({ path: relative, buffer, digest }) => {
         if (!relative.startsWith("src/")) return;
         await writeThrough({ root: PROJECT_ROOT, relative, buffer });
         await rebuild();
+
+        // Deliberately not awaited. The bytes are already durable and the
+        // page is already rebuilt; making the editor wait on a third-party
+        // upload would add seconds to every save and fail it when Pinata is
+        // down. Anything that does not stick is reported and retried.
+        void pinDocument(db, pinner, { path: relative, digest, buffer })
+          .then((r) => r.failed && console.error(`pin failed for ${relative}: ${r.failed}`))
+          .catch((err) => console.error(`pin error for ${relative}:`, err.message));
       }
     })
   : createFsStore({
@@ -139,6 +157,18 @@ const admin = createAdmin({
         list: () => secretStatus(db),
         set: (name, value, by) => setSecret(db, name, value, by),
         clear: (name) => clearSecret(db, name)
+      }
+    : null,
+  ipfs: db
+    ? {
+        configured: () => pinner.configured(),
+        testAuth: () => pinner.testAuth(),
+        status: () => pinStatus(db),
+        list: () => listPins(db),
+        gatewayUrl: (cid) => pinner.gatewayUrl(cid),
+        // Never on boot: the first run uploads every image on the site, and a
+        // deploy is not the moment to find out how long that takes.
+        backfill: (limit) => backfill(db, store, pinner, { limit })
       }
     : null,
   // Say so in the interface when content is not actually persistent. Saving
@@ -338,6 +368,9 @@ const server = createServer(async (req, res) => {
       // Which service credentials are configured and where they came from.
       // Names and booleans only.
       credentials: db ? await secretStatus(db) : null,
+      ipfs: db
+        ? { configured: pinner.configured(), ...(await pinStatus(db)) }
+        : { configured: pinner.configured() },
       // What invitation links will be built from, for this exact request.
       // Links were coming out as http://localhost because they used the
       // parse-time placeholder base rather than the request headers.

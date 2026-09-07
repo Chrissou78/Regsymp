@@ -137,6 +137,35 @@ tidiness — accepting arbitrary names from a web form would let someone set
 `app_secrets` requires a connection, and the connection requires that value.
 It is the one credential that has to stay in the host environment.
 
+### Images on IPFS
+
+Originals are pinned to IPFS through Pinata and the CID recorded in
+`asset_pins`, keyed by **content digest** rather than path — a CID is derived
+from the bytes, so keying on the digest means an image reused at two paths is
+pinned once and re-saving an unchanged image costs nothing. In practice 20
+uploads covered 21 images on the current site.
+
+IPFS is the record, not the serving path. The build generates responsive
+derivatives that took the homepage from 5 MB to 91 KB; serving full-size
+originals through a gateway would undo that and put a third party in front of
+every page load.
+
+Pinning is therefore never load-bearing. A save writes to Postgres, rebuilds,
+and returns — the upload happens afterwards, unawaited. If it fails, the image
+is already durable and the page already correct; the reason is recorded in
+`asset_pin_failures` with an attempt count, because "not pinned" otherwise
+cannot be told apart from "not tried yet" by anyone who cannot read the log.
+
+Manage it at **/admin/ipfs**: counts, failures with their reasons, and the
+pinned images with gateway links. Backfilling runs 20 images per click, so a
+request cannot outlive a proxy — click again until it reports none left. It is
+deliberately never done on boot: the first run uploads every image on the
+site, and a deploy is not the moment to discover how long that takes.
+
+`PINATA_JWT` alone is enough. The legacy key and secret are only for accounts
+still on v2 auth. `PINATA_GATEWAY` should be the bare host — the public
+ipfs.io gateway is rate-limited, and is only the fallback.
+
 ### Keeping tests away from live data
 
 The Postgres tests truncate tables, so two guards stand between `npm test` and

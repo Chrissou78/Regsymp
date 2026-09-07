@@ -12,6 +12,9 @@ const COOKIE = "regsymp_admin";
 const MAX_BODY = 12 * 1024 * 1024;
 const MAX_IMAGE = 8 * 1024 * 1024;
 
+// Images pinned per click. Bounded so a request cannot outlive a proxy.
+const BATCH = 20;
+
 /* ------------------------------------------------------------------ pure
  * These are exported so they can be tested without HTTP, sessions or the
  * GitHub API. Every route handler is a thin wrapper over them.
@@ -122,6 +125,8 @@ export function createAdmin(config) {
     // Service credentials, when there is a database to hold them. Injected
     // rather than imported so the routes stay unaware of the storage.
     credentials = null,
+    // IPFS pinning, likewise injected.
+    ipfs = null,
     // Returns a warning to show above the collections, or null. Used to say
     // out loud when the content directory is not actually persistent: edits
     // would appear to work and then vanish on the next deploy.
@@ -369,6 +374,44 @@ export function createAdmin(config) {
       return true;
     }
 
+    if (path === "/admin/ipfs") {
+      if (!ipfs) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: session.user,
+          body: `<p>Pinning needs a database to record the CIDs in.</p>
+                 <p><a href="/admin">Back to collections</a></p>`
+        }));
+        return true;
+      }
+
+      if (req.method === "GET") {
+        html(res, 200, await ipfsPage({ ipfs, session, token }));
+        return true;
+      }
+
+      // Viewing is open to any admin; spending uploads is the owner's call.
+      if (!(await storeFor().isOwner(session.user.email))) {
+        html(res, 403, layout({
+          title: "Not permitted",
+          user: session.user,
+          flash: { kind: "error", message: "Only the account owner can start pinning." },
+          body: `<p><a href="/admin/ipfs">Back to IPFS</a></p>`
+        }));
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+
+      // A bounded batch per click. Pinning every image on the site takes
+      // longer than a request should, and a proxy timing out halfway through
+      // tells the person nothing about what actually got pinned.
+      const result = await ipfs.backfill(BATCH);
+      html(res, 200, await ipfsPage({ ipfs, session, token, result }));
+      return true;
+    }
+
     if (path === "/admin/credentials") {
       // Only meaningful with a database. Without one the credentials are in
       // the host environment and this page could not change them.
@@ -484,7 +527,7 @@ export function createAdmin(config) {
             <p class="a-lede">Changes are saved to the content volume and rebuilt
             immediately &mdash; no deploy, and nothing signs you out.</p>
             <ul class="a-list">${rows}</ul>
-            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;
@@ -845,6 +888,73 @@ function clientKey(req) {
  * came from. A page that echoes a credential back is a page that leaks one to
  * anybody who gets a session, a screenshot, or a browser cache.
  */
+/**
+ * Which images are on IPFS.
+ *
+ * Pinning is best-effort, so "not pinned" needs disambiguating: not attempted
+ * yet, or attempted and failed. Nobody administering this can read a log, so
+ * the reason and the attempt count are on the page.
+ */
+async function ipfsPage({ ipfs, session, token, result }) {
+  const [status, auth] = await Promise.all([ipfs.status(), ipfs.testAuth()]);
+  const owner = true; // the route has already checked for write actions
+
+  const rows = (await ipfs.list())
+    .slice(0, 200)
+    .map((pin) => `<li class="a-row">
+      <span class="a-row-name">${escape(pin.path.replace(/^src\/assets\/images\//, ""))}</span>
+      <a class="a-count" href="${escape(ipfs.gatewayUrl(pin.cid))}" target="_blank"
+         rel="noopener">${escape(pin.cid.slice(0, 12))}&hellip;</a>
+    </li>`)
+    .join("");
+
+  const failures = status.failures.length
+    ? `<h2>Not pinned</h2><ul class="a-list">${status.failures
+        .map((f) => `<li class="a-row a-row--stack">
+             <span class="a-row-name">${escape((f.path ?? "").split("/").pop())}</span>
+             <p class="a-note">${escape(f.error)} &middot; ${f.attempts} attempt${
+               f.attempts === 1 ? "" : "s"
+             }</p>
+           </li>`)
+        .join("")}</ul>`
+    : "";
+
+  const summary = result
+    ? `<div class="a-flash"><p>Pinned ${result.pinned ?? 0}${
+        result.failed ? `, ${result.failed} failed` : ""
+      }.${status.unpinned > 0 ? ` ${status.unpinned} still to go — run it again.` : " All done."}</p></div>`
+    : "";
+
+  return layout({
+    title: "IPFS",
+    user: session.user,
+    flash: auth.ok
+      ? null
+      : { kind: "error", message: `Pinata is not usable: ${auth.reason ?? "unknown"}` },
+    body: `<h1>IPFS</h1>
+      <p class="a-lede">Originals are pinned to IPFS as the record. The site keeps
+      serving its own optimised versions, so pages stay fast and no page load
+      depends on a gateway.</p>
+      ${summary}
+      <ul class="a-list">
+        <li class="a-row"><span class="a-row-name">Images</span><span class="a-count">${status.images}</span></li>
+        <li class="a-row"><span class="a-row-name">Pinned</span><span class="a-count">${status.pinned}</span></li>
+        <li class="a-row"><span class="a-row-name">Not pinned</span><span class="a-count">${status.unpinned}</span></li>
+      </ul>
+      ${
+        status.unpinned > 0 && auth.ok
+          ? `<form method="post" action="/admin/ipfs">
+               <input type="hidden" name="csrf" value="${escape(token)}">
+               <button class="a-btn">Pin the next ${Math.min(status.unpinned, 20)}</button>
+             </form>`
+          : ""
+      }
+      ${failures}
+      ${rows ? `<h2>On IPFS</h2><ul class="a-list">${rows}</ul>` : ""}
+      <p><a class="a-btn" href="/admin">Back to collections</a></p>`
+  });
+}
+
 async function credentialsPage({ credentials, session, token, error }) {
   const rows = (await credentials.list())
     .map((entry) => `<li class="a-row a-row--stack">

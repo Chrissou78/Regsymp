@@ -17,6 +17,7 @@ import {
   setSecret
 } from "../admin/secrets.js";
 import { hashPassword } from "../admin/password.js";
+import { backfill, findCid, listPins, pinDocument, pinStatus, recordPin } from "../admin/pins.js";
 
 /**
  * These need a real Postgres, because what they are testing *is* the SQL:
@@ -80,6 +81,23 @@ async function reset() {
   await db.query("truncate content_documents, content_revisions");
   await db.query("delete from admin_users");
   await db.query("delete from app_secrets");
+  await db.query("truncate asset_pins, asset_pin_failures");
+}
+
+/** A pinner that records calls instead of uploading anything. */
+function stubPinner({ fails = false } = {}) {
+  const calls = [];
+  return {
+    calls,
+    configured: () => true,
+    gatewayUrl: (cid) => `https://gw.test/ipfs/${cid}`,
+    async pin({ buffer, filename }) {
+      calls.push(filename);
+      if (fails) throw new Error("Pinata returned 401");
+      // Real CIDs are content-addressed, so model that: same bytes, same CID.
+      return { cid: `bafy${buffer.length}`, size: buffer.length };
+    }
+  };
 }
 
 // -------------------------------------------------------------- migrations
@@ -453,4 +471,152 @@ test("credential status reports names, never values", opts, async () => {
   const entry = status.find((s) => s.name === "RESEND_API_KEY");
   assert.equal(entry.set, true);
   assert.equal(entry.source, "database");
+});
+
+// ---------------------------------------------------------------------- IPFS
+
+test("only images are pinned", opts, async () => {
+  await reset();
+  const pinner = stubPinner();
+
+  const json = await pinDocument(db, pinner, {
+    path: "src/_data/faq.json",
+    digest: "d1",
+    buffer: Buffer.from("[]")
+  });
+  assert.deepEqual(json, { skipped: "not an image" });
+  assert.equal(pinner.calls.length, 0, "uploaded a data file");
+});
+
+test("nothing is attempted without a credential", opts, async () => {
+  await reset();
+  const result = await pinDocument(db, { configured: () => false }, {
+    path: "src/assets/images/a.png",
+    digest: "d1",
+    buffer: Buffer.from([1])
+  });
+  assert.deepEqual(result, { skipped: "pinning not configured" });
+});
+
+test("identical bytes are pinned once, however many paths use them", opts, async () => {
+  // Pins are keyed on the content digest because a CID is derived from the
+  // bytes. Keying on the path would pay for the same upload twice.
+  await reset();
+  const pinner = stubPinner();
+  const buffer = Buffer.from([1, 2, 3, 4]);
+
+  const first = await pinDocument(db, pinner, { path: "src/assets/images/a.png", digest: "same", buffer });
+  const second = await pinDocument(db, pinner, { path: "src/assets/images/b.png", digest: "same", buffer });
+
+  assert.equal(first.pinned, true);
+  assert.equal(second.alreadyPinned, true);
+  assert.equal(second.cid, first.cid);
+  assert.equal(pinner.calls.length, 1, "uploaded the same bytes twice");
+});
+
+test("a failure records why, and counts the attempts", opts, async () => {
+  // Pinning is best-effort, so "not pinned" is ambiguous: never tried, or
+  // tried and failed. Whoever administers this cannot read a server log.
+  await reset();
+  const broken = stubPinner({ fails: true });
+  const image = { path: "src/assets/images/a.png", digest: "d1", buffer: Buffer.from([1]) };
+
+  const result = await pinDocument(db, broken, image);
+  assert.match(result.failed, /401/);
+
+  await pinDocument(db, broken, image);
+  const { rows } = await db.query("select error, attempts from asset_pin_failures where digest = $1", ["d1"]);
+  assert.equal(rows[0].attempts, 2);
+  assert.match(rows[0].error, /401/);
+});
+
+test("a later success clears the recorded failure", opts, async () => {
+  // Otherwise the admin would keep reporting a problem that had been fixed.
+  await reset();
+  const image = { path: "src/assets/images/a.png", digest: "d1", buffer: Buffer.from([1]) };
+
+  await pinDocument(db, stubPinner({ fails: true }), image);
+  assert.equal((await db.query("select 1 from asset_pin_failures")).rows.length, 1);
+
+  await pinDocument(db, stubPinner(), image);
+  assert.equal((await db.query("select 1 from asset_pin_failures")).rows.length, 0);
+  assert.ok(await findCid(db, "d1"));
+});
+
+test("a failure never stops a save", opts, async () => {
+  // The bytes are already durable in Postgres and the page is already built.
+  // Throwing here would fail an edit that had in fact succeeded.
+  await reset();
+  const result = await pinDocument(db, stubPinner({ fails: true }), {
+    path: "src/assets/images/a.png",
+    digest: "d1",
+    buffer: Buffer.from([1])
+  });
+  assert.ok(result.failed, "expected a reported failure, not a thrown one");
+});
+
+test("backfill pins what is missing, then has nothing to do", opts, async () => {
+  await reset();
+  const store = createPgStore({ db });
+  await store.putFile({ path: "src/assets/images/a.png", content: Buffer.from([1, 2]) });
+  await store.putFile({ path: "src/assets/images/b.jpg", content: Buffer.from([1, 2, 3]) });
+  await store.putFile({ path: "src/_data/faq.json", content: "[]" });
+
+  const pinner = stubPinner();
+  const first = await backfill(db, store, pinner);
+  assert.equal(first.considered, 2, "counted a non-image");
+  assert.equal(first.pinned, 2);
+  assert.equal(first.failed, 0);
+
+  const second = await backfill(db, store, pinner);
+  assert.equal(second.considered, 0, "re-pinned something already pinned");
+});
+
+test("backfill honours its batch limit", opts, async () => {
+  // Each click pins a bounded batch, so a request cannot outlive a proxy.
+  await reset();
+  const store = createPgStore({ db });
+  for (let i = 0; i < 5; i++) {
+    await store.putFile({ path: `src/assets/images/${i}.png`, content: Buffer.from([i, i, i]) });
+  }
+  const result = await backfill(db, store, stubPinner(), { limit: 2 });
+  assert.ok(result.considered <= 2, `pinned ${result.considered} with a limit of 2`);
+});
+
+test("status counts images, not documents", opts, async () => {
+  await reset();
+  const store = createPgStore({ db });
+  await store.putFile({ path: "src/assets/images/a.png", content: Buffer.from([1]) });
+  await store.putFile({ path: "src/assets/images/b.svg", content: Buffer.from([2]) });
+  await store.putFile({ path: "src/_data/site.json", content: "{}" });
+  await store.putFile({ path: "src/assets/images/notes.pdf", content: Buffer.from([3]) });
+
+  const before = await pinStatus(db);
+  assert.equal(before.images, 2, "counted a data file or a pdf as an image");
+  assert.equal(before.pinned, 0);
+  assert.equal(before.unpinned, 2);
+
+  await backfill(db, store, stubPinner());
+  const after = await pinStatus(db);
+  assert.equal(after.pinned, 2);
+  assert.equal(after.unpinned, 0);
+});
+
+test("pins list with their paths and CIDs", opts, async () => {
+  await reset();
+  const store = createPgStore({ db });
+  await store.putFile({ path: "src/assets/images/lmax.png", content: Buffer.from([1, 2, 3]) });
+  await backfill(db, store, stubPinner());
+
+  const pins = await listPins(db);
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].path, "src/assets/images/lmax.png");
+  assert.match(pins[0].cid, /^bafy/);
+});
+
+test("recording a pin twice updates rather than failing", opts, async () => {
+  await reset();
+  await recordPin(db, { digest: "d1", cid: "bafy1", bytes: 10, filename: "a.png" });
+  await recordPin(db, { digest: "d1", cid: "bafy2", bytes: 20, filename: "a.png" });
+  assert.equal(await findCid(db, "d1"), "bafy2");
 });

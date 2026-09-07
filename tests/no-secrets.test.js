@@ -39,7 +39,15 @@ function trackedFiles() {
 test(".env.example holds names, never values", async () => {
   // The file most likely to be filled in by mistake, because filling it in is
   // exactly what it looks like it is for.
-  const text = await readFile(".env.example", "utf8");
+  // A missing file is a failure too, with a message that says what happened:
+  // this one was renamed to .env at one point, and an ENOENT stack traceback
+  // does not suggest "your template is gone".
+  let text;
+  try {
+    text = await readFile(".env.example", "utf8");
+  } catch (err) {
+    assert.fail(`.env.example is missing (${err.code}). It is the tracked template — restore it with: git checkout -- .env.example`);
+  }
   for (const { name, pattern } of CREDENTIALS) {
     assert.ok(!pattern.test(text), `.env.example contains what looks like a ${name}`);
   }
