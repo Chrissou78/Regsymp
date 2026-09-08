@@ -159,6 +159,10 @@ export function createAdmin(config) {
     ipfs = null,
     // The guest list. Present only when there is a database to hold it.
     guests = null,
+    // Where to send somebody who needs to sign in. The site has one sign-in
+    // form; this points at it when it exists, and falls back to the admin's
+    // own form on a checkout with no database.
+    signInPath = "/admin/signin",
     // Why the store cannot be reached, if it cannot. Reported rather than
     // left to surface as an opaque failure on whatever page is opened first.
     unavailable = () => null,
@@ -288,7 +292,7 @@ export function createAdmin(config) {
           title: "Not found",
           user: null,
           body: `<p>This admin already has an account.</p>
-                 <p><a href="/admin/signin">Go to sign in</a></p>`
+                 <p><a href="${escape(signInPath)}">Go to sign in</a></p>`
         }));
         return true;
       }
@@ -317,7 +321,7 @@ export function createAdmin(config) {
         title: "Account created",
         user: null,
         flash: { kind: "ok", message: `${escape(email)} is now the owner.` },
-        body: `<p><a class="a-btn" href="/admin/signin">Sign in</a></p>`
+        body: `<p><a class="a-btn" href="${escape(signInPath)}">Sign in</a></p>`
       }));
       return true;
     }
@@ -349,6 +353,12 @@ export function createAdmin(config) {
 
     // ---------------------------------------------------- unauthenticated
     if (path === "/admin/signin") {
+      // Kept working so a bookmark does not break, but there is one sign-in
+      // form for the site and this is not it.
+      if (signInPath !== "/admin/signin" && req.method === "GET") {
+        redirect(res, signInPath);
+        return true;
+      }
       if (req.method === "GET") {
         html(res, 200, signinPage());
         return true;
@@ -399,7 +409,7 @@ export function createAdmin(config) {
       // Take "admin" out of the readable hint on the way past, so the menu
       // stops offering a link that lands here.
       const correct = { "Set-Cookie": dropRole(req, "admin") };
-      if (req.method === "GET") redirect(res, "/admin/signin", correct);
+      if (req.method === "GET") redirect(res, signInPath, correct);
       else {
         res.writeHead(403, { "Content-Type": "text/html; charset=utf-8", ...correct });
         res.end(layout({ title: "Not signed in", user: null, body: "<p>Session expired.</p>" }));
@@ -409,8 +419,16 @@ export function createAdmin(config) {
 
     if (path === "/admin/signout") {
       await sessions.destroy(session.id);
-      redirect(res, "/admin/signin", {
-        "Set-Cookie": `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0`
+      // Back to the site, not to a login form: signing out is finishing, not
+      // the start of signing in again.
+      //
+      // Path=/ because that is how the cookie is set. Clearing it at
+      // Path=/admin left the original in place, so signing out did not.
+      redirect(res, "/", {
+        "Set-Cookie": [
+          `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
+          dropRole(req, "admin")
+        ]
       });
       return true;
     }

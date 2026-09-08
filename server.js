@@ -363,6 +363,8 @@ const admin = createAdmin({
         }
       }
     : null,
+  // One sign-in form for the site, when the portal is mounted to serve it.
+  signInPath: attendees ? "/portal/signin" : "/admin/signin",
   // Say so in the interface when content is not actually persistent. Saving
   // to an unmounted volume looks entirely normal right up until a deploy
   // throws the work away. A database is durable by construction.
