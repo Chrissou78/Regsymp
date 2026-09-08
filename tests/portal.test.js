@@ -277,6 +277,7 @@ test("the ticket page carries a QR code and the number", opts, async () => {
   assert.match(body, /<svg/, "no QR code");
   assert.match(body, /34\/100/, "wrong number or label");
   assert.match(body, /Ada Lovelace/);
+  assert.match(body, /<a href="\/portal\/ticket">Ticket<\/a>/, "the menu has no ticket link");
 });
 
 test("a guest with no ticket is sent back rather than shown an empty one", opts, async () => {
@@ -295,6 +296,18 @@ test("a guest with no ticket is sent back rather than shown an empty one", opts,
 
   const profile = await (await get("/portal", { headers: { cookie } })).text();
   assert.match(profile, /No ticket has been issued/);
+
+  // And the menu does not offer one either. It used to, on every page, so the
+  // link was there for the majority who have no badge yet -- and following it
+  // bounced straight back here, which reads as something being broken.
+  for (const path of ["/portal", "/portal/password"]) {
+    const page = await (await get(path, { headers: { cookie } })).text();
+    assert.doesNotMatch(
+      page,
+      /href="\/portal\/ticket"/,
+      `${path} offers a ticket link to somebody with no ticket`
+    );
+  }
 });
 
 // ------------------------------------------------------------------ check-in

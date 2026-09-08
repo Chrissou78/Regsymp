@@ -444,6 +444,10 @@ export function createPortal({
       return true;
     }
 
+    // Resolved here rather than per page so that the navigation and the page
+    // body can never disagree about whether there is a badge to look at.
+    const ticket = await attendees.ticketFor(guest.id);
+
     const token = csrfToken(session.id, secret$());
 
     if (path === "/portal/signout") {
@@ -476,7 +480,6 @@ export function createPortal({
     }
 
     if (path === "/portal/ticket") {
-      const ticket = await attendees.ticketFor(guest.id);
       if (!ticket) {
         redirect(res, "/portal");
         return true;
@@ -496,7 +499,7 @@ export function createPortal({
 
     if (path === "/portal/password") {
       if (req.method === "GET") {
-        html(res, 200, changePasswordPage({ guest, token }));
+        html(res, 200, changePasswordPage({ guest, ticket, token }));
         return true;
       }
 
@@ -504,31 +507,29 @@ export function createPortal({
       requireCsrf(session.id, form.csrf);
 
       if (!(await attendees.verify(guest.email, String(form.current ?? "")))) {
-        html(res, 400, changePasswordPage({ guest, token, error: "Your current password is not correct." }));
+        html(res, 400, changePasswordPage({ guest, ticket, token, error: "Your current password is not correct." }));
         return true;
       }
       if (form.password !== form.confirm) {
-        html(res, 400, changePasswordPage({ guest, token, error: "Those passwords do not match." }));
+        html(res, 400, changePasswordPage({ guest, ticket, token, error: "Those passwords do not match." }));
         return true;
       }
 
       try {
         await attendees.setPassword(guest.id, String(form.password ?? ""));
       } catch (err) {
-        html(res, 400, changePasswordPage({ guest, token, error: err.message }));
+        html(res, 400, changePasswordPage({ guest, ticket, token, error: err.message }));
         return true;
       }
 
       // Every other session for this account goes, in case the password was
       // changed because it leaked.
       await sessions.destroyOthersFor(guest.email, session.id);
-      html(res, 200, changePasswordPage({ guest, token, saved: true }));
+      html(res, 200, changePasswordPage({ guest, ticket, token, saved: true }));
       return true;
     }
 
     if (path === "/portal") {
-      const ticket = await attendees.ticketFor(guest.id);
-
       if (req.method === "GET") {
         html(res, 200, profilePage({ guest, ticket, token }));
         return true;
@@ -588,6 +589,7 @@ export function createPortal({
     html(res, 404, layout({
       title: "Not found",
       guest,
+      ticket,
       token,
       body: `<div class="p-card p-card--narrow"><h1>Not found</h1>
              <p><a class="p-quiet" href="/portal">Back to your profile</a></p></div>`

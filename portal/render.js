@@ -14,7 +14,19 @@ export function escape(value) {
   );
 }
 
-export function layout({ title, body, guest = null, flash = null, wide = false, token = "" }) {
+export function layout({
+  title,
+  body,
+  guest = null,
+  // The badge this person holds, if the organisers have issued one. The
+  // navigation offers a ticket link only when there is a ticket to look at:
+  // most people arrive before theirs is assigned, and a link that bounces
+  // straight back to the profile reads as something being broken.
+  ticket = null,
+  flash = null,
+  wide = false,
+  token = ""
+}) {
   const notice = flash
     ? `<div class="p-flash p-flash--${escape(flash.kind)}">${escape(flash.message)}</div>`
     : "";
@@ -39,7 +51,7 @@ export function layout({ title, body, guest = null, flash = null, wide = false, 
     guest
       ? `<nav class="p-nav">
            <a href="/portal">Profile</a>
-           <a href="/portal/ticket">Ticket</a>
+           ${ticket ? '<a href="/portal/ticket">Ticket</a>' : ""}
            <form method="post" action="/portal/signout" class="p-inline">
              <input type="hidden" name="csrf" value="${escape(token)}">
              <button class="p-linkbutton">Sign out</button>
@@ -194,6 +206,7 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
   return layout({
     title: "Your profile",
     guest,
+    ticket,
     token,
     flash: error
       ? { kind: "error", message: error }
@@ -225,8 +238,8 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
                <span class="p-ticketstrip-number">${escape(ticket.label)}</span>
                <span class="p-quiet">View and add to your phone &rarr;</span>
              </a>`
-          : `<p class="p-note">No ticket has been issued to you yet. The organisers
-             will assign one before the event.</p>`
+          : `<p class="p-note p-noticket">No ticket has been issued to you yet. The
+             organisers will assign one before the event.</p>`
       }
 
       <form method="post" action="/portal" class="p-form p-form--grid">
@@ -280,6 +293,7 @@ export function ticketPage({ guest, ticket, qr, token }) {
   return layout({
     title: "Your ticket",
     guest,
+    ticket,
     token,
     body: `<div class="p-ticket">
       <div class="p-ticket-head" style="background:${escape(ticket.colour ?? "#1C2B4A")}">
@@ -311,10 +325,11 @@ export function ticketPage({ guest, ticket, qr, token }) {
   });
 }
 
-export function changePasswordPage({ guest, token, error = null, saved = false }) {
+export function changePasswordPage({ guest, ticket = null, token, error = null, saved = false }) {
   return layout({
     title: "Change password",
     guest,
+    ticket,
     token,
     flash: error
       ? { kind: "error", message: error }

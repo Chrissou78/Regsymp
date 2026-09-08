@@ -288,6 +288,12 @@
   margin: 0 0 30px;
 }
 
+/* The same slot, when there is no badge to show in it yet. .p-note alone has
+   no bottom margin, which left the sentence sitting on top of the form. */
+.p-noticket {
+  margin: 0 0 30px;
+}
+
 .p-ticketstrip-label {
   font-size: 12px;
   letter-spacing: 0.1em;
