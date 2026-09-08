@@ -215,7 +215,14 @@ const portal = attendees
       sessions: createSessions(),
       secret: () => env("SESSION_SECRET") || configValue("SESSION_SECRET"),
       mail: mailer,
-      publishSpeaker
+      publishSpeaker,
+      // One sign-in form for the site. The stores stay separate: this only
+      // lets the form check the admin one and mint its cookie. Late-bound
+      // because the admin is constructed below.
+      admins: {
+        verify: (email, password) => userStore.verify(email, password),
+        issueSession: (email) => admin.issueSession(email)
+      }
     })
   : null;
 

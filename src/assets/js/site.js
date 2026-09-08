@@ -120,65 +120,43 @@ import { trapFocus } from "./focus-trap.js";
   );
   document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
 
-  // --------------------------------------------------------- invitation modal
-  const modal = document.getElementById("inviteModal");
-  const form = document.getElementById("inviteForm");
-  const statusEl = document.getElementById("inviteStatus");
-  let releaseModal = null;
+  // ------------------------------------------------------------ who is signed in
+  //
+  // These pages are static, so the menu cannot know at build time whether
+  // anybody is signed in. The server sets a readable `regsymp_who` cookie
+  // alongside the real session cookies, which stay HttpOnly. This one grants
+  // nothing — every route still checks the session — it only decides which
+  // links to show.
+  const who = (document.cookie.match(/(?:^|;\s*)regsymp_who=([^;]*)/) || [])[1] || "";
+  const roles = decodeURIComponent(who).split("-").filter(Boolean);
 
-  function openModal(e) {
-    if (!modal) return;
-    e?.preventDefault();
-    modal.hidden = false;
-    document.body.style.overflow = "hidden";
-    const started = document.getElementById("inviteStartedAt");
-    if (started) started.value = String(Date.now());
-    releaseModal = trapFocus(modal);
+  if (roles.includes("admin")) {
+    document.querySelectorAll("[data-admin-link]").forEach((el) => {
+      el.hidden = false;
+    });
   }
 
-  function closeModal() {
-    if (!modal || modal.hidden) return;
-    modal.hidden = true;
-    document.body.style.overflow = "";
-    releaseModal?.();
-    releaseModal = null;
+  // Somebody signed in does not need to be invited to sign in. A guest gets
+  // their profile; an admin with no attendee profile has nowhere for this
+  // link to go, and the Admin link beside it already says "Admin" — showing
+  // both put the word on screen twice.
+  if (roles.includes("guest")) {
+    document.querySelectorAll("[data-account-link]").forEach((el) => {
+      el.setAttribute("href", "/portal");
+      // Keep the space the markup had before the arrow: replacing
+      // textContent wholesale dropped it and gave "My Profile→".
+      const arrow = el.querySelector(".arrow");
+      el.textContent = arrow ? "My Profile " : "My Profile";
+      if (arrow) el.appendChild(arrow);
+    });
+  } else if (roles.includes("admin")) {
+    document.querySelectorAll("[data-account-link]").forEach((el) => {
+      el.hidden = true;
+    });
   }
 
-  document.querySelectorAll("[data-invite-trigger]").forEach((el) =>
-    el.addEventListener("click", openModal)
-  );
-  document.querySelectorAll("[data-invite-close]").forEach((el) =>
-    el.addEventListener("click", closeModal)
-  );
-
-  // One Escape handler for both overlays
+  // Escape closes the drawer.
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
-    if (modal && !modal.hidden) closeModal();
-    else if (drawer?.classList.contains("open")) setDrawer(false);
-  });
-
-  form?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const submit = form.querySelector(".invite-submit");
-    submit.disabled = true;
-    statusEl.textContent = "Sending…";
-    statusEl.classList.remove("is-error");
-
-    try {
-      const res = await fetch("/api/request-invitation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(new FormData(form)))
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
-      form.hidden = true;
-      statusEl.textContent = "Thank you. We will be in touch.";
-    } catch (err) {
-      statusEl.textContent = err.message;
-      statusEl.classList.add("is-error");
-      submit.disabled = false;
-    }
+    if (e.key === "Escape" && drawer?.classList.contains("open")) setDrawer(false);
   });
 })();

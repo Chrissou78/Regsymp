@@ -114,31 +114,30 @@ test("all JSON-LD blocks parse", async () => {
   }
 });
 
-// ------------------------------------------------------------ invitation form
+// ------------------------------------------------------- signing in and out
 
-test("invite modal is on every page with all required fields", async () => {
+test("every page offers a way into an account, and no invitation form", async () => {
+  // The invitation modal was retired when registration opened: anybody who
+  // wants in creates an account, and the organisers issue a badge.
   for (const p of PAGES) {
     const html = await readOutput(p);
-    assert.match(html, /id="inviteModal"/, `${p} missing modal`);
-    assert.match(html, /role="dialog"/, `${p} missing dialog role`);
-    assert.match(html, /aria-modal="true"/, `${p} missing aria-modal`);
-    for (const field of ["name", "email", "company", "role", "mobile", "message", "consent"]) {
-      assert.match(html, new RegExp(`name="${field}"`), `${p} missing field ${field}`);
-    }
-    assert.match(html, /name="website"/, `${p} missing honeypot`);
+    assert.match(html, /data-account-link/, `${p} has no way to sign in`);
+    assert.match(html, /\/portal\/signin/, `${p} does not link to sign in`);
+    assert.doesNotMatch(html, /id="inviteModal"/, `${p} still carries the invitation modal`);
+    assert.doesNotMatch(html, /data-invite-trigger/, `${p} still triggers the invitation modal`);
   }
 });
 
-test("invite triggers keep a working mailto fallback", async () => {
-  const html = await readOutput("index.html");
-  const triggers = html.match(/<a[^>]*data-invite-trigger[^>]*>/g) || [];
-  assert.ok(triggers.length >= 3, `expected several triggers, found ${triggers.length}`);
-  for (const t of triggers) {
-    assert.match(t, /href="mailto:/, `trigger lacks mailto fallback: ${t}`);
+test("the admin link ships hidden, for the browser to reveal", async () => {
+  // These pages are static, so the menu cannot know who is signed in at build
+  // time. It ships hidden and site.js reveals it from a readable cookie, which
+  // grants nothing because every route still checks the real session.
+  for (const p of PAGES) {
+    const html = await readOutput(p);
+    assert.match(html, /data-admin-link/, `${p} has no admin link`);
+    assert.match(html, /data-admin-link[^>]*hidden/, `${p} shows the admin link to everybody`);
   }
 });
-
-// ---------------------------------------------------------------------- links
 
 test("no internal link points at a missing page", async () => {
   const files = await htmlFiles();
@@ -152,7 +151,19 @@ test("no internal link points at a missing page", async () => {
     const html = await readFile(file, "utf8");
     for (const m of html.matchAll(/href="(\/[^"#?]*)"/g)) {
       const href = m[1];
-      if (href.startsWith("/assets/") || href.startsWith("/img/") || href.startsWith("/api/")) continue;
+      // Some destinations are served by the server rather than built by
+      // Eleventy, so they are not among the output files: the admin, the
+      // attendee portal, and the check-in URL a badge's QR points at.
+      if (
+        href.startsWith("/assets/") ||
+        href.startsWith("/img/") ||
+        href.startsWith("/api/") ||
+        href.startsWith("/admin") ||
+        href.startsWith("/portal") ||
+        href.startsWith("/t/")
+      ) {
+        continue;
+      }
       const withSlash = href.endsWith("/") ? href : href + "/";
       if (!pages.has(withSlash) && !pages.has(href)) {
         broken.push(`${path.relative("_site", file)} -> ${href}`);

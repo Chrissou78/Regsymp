@@ -235,6 +235,43 @@ own listing: saving their profile writes their name, role, company, biography
 and LinkedIn onto the public page and rebuilds it. Their slug, photo and
 ordering stay with the organisers.
 
+### Signing in
+
+One form, at `/portal/signin`, reached from **Connect to Profile** in the
+navigation, the hero and the footer. `/admin/signin` still works, but nobody
+has to remember it.
+
+**The two credential stores are not merged.** Admin passwords stay in
+`admin_users`, attendee passwords in `attendees`, and the form checks both. An
+address that exists in both — with different passwords — gets both cookies;
+matching one grants only what that one grants. An attendee session presented
+to `/admin` is still bounced to the admin sign-in, and there is a test for it.
+What is shared is the form, not the authorisation.
+
+The menu shows an **Admin** link only to admins. The pages are static, so it
+cannot know at build time: the server sets a readable `regsymp_who` cookie
+alongside the real session cookies, which stay `HttpOnly`, and `site.js`
+reveals the link from it. That cookie grants nothing — every route still
+checks the session — it only decides which links to draw.
+
+A signed-in attendee sees **My Profile** instead of Connect to Profile. An
+admin with no attendee profile has the Admin link and no account link, since
+showing both put the word "Admin" on screen twice.
+
+Two things had to be fixed to make this work, both the same shape of bug:
+an author `display` rule outranks the user-agent rule for `[hidden]`, so an
+element hidden from script stayed on screen until `[hidden]` was given
+`display: none !important`; and the admin cookie was scoped to `Path=/admin`,
+where the site's own navigation could never see it.
+
+### The invitation form
+
+Retired. With registration open, somebody who wants in creates an account and
+the organisers issue a badge, so a form asking to be invited is a second,
+worse path to the same place. `/api/request-invitation`, its tests and
+`partials/invite-modal.njk` all remain in the repository if it is ever wanted
+back — nothing includes or links to it.
+
 ### Badges
 
 Every badge holder gets a printable badge at **/admin/badges**, filterable by

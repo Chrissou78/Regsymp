@@ -59,7 +59,9 @@ test("the drawer still carries every navigation destination", async () => {
   for (const target of ["/speakers/", "/partners/", "/pillars/", "/faq/", "/#agenda", "/#about"]) {
     assert.ok(drawer.includes(`href="${target}"`), `drawer is missing ${target}`);
   }
-  assert.match(drawer, /data-invite-trigger/, "drawer must keep the invitation CTA");
+  // The invitation CTA became a way into an account when registration opened.
+  assert.match(drawer, /data-account-link/, "drawer must keep a way to sign in");
+  assert.match(drawer, /data-admin-link/, "drawer must carry the admin shortcut");
 });
 
 test("the burger controls the drawer and reports its state", async () => {

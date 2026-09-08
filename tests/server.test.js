@@ -35,7 +35,10 @@ test("serves the homepage", async () => {
   assert.match(res.headers.get("content-type"), /text\/html/);
   const html = await res.text();
   assert.match(html, /RegSymp/);
-  assert.match(html, /id="inviteModal"/);
+  // The invitation modal was retired: with registration open, somebody who
+  // wants in creates an account and the organisers issue a badge.
+  assert.match(html, /Connect to Profile/);
+  assert.match(html, /\/portal\/signin/);
 });
 
 test("serves each page at its clean URL", async () => {

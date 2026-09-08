@@ -3,6 +3,13 @@
    UHNW Redesign — Institutional Finance Edition
    ========================================================= */
 
+/* The user-agent rule for [hidden] is `display: none`, which any author rule
+   setting `display` outranks — so an element hidden from script stayed on
+   screen. The hero CTA did exactly that. */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --navy:        #1C2B4A;
   --navy-light:  #2A3D60;
@@ -2545,6 +2552,19 @@ body { background: var(--off-white); }
 }
 
 /* ---------- Invitation modal ---------- */
+/* The Admin link, revealed by site.js only for a signed-in admin. Quieter
+   than the profile link beside it: it is a shortcut, not a call to action. */
+.nav-admin-link {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-decoration: none;
+  margin-right: 20px;
+  white-space: nowrap;
+}
+.nav-admin-link:hover { color: var(--gold-text); }
+
 .invite-modal { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .invite-modal[hidden] { display: none; }
 .invite-modal__backdrop { position: absolute; inset: 0; background: rgba(6, 10, 20, 0.78); backdrop-filter: blur(3px); }

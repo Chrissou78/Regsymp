@@ -33,6 +33,11 @@ export function createPortal({
   sessions,
   secret,
   mail = null,
+  // One sign-in form for the whole site. `admins.verify` checks the separate
+  // admin credential store and `admins.issueSession` mints its cookie: the
+  // two stores are never merged, and an attendee gains nothing by signing in
+  // here. All that is shared is the form.
+  admins = null,
   // Called after a speaker saves, to push their fields onto the public page.
   publishSpeaker = null,
   attempts = createAttemptLimiter()
@@ -72,10 +77,29 @@ export function createPortal({
     return session ? { id, ...session } : null;
   }
 
-  function startSession(res, guest, to = "/portal") {
+  const EIGHT_HOURS = 8 * 60 * 60;
+
+  /**
+   * A readable cookie saying which links to show.
+   *
+   * The session cookies are HttpOnly, so the site's navigation — static HTML
+   * built by Eleventy — cannot tell whether anybody is signed in. This one is
+   * deliberately readable and grants nothing: it is a hint for the menu, and
+   * every route still checks the real session.
+   */
+  const whoCookie = (roles) =>
+    roles.length
+      ? `regsymp_who=${roles.join("-")}; Secure; SameSite=Lax; Path=/; Max-Age=${EIGHT_HOURS}`
+      : "regsymp_who=; Secure; SameSite=Lax; Path=/; Max-Age=0";
+
+  function guestCookie(guest) {
     const id = sessions.create({ id: guest.id, email: guest.email }, null);
+    return `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${EIGHT_HOURS}`;
+  }
+
+  function startSession(res, guest, to = "/portal") {
     redirect(res, to, {
-      "Set-Cookie": `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`
+      "Set-Cookie": [guestCookie(guest), whoCookie(["guest"])]
     });
   }
 
@@ -265,11 +289,10 @@ export function createPortal({
 
       // Signed in straight away: the account works, it just cannot hold a
       // ticket until the address is confirmed.
-      const id = sessions.create({ id: guest.id, email: guest.email }, null);
       res.writeHead(200, {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
-        "Set-Cookie": `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`
+        "Set-Cookie": [guestCookie(guest), whoCookie(["guest"])]
       });
       res.end(checkEmailPage({ email: guest.email }));
       return true;
@@ -323,19 +346,42 @@ export function createPortal({
 
       const form = await readForm(req);
       const email = String(form.email ?? "").trim().toLowerCase();
+      const password = String(form.password ?? "");
 
-      if (!(await attendees.verify(email, String(form.password ?? "")))) {
+      // Both stores are tried, because one address may legitimately be both an
+      // attendee and an admin — with different passwords. Neither result
+      // grants anything the other has.
+      const isGuest = await attendees.verify(email, password);
+      const isAdmin = admins ? await admins.verify(email, password) : false;
+
+      if (!isGuest && !isAdmin) {
         attempts.fail(source);
-        // One message for both causes, so the form cannot be used to work out
-        // who is on the guest list.
+        // One message for every cause, so the form cannot be used to work out
+        // who is on the guest list, or who administers the site.
         html(res, 401, signinPage({ error: "Those details do not match an account.", email }));
         return true;
       }
 
       attempts.succeed(source);
-      const guest = await attendees.byEmail(email);
-      await attendees.recordLogin(guest.id);
-      startSession(res, guest);
+
+      const cookies = [];
+      const roles = [];
+
+      if (isGuest) {
+        const guest = await attendees.byEmail(email);
+        await attendees.recordLogin(guest.id);
+        cookies.push(guestCookie(guest));
+        roles.push("guest");
+      }
+      if (isAdmin) {
+        cookies.push(admins.issueSession(email));
+        roles.push("admin");
+      }
+      cookies.push(whoCookie(roles));
+
+      // An attendee lands on their profile; somebody who is only an admin has
+      // no profile to land on.
+      redirect(res, isGuest ? "/portal" : "/admin", { "Set-Cookie": cookies });
       return true;
     }
 
@@ -373,7 +419,10 @@ export function createPortal({
     if (!guest) {
       sessions.destroy(session.id);
       redirect(res, "/portal/signin", {
-        "Set-Cookie": `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`
+        "Set-Cookie": [
+          `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
+          whoCookie([])
+        ]
       });
       return true;
     }
@@ -387,7 +436,10 @@ export function createPortal({
         sessions.destroy(session.id);
       }
       redirect(res, "/", {
-        "Set-Cookie": `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`
+        "Set-Cookie": [
+          `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
+          whoCookie([])
+        ]
       });
       return true;
     }

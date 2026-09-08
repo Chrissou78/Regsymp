@@ -1203,7 +1203,20 @@ export function createAdmin(config) {
     }
   }
 
-  return { handle };
+  /**
+   * Mint an admin session for an address already proven to be an admin.
+   *
+   * Used by the single sign-in form on the site, so there is one place to log
+   * in rather than a URL to remember. Deliberately does not verify anything:
+   * the caller must have checked the password against admin_users first, and
+   * the two credential stores stay separate — this only issues the cookie.
+   */
+  function issueSession(email) {
+    const id = sessions.create({ email: String(email).trim().toLowerCase() }, null);
+    return `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`;
+  }
+
+  return { handle, issueSession };
 }
 
 /* ------------------------------------------------------------- helpers */
