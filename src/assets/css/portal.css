@@ -1,0 +1,447 @@
+/* ---------------------------------------------------------------------------
+   The attendee portal.
+
+   Inherits the site's tokens from styles.css - palette, typefaces, spacing -
+   so it reads as part of RegSymp rather than a separate application bolted
+   on. Only the layout of the signed-in pages lives here.
+   --------------------------------------------------------------------------- */
+
+.p-body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--off-white);
+  color: var(--text-dark);
+  font-family: var(--sans);
+}
+
+/* ------------------------------------------------------------------ chrome */
+
+.p-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px clamp(20px, 5vw, 48px);
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+}
+
+.p-wordmark {
+  font-family: var(--display);
+  font-size: 19px;
+  letter-spacing: 0.16em;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.p-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.p-nav a,
+.p-linkbutton {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.p-nav a:hover,
+.p-linkbutton:hover {
+  color: var(--navy);
+}
+
+.p-linkbutton {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.p-inline {
+  display: inline;
+  margin: 0;
+}
+
+.p-main {
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: clamp(28px, 6vw, 56px) clamp(20px, 5vw, 32px);
+  box-sizing: border-box;
+}
+
+.p-main--wide {
+  max-width: 1040px;
+}
+
+.p-footer {
+  padding: 24px clamp(20px, 5vw, 48px);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.p-footer p {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------- cards */
+
+.p-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: clamp(24px, 5vw, 40px);
+}
+
+.p-card--narrow {
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.p-centre {
+  text-align: center;
+}
+
+.p-card h1 {
+  font-family: var(--serif);
+  font-size: clamp(24px, 4vw, 30px);
+  font-weight: 400;
+  margin: 0 0 10px;
+  color: var(--navy);
+}
+
+.p-lede {
+  color: var(--text-muted);
+  margin: 0 0 26px;
+}
+
+.p-note {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 22px 0 0;
+}
+
+.p-quiet {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.p-quiet:hover {
+  color: var(--navy);
+}
+
+.p-badge {
+  display: inline-block;
+  background: var(--gold-soft);
+  color: var(--gold-text);
+  border-radius: 2px;
+  padding: 2px 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------- forms */
+
+.p-form--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+}
+
+.p-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.p-form--grid .p-field {
+  margin-bottom: 0;
+}
+
+.p-field--full {
+  grid-column: 1 / -1;
+}
+
+.p-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--navy);
+}
+
+.p-field input,
+.p-field textarea {
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text-dark);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.p-field input:focus,
+.p-field textarea:focus {
+  outline: 2px solid var(--blue-soft);
+  outline-offset: -1px;
+  border-color: var(--blue);
+}
+
+.p-help {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.p-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.p-check input {
+  width: auto;
+  margin-top: 2px;
+}
+
+.p-consent {
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.p-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.p-form--grid .p-actions {
+  margin-top: 4px;
+}
+
+.p-btn {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: var(--navy);
+  color: var(--white);
+  border: 0;
+  border-radius: 3px;
+  padding: 12px 24px;
+  cursor: pointer;
+}
+
+.p-btn:hover {
+  background: var(--navy-light);
+}
+
+/* ----------------------------------------------------------------- notices */
+
+.p-flash {
+  border-left: 3px solid var(--blue);
+  background: var(--white);
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+
+.p-flash--ok {
+  border-left-color: #2f6b3a;
+  background: #f1f7f2;
+}
+
+.p-flash--error {
+  border-left-color: #9b2c2c;
+  background: #fbeded;
+}
+
+/* ------------------------------------------------------------------ ticket */
+
+.p-ticketstrip {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  text-decoration: none;
+  background: var(--gold-soft);
+  border: 1px solid #e8dfc6;
+  border-radius: 3px;
+  padding: 16px 18px;
+  margin: 0 0 30px;
+}
+
+.p-ticketstrip-label {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold-text);
+}
+
+.p-ticketstrip-number {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--navy);
+}
+
+.p-ticket {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.p-ticket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  background: var(--navy);
+  color: var(--white);
+}
+
+.p-ticket-kind {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 2px;
+  padding: 4px 10px;
+}
+
+.p-ticket-kind--vip {
+  border-color: var(--gold);
+  color: #f2dfa8;
+}
+
+.p-ticket-number {
+  font-family: var(--serif);
+  font-size: 26px;
+  margin: 0;
+}
+
+.p-ticket-head .p-ticket-number {
+  color: var(--white);
+}
+
+.p-ticket-body {
+  display: flex;
+  gap: clamp(18px, 4vw, 32px);
+  padding: clamp(20px, 4vw, 30px);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.p-qr {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.p-qr svg {
+  display: block;
+  width: clamp(180px, 45vw, 240px);
+  height: auto;
+}
+
+.p-ticket-meta {
+  margin: 0;
+  /* 160px, not 200: the card is 520px wide and at 200 the QR plus the gap
+     plus this basis exceeded the content box, so the two wrapped and stacked
+     on desktop instead of sitting side by side. */
+  flex: 1 1 160px;
+  font-size: 14px;
+}
+
+.p-ticket-meta dt {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
+.p-ticket-meta dt:first-child {
+  margin-top: 0;
+}
+
+.p-ticket-meta dd {
+  margin: 3px 0 0;
+  color: var(--text-dark);
+}
+
+.p-ticket-foot {
+  margin: 0;
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* -------------------------------------------------------------- one column */
+
+@media (max-width: 620px) {
+  .p-form--grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .p-ticket-body {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .p-ticket-meta {
+    text-align: left;
+  }
+}
+
+/* ---------------------------------------------------------------- printing */
+
+@media print {
+  .p-header,
+  .p-footer,
+  .p-ticket-foot,
+  .p-note {
+    display: none;
+  }
+
+  .p-body {
+    background: #fff;
+  }
+
+  .p-ticket {
+    border-color: #999;
+    max-width: none;
+  }
+}
+
+/* Long values must never widen the page. A ticket code is 32 random
+   characters and pushed the viewport sideways on a phone. */
+.p-backlink { margin-top: 22px; }
+
+.p-card,
+.p-ticket,
+.p-note {
+  overflow-wrap: anywhere;
+}

@@ -9,6 +9,9 @@ import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
 import { createAdmin, originFor } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
+import { createAttendees } from "./admin/attendees.js";
+import { createMailer } from "./admin/mail.js";
+import { createPortal } from "./portal/routes.js";
 import { createDb, migrate } from "./admin/db.js";
 import { createPgStore } from "./admin/store-pg.js";
 import { createPgUserStore } from "./admin/users-store-pg.js";
@@ -24,7 +27,7 @@ import {
 import { materialise, seedAdmins, seedContent, writeThrough } from "./admin/db-bootstrap.js";
 import { createPinner } from "./admin/ipfs.js";
 import { backfill, listPins, pinDocument, pinStatus } from "./admin/pins.js";
-import { setRuntimeConfig } from "./admin/runtime-config.js";
+import { configValue, setRuntimeConfig } from "./admin/runtime-config.js";
 import { createFsStore } from "./admin/store-fs.js";
 import { rebuild, lastBuild } from "./admin/rebuild.js";
 import {
@@ -153,6 +156,25 @@ const store = db
 const userStore = db
   ? createPgUserStore({ db })
   : createUserStore({ gh: store, fallbackUsers: env("ADMIN_USERS") });
+
+/**
+ * The attendee portal: profile and ticket, for the people coming to the event.
+ *
+ * Its own session store and its own cookie. Sharing either with the admin
+ * would put an attendee one bug away from editor privileges, and the two
+ * populations have no reason to meet.
+ */
+const attendees = db ? createAttendees({ db }) : null;
+const mailer = createMailer();
+
+const portal = attendees
+  ? createPortal({
+      attendees,
+      sessions: createSessions(),
+      secret: () => env("SESSION_SECRET") || configValue("SESSION_SECRET"),
+      mail: mailer
+    })
+  : null;
 
 const admin = createAdmin({
   sessions: createSessions(),
@@ -427,6 +449,7 @@ const server = createServer(async (req, res) => {
       // Which service credentials are configured and where they came from.
       // Names and booleans only.
       credentials: db ? await safely(() => secretStatus(db)) : null,
+      portal: { mounted: Boolean(portal), mail: mailer.configured() },
       ipfs: db
         ? { configured: pinner.configured(), ...(await safely(() => pinStatus(db))) }
         : { configured: pinner.configured() },
@@ -449,6 +472,9 @@ const server = createServer(async (req, res) => {
 
   // ---- admin --------------------------------------------------------------
   if (await admin.handle(req, res, url)) return;
+
+  // ---- attendee portal ----------------------------------------------------
+  if (portal && (await portal.handle(req, res, url))) return;
 
   if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });
 
