@@ -196,7 +196,8 @@ export function createAttendees({ db, now = () => new Date() }) {
                 t.code as ticket_code,
                 c.label as ticket_label,
                 c.colour as ticket_colour,
-                t.revoked_at as ticket_revoked_at
+                t.revoked_at as ticket_revoked_at,
+                t.claimed_at as ticket_claimed_at
            from attendees a
            left join tickets t on t.attendee_id = a.id and t.revoked_at is null
            left join badge_categories c on c.slug = t.category
@@ -217,7 +218,8 @@ export function createAttendees({ db, now = () => new Date() }) {
               category: r.ticket_category,
               label: r.ticket_label,
               colour: r.ticket_colour,
-              code: r.ticket_code
+              code: r.ticket_code,
+              claimedAt: r.ticket_claimed_at
             }
           : null
       }));
@@ -250,13 +252,25 @@ export function createAttendees({ db, now = () => new Date() }) {
     // ------------------------------------------------------------- tickets
 
     /**
-     * Issue the lowest free number in the tier.
+     * Issue the lowest free number in the category.
      *
      * Chosen in one statement so two simultaneous registrations cannot pick
      * the same number; if they somehow do, the unique index rejects one and
      * the retry takes the next. Counting rows and adding one would race.
      */
-    async issueTicket({ attendeeId, category, issuedBy, areas = [] }) {
+    async issueTicket({ attendeeId, category, issuedBy, areas = [], number = null }) {
+      // A number asked for by name rather than taken from the top of the pool.
+      // Freeing VIP 7 is only half of "give 7 to somebody else": without this
+      // the allocator would hand out the lowest free number, which may not be
+      // the one just released.
+      const wanted =
+        number === null || number === undefined || String(number).trim() === ""
+          ? null
+          : Number(number);
+      if (wanted !== null && !Number.isInteger(wanted)) {
+        throw new Error("A badge number has to be a whole number.");
+      }
+
       const found = await db.query(
         "select slug, label, number_from, number_to from badge_categories where slug = $1",
         [String(category ?? "")]
@@ -288,14 +302,39 @@ export function createAttendees({ db, now = () => new Date() }) {
             const code = randomBytes(24).toString("base64url");
             let rows;
 
-            if (numbered) {
+            if (wanted !== null) {
+              if (!numbered) {
+                throw new Error(`${range.label} badges do not carry numbers.`);
+              }
+              // Said plainly here rather than left to the unique index, whose
+              // message names an index instead of the problem.
+              const held = await client.query(
+                "select 1 from tickets where number = $1 and released_at is null",
+                [wanted]
+              );
+              if (held.rows.length) {
+                throw new Error(
+                  `Number ${wanted} is already held. Withdraw that badge and free ` +
+                    "its number first, or leave the number blank to take the next one."
+                );
+              }
+              ({ rows } = await client.query(
+                `insert into tickets (attendee_id, number, category, code, issued_by)
+                 values ($1, $2, $3, $4, $5)
+                 returning *`,
+                [Number(attendeeId), wanted, range.slug, code, issuedBy ?? null]
+              ));
+            } else if (numbered) {
               // The lowest free number in the range, chosen in one statement
               // so two simultaneous issues cannot pick the same one.
               ({ rows } = await client.query(
                 `insert into tickets (attendee_id, number, category, code, issued_by)
                  select $1, n, $2, $3, $4
                    from generate_series($5::int, $6::int) as n
-                  where not exists (select 1 from tickets t where t.number = n)
+                  where not exists (
+                          select 1 from tickets t
+                           where t.number = n and t.released_at is null
+                        )
                   order by n
                   limit 1
                  returning *`,
@@ -333,7 +372,9 @@ export function createAttendees({ db, now = () => new Date() }) {
             return rows[0];
           });
         } catch (err) {
-          const raced = err.code === "23505" || /tickets_number_key/.test(err.message ?? "");
+          const raced =
+            (err.code === "23505" || /tickets_number_(key|held)/.test(err.message ?? "")) &&
+            wanted === null;
           if (!raced || attempt === 4) throw err;
         }
       }
@@ -364,6 +405,9 @@ export function createAttendees({ db, now = () => new Date() }) {
         label: row.number === null ? row.category_label : `${row.number}/${row.number_to}`,
         areas: row.areas,
         issuedAt: row.issued_at,
+        claimedAt: row.claimed_at,
+        walletSerial: row.wallet_serial,
+        walletUrl: row.wallet_url,
         checkedInAt: row.checked_in_at
       };
     },
@@ -421,8 +465,83 @@ export function createAttendees({ db, now = () => new Date() }) {
       return rows[0]?.checked_in_at ?? null;
     },
 
-    async revokeTicket(ticketId) {
-      await db.query("update tickets set revoked_at = now() where id = $1", [Number(ticketId)]);
+    /**
+     * Accept a badge. This is the attendee's own act, in their portal.
+     *
+     * It is also the moment the badge stops being editable. Up to here the
+     * organisers can cancel it and give the number to somebody else; from here
+     * the person is holding it -- on a phone, in a wallet, or printed -- so
+     * nothing about it may change and its number can never be reused.
+     */
+    async claimTicket(ticketId) {
+      const { rows } = await db.query(
+        `update tickets
+            set claimed_at = coalesce(claimed_at, now())
+          where id = $1 and revoked_at is null
+         returning *`,
+        [Number(ticketId)]
+      );
+      if (!rows.length) throw new Error("That badge is no longer valid.");
+      return rows[0];
+    },
+
+    /**
+     * Remember the wallet pass made for a badge.
+     *
+     * So that pressing "add to my wallet" again -- on a second phone, or after
+     * clearing the wallet -- hands back the same pass instead of minting a new
+     * one. Two passes for one badge number is two things to keep updated, and
+     * one of them will be missed.
+     */
+    async recordWalletPass(ticketId, { serial, url }) {
+      const { rows } = await db.query(
+        `update tickets
+            set wallet_serial = $2, wallet_url = $3, wallet_made_at = now()
+          where id = $1
+         returning wallet_serial, wallet_url`,
+        [Number(ticketId), String(serial), String(url)]
+      );
+      return rows[0] ?? null;
+    },
+
+    /**
+     * Withdraw a badge, optionally putting its number back into the pool.
+     *
+     * Releasing is refused once the badge has been claimed, and the same rule
+     * is a check constraint on the table. Two people carrying VIP 7 is the one
+     * failure that cannot be sorted out at the door, so it is worth stating
+     * twice.
+     */
+    async revokeTicket(ticketId, { release = false } = {}) {
+      if (release) {
+        const { rows } = await db.query(
+          "select number, claimed_at from tickets where id = $1",
+          [Number(ticketId)]
+        );
+        if (!rows.length) throw new Error("There is no such badge.");
+        if (rows[0].claimed_at) {
+          throw new Error(
+            `Number ${rows[0].number} cannot be reused: this badge has been claimed, ` +
+              "so its holder already has it. Withdraw it instead, and the number " +
+              "retires with it."
+          );
+        }
+      }
+
+      const { rows } = await db.query(
+        `update tickets
+            set revoked_at  = coalesce(revoked_at, now()),
+                released_at = case when $2 then coalesce(released_at, now()) else released_at end
+          where id = $1
+         returning number, category, revoked_at, released_at, claimed_at`,
+        [Number(ticketId), Boolean(release)]
+      );
+      return rows[0] ?? null;
+    },
+
+    /** Put an unclaimed badge's number back into the pool. */
+    async releaseNumber(ticketId) {
+      return this.revokeTicket(ticketId, { release: true });
     },
 
     /** How full the event is, per badge category. */

@@ -309,6 +309,12 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 .a-state--active { color: #2F6B3A; }
 .a-state--unconfirmed { color: #9B2C2C; }
 .a-state--invited { color: #7A5E22; }
+/* Whether a badge has been claimed decides what may still be done to it, so
+   the row says which it is rather than leaving it to be inferred. */
+.a-state--claimed { color: #2F6B3A; }
+.a-state--unclaimed { color: #7A5E22; }
+/* Narrow enough to read as "a number", beside the wider access field. */
+.a-num { width: 5.5em; flex: 0 0 auto; }
 
 /* Pasted guest lists, and the preview of what was understood. */
 .a-paste {
@@ -432,7 +438,7 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3mm 5mm;
+  padding: 2.5mm 5mm;
   flex: 0 0 auto;
 }
 
@@ -444,12 +450,14 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   font-weight: 600;
 }
 
-.b-num { font-family: Georgia, serif; font-size: 17pt; }
+.b-num { font-family: Georgia, serif; font-size: 15pt; }
 
 .b-main {
   flex: 1 1 auto;
-  padding: 4mm 5mm 0;
+  padding: 3mm 5mm 0;
   min-height: 0;
+  /* A long position must never be able to run into the code below it. */
+  overflow: hidden;
 }
 
 .b-name {
@@ -464,17 +472,24 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 .b-org { font-size: 10pt; margin: 0; color: #2c2e3a; }
 .b-role { font-size: 9pt; margin: 1mm 0 0; color: #6b6e7a; }
 
+/* A name or a job title can be any length, and the card cannot. Clamped so a
+   long one ends in an ellipsis rather than being sliced through the middle of
+   a line by the overflow rule above. The name gets the room first: it is what
+   has to be read from across a room. */
+.b-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.b-role { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
 .b-foot {
   flex: 0 0 auto;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 4mm;
-  padding: 3mm 5mm 4mm;
+  padding: 2.5mm 5mm 1.5mm;
 }
 
 .b-qr { line-height: 0; }
-.b-qr svg { width: 20mm; height: 20mm; display: block; }
+.b-qr svg { width: 17mm; height: 17mm; display: block; }
 
 .b-event { text-align: right; }
 .b-mark {
@@ -486,6 +501,29 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 }
 .b-when { font-size: 7pt; line-height: 1.35; margin: 0; color: #6b6e7a; }
 .b-areas { font-size: 7pt; margin: 1mm 0 0; color: #b8963a; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Provided by, in grey, beneath everything else.
+   The wordmark asset is pure black, so opacity is what makes it grey. A second
+   grey copy of the file would be one more thing to keep in step with the
+   first, and it has to sit quietly behind the guest's own name either way. */
+.b-by {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1.8mm;
+  margin: 0;
+  padding: 0 5mm 2.5mm;
+  font-size: 6pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9b9691;
+}
+
+.b-by img {
+  width: 14mm;
+  height: auto;
+  opacity: 0.45;
+}
 
 @media print {
   @page { size: A4; margin: 8mm; }

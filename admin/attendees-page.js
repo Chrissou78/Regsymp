@@ -19,6 +19,34 @@ function stateOf(guest) {
   return { label: "active", hint: "" };
 }
 
+/**
+ * The badge categories somebody can be given, as they stand right now.
+ *
+ * Built from the categories table rather than hardcoded, so a category the
+ * organisers add at /admin/categories appears here without a code change.
+ * This list was hardcoded to "general" and "vip" and posted a field called
+ * tier, which 008 dropped: whatever was chosen, the route read no category at
+ * all and every attempt to issue a badge failed.
+ *
+ * No default for a visitor -- the first category would be chosen for them,
+ * which is not the same as choosing. A speaker is the exception, being the one
+ * case where the right answer is known.
+ */
+function categoryOptions(categories, guest) {
+  const preselect = guest.role === "speaker" ? "speaker" : null;
+
+  const options = categories.map((c) => {
+    const full = c.numbered && c.issued >= c.limit;
+    const left = c.numbered ? ` — ${c.limit - c.issued} left` : "";
+    return `<option value="${escape(c.slug)}"${full ? " disabled" : ""}${
+      !full && c.slug === preselect ? " selected" : ""
+    }>${escape(c.label)}${full ? " — full" : left}</option>`;
+  });
+
+  const placeholder = `<option value=""${preselect ? "" : " selected"} disabled>Badge type…</option>`;
+  return placeholder + options.join("");
+}
+
 function row({ guest, token, speakerSlugs, categories }) {
   const state = stateOf(guest);
   const canTicket = !guest.selfRegistered || guest.emailVerified;
@@ -37,7 +65,11 @@ function row({ guest, token, speakerSlugs, categories }) {
         guest.ticket
           ? `<span class="a-badgedot" style="background:${escape(guest.ticket.colour)}"></span>${escape(
               guest.ticket.label
-            )}${guest.ticket.number ? ` #${guest.ticket.number}` : ""}`
+            )}${guest.ticket.number ? ` #${guest.ticket.number}` : ""}${
+              guest.ticket.claimedAt
+                ? ' <span class="a-state a-state--claimed">claimed</span>'
+                : ' <span class="a-state a-state--unclaimed">not claimed</span>'
+            }`
           : "no badge"
       }</span>
     </div>
@@ -54,17 +86,37 @@ function row({ guest, token, speakerSlugs, categories }) {
           ? `<a class="a-count" href="/admin/badges/${escape(guest.ticket.code)}" target="_blank"
                  rel="noopener">Print badge</a>
              <form method="post" action="/admin/attendees" class="a-inline"
-                   onsubmit="return confirm('Withdraw this badge?')">
+                   onsubmit="return confirm('Withdraw this badge? Its number stays out of circulation.')">
                ${hidden}<input type="hidden" name="action" value="revoke">
                <button class="a-danger">Withdraw badge</button>
-             </form>`
+             </form>
+             ${
+               guest.ticket.number === null || guest.ticket.claimedAt
+                 ? ""
+                 : `<form method="post" action="/admin/attendees" class="a-inline"
+                          onsubmit="return confirm('Cancel this badge and free number ${
+                            guest.ticket.number
+                          } for someone else?')">
+                      ${hidden}<input type="hidden" name="action" value="revoke">
+                      <input type="hidden" name="release" value="yes">
+                      <button class="a-danger">Cancel &amp; free #${guest.ticket.number}</button>
+                    </form>`
+             }
+             ${
+               guest.ticket.claimedAt
+                 ? `<span class="a-note">Claimed, so it is fixed: the number cannot be
+                    reused. Withdrawing rescinds the place and retires the number
+                    with it.</span>`
+                 : ""
+             }`
           : canTicket
             ? `<form method="post" action="/admin/attendees" class="a-inline">
                  ${hidden}<input type="hidden" name="action" value="issue">
-                 <select name="tier" aria-label="Tier">
-                   <option value="general">Delegate ticket</option>
-                   <option value="vip">VIP ticket</option>
+                 <select name="category" aria-label="Badge category" required>
+                   ${categoryOptions(categories, guest)}
                  </select>
+                 <input name="number" placeholder="no." aria-label="Badge number"
+                        inputmode="numeric" size="4" class="a-num">
                  <input name="areas" placeholder="side events, comma separated"
                         aria-label="Access areas">
                  <button class="a-btn">Issue</button>
@@ -153,6 +205,12 @@ export function attendeesPage({
       <ul class="a-list">${meters}</ul>
       <p class="a-note"><a href="/admin/badges">Print badges</a> &nbsp;·&nbsp;
       <a href="/admin/categories">Manage badge categories</a></p>
+      <p class="a-note">A badge is attributed here and then claimed by the guest
+      in their own profile. Until they claim it you can <strong>cancel it and
+      free the number</strong> for somebody else; once claimed it is fixed,
+      because they are holding it. Leave the number box empty to take the next
+      free number, or type one in to hand out a particular one — a number freed
+      by a cancellation, for instance.</p>
 
       <form method="get" action="/admin/attendees" class="a-inline a-search">
         <input name="q" value="${escape(q)}" placeholder="Search name, email or company"

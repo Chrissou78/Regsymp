@@ -52,6 +52,10 @@ function badge({ guest, ticket, qr }) {
         }
       </div>
     </footer>
+
+    <p class="b-by">Provided by
+      <img src="/assets/images/onchainlabs.png" alt="OnChainLabs" width="1012" height="306">
+    </p>
   </article>`;
 }
 

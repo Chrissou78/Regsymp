@@ -684,6 +684,7 @@ export function createAdmin(config) {
             const ticket = await guests.issueTicket({
               attendeeId: id,
               category: form.fields.category,
+              number: form.fields.number,
               issuedBy: by,
               areas
             });
@@ -692,12 +693,33 @@ export function createAdmin(config) {
               : "Badge issued (unnumbered).";
             break;
           }
-          case "revoke":
-            await guests.revoke(id);
-            message =
-              "Badge withdrawn. Its number is not reissued — a printed badge " +
-              "carrying it may still be in circulation.";
+          case "revoke": {
+            const release = form.fields.release === "yes";
+            const gone = await guests.revoke(id, { release });
+
+            if (!gone) {
+              // Said rather than passed over: the alternative is a page that
+              // reports success for something that did not happen.
+              message = "There is no badge to withdraw.";
+            } else if (gone.number === null) {
+              message = "Badge withdrawn.";
+            } else if (release) {
+              message =
+                `Badge withdrawn and number ${gone.number} is back in the pool. ` +
+                `Type ${gone.number} into the number box to hand it to somebody in ` +
+                "particular, or leave the box empty and it will be taken in turn.";
+            } else if (gone.claimed_at) {
+              message =
+                `Badge withdrawn. Number ${gone.number} retires with it, because its ` +
+                "holder had claimed it and may still be carrying it.";
+            } else {
+              message =
+                `Badge withdrawn. Number ${gone.number} stays out of circulation. ` +
+                "It had not been claimed, so Cancel & free would have returned it to " +
+                "the pool for somebody else.";
+            }
             break;
+          }
           case "sendClaim":
             message = (await guests.sendClaim(id, origin))
               ? "A set-password link is on its way."

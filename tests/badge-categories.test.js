@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createDb, migrate } from "../admin/db.js";
 import { createBadgeCategories } from "../admin/badge-categories.js";
 import { createAttendees } from "../admin/attendees.js";
+import { attendeesPage } from "../admin/attendees-page.js";
 
 /**
  * Badge categories are data now, so the organisers can add Press or Staff
@@ -46,10 +47,14 @@ after(async () => {
 async function reset() {
   await db.query("truncate attendees cascade");
   await db.query("delete from badge_categories where not protected");
-  await db.query("update badge_categories set number_from = 1, number_to = 33 where slug = 'vip'");
-  await db.query("update badge_categories set number_from = 34, number_to = 100 where slug = 'visitor'");
   await db.query(
-    "update badge_categories set number_from = null, number_to = null where slug = 'speaker'"
+    "update badge_categories set number_from = 1, number_to = 33, label = 'VIP' where slug = 'vip'"
+  );
+  await db.query(
+    "update badge_categories set number_from = 34, number_to = 100, label = 'Visitor' where slug = 'visitor'"
+  );
+  await db.query(
+    "update badge_categories set number_from = null, number_to = null, label = 'Speaker' where slug = 'speaker'"
   );
 }
 
@@ -137,6 +142,92 @@ test("an identifier has to be usable in a URL", opts, async () => {
 test("a duplicate identifier is refused clearly", opts, async () => {
   await reset();
   await assert.rejects(() => categories.create({ slug: "vip", label: "Another VIP" }), /already/);
+});
+
+// ---------------------------------------------------------- the guest list
+
+test("every badge type the guest list offers can actually be issued", opts, async () => {
+  // The list was hardcoded to "general" and "vip", posted as a field called
+  // tier that 008 had dropped. So the route read no category, Speaker was
+  // absent, and every choice failed with "Choose a badge category."
+  //
+  // Asserting the two ends agree is the point: whatever the page offers has
+  // to be something the store accepts.
+  await reset();
+  await categories.create({ slug: "press", label: "Press", from: 200, to: 210 });
+
+  const who = await guest("offered@example.com");
+  const page = attendeesPage({
+    guests: await attendees.list(),
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+
+  const form = page.match(/<select name="category"[\s\S]*?<\/select>/);
+  assert.ok(form, "the guest list offers no badge category to choose from");
+
+  const offered = [...form[0].matchAll(/<option value="([^"]*)"/g)]
+    .map((m) => m[1])
+    .filter(Boolean);
+
+  assert.deepEqual(
+    offered.sort(),
+    (await categories.list()).map((c) => c.slug).sort(),
+    "the list of badge types does not match the categories that exist"
+  );
+
+  // And each one really is issuable, which is what failed before.
+  for (const slug of offered) {
+    const someone = await attendees.create({ email: `${slug}@example.com`, role: "visitor" }, "chris");
+    await attendees.issueTicket({ attendeeId: someone.id, category: slug, issuedBy: "chris" });
+  }
+
+  assert.equal((await attendees.ticketFor(who.id)), null, "the sample guest should still hold nothing");
+});
+
+test("a full category is offered but cannot be picked", opts, async () => {
+  await reset();
+  await categories.create({ slug: "tiny", label: "Tiny", from: 500, to: 500 });
+  const first = await guest("first@example.com");
+  await attendees.issueTicket({ attendeeId: first.id, category: "tiny", issuedBy: "chris" });
+  await guest("second@example.com"); // somebody still to be given one
+
+  const page = attendeesPage({
+    guests: await attendees.list(),
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+
+  assert.match(page, /<option value="tiny" disabled>Tiny — full<\/option>/);
+  assert.match(page, /<option value="vip">VIP — 33 left<\/option>/);
+});
+
+test("a speaker's badge type is chosen for them, nobody else's is", opts, async () => {
+  await reset();
+  await guest("speaker@example.com", "speaker");
+  await guest("visitor@example.com", "visitor");
+
+  const page = attendeesPage({
+    guests: await attendees.list(),
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+
+  const selects = [...page.matchAll(/<select name="category"[\s\S]*?<\/select>/g)].map((m) => m[0]);
+  assert.equal(selects.length, 2);
+
+  const forSpeaker = selects.find((s) => s.includes('value="speaker" selected'));
+  assert.ok(forSpeaker, "a speaker should default to the speaker badge");
+
+  const forVisitor = selects.find((s) => s !== forSpeaker);
+  assert.match(forVisitor, /<option value="" selected disabled>/, "a visitor should be asked, not assumed");
+  assert.doesNotMatch(forVisitor, /value="[a-z-]+" selected/, "a badge type was chosen for a visitor");
 });
 
 // ------------------------------------------------------------------ issuing
@@ -227,6 +318,161 @@ test("the trigger follows a category that has been edited", opts, async () => {
   const who = await guest("s@example.com", "speaker");
   await attendees.issueTicket({ attendeeId: who.id, category: "speaker", issuedBy: "chris" });
   assert.equal((await attendees.ticketFor(who.id)).number, 500);
+});
+
+// ------------------------------------------------- claiming, and redistribution
+
+test("a number freed before the badge is claimed goes to somebody else", opts, async () => {
+  // The whole point: 33 VIP places, and a cancellation three weeks out should
+  // not burn one of them.
+  await reset();
+  const cancels = await guest("cancels@example.com");
+  await attendees.issueTicket({ attendeeId: cancels.id, category: "vip", issuedBy: "chris" });
+  const badge = await attendees.ticketFor(cancels.id);
+  assert.equal(badge.number, 1);
+
+  await attendees.revokeTicket(badge.id, { release: true });
+
+  const replacement = await guest("replacement@example.com");
+  await attendees.issueTicket({ attendeeId: replacement.id, category: "vip", issuedBy: "chris" });
+  assert.equal((await attendees.ticketFor(replacement.id)).number, 1, "number 1 was not reused");
+});
+
+test("a claimed badge keeps its number for good", opts, async () => {
+  await reset();
+  const who = await guest("claims@example.com");
+  await attendees.issueTicket({ attendeeId: who.id, category: "vip", issuedBy: "chris" });
+  const badge = await attendees.ticketFor(who.id);
+
+  await attendees.claimTicket(badge.id);
+
+  await assert.rejects(
+    () => attendees.revokeTicket(badge.id, { release: true }),
+    /has been claimed/,
+    "a claimed badge's number was put back in the pool"
+  );
+
+  // Withdrawing still works -- a place can be rescinded -- but the number
+  // retires with it.
+  await attendees.revokeTicket(badge.id);
+  const next = await guest("next@example.com");
+  await attendees.issueTicket({ attendeeId: next.id, category: "vip", issuedBy: "chris" });
+  assert.equal((await attendees.ticketFor(next.id)).number, 2, "a claimed number was handed out again");
+});
+
+test("the database refuses to release a claimed number, whatever the code does", opts, async () => {
+  // Straight SQL. Two people carrying VIP 1 is the one failure that cannot be
+  // sorted out at the door, so the rule is stated in the table as well.
+  await reset();
+  const who = await guest("belt@example.com");
+  await attendees.issueTicket({ attendeeId: who.id, category: "vip", issuedBy: "chris" });
+  const badge = await attendees.ticketFor(who.id);
+  await attendees.claimTicket(badge.id);
+
+  await assert.rejects(
+    () => db.query("update tickets set revoked_at = now(), released_at = now() where id = $1", [badge.id]),
+    /tickets_claimed_numbers_are_kept/
+  );
+  // And on an unclaimed badge, where the claim rule is not in play, a number
+  // still cannot be freed while the badge is valid.
+  const live = await guest("live@example.com");
+  await attendees.issueTicket({ attendeeId: live.id, category: "vip", issuedBy: "chris" });
+  const valid = await attendees.ticketFor(live.id);
+  await assert.rejects(
+    () => db.query("update tickets set released_at = now() where id = $1", [valid.id]),
+    /tickets_release_needs_withdrawal/
+  );
+});
+
+test("claiming twice is not an error, and does not move the date", opts, async () => {
+  await reset();
+  const who = await guest("twice@example.com");
+  await attendees.issueTicket({ attendeeId: who.id, category: "vip", issuedBy: "chris" });
+  const badge = await attendees.ticketFor(who.id);
+
+  const first = await attendees.claimTicket(badge.id);
+  const again = await attendees.claimTicket(badge.id);
+  assert.deepEqual(again.claimed_at, first.claimed_at);
+});
+
+test("a withdrawn badge cannot be claimed", opts, async () => {
+  await reset();
+  const who = await guest("gone@example.com");
+  await attendees.issueTicket({ attendeeId: who.id, category: "vip", issuedBy: "chris" });
+  const badge = await attendees.ticketFor(who.id);
+  await attendees.revokeTicket(badge.id, { release: true });
+
+  await assert.rejects(() => attendees.claimTicket(badge.id), /no longer valid/);
+});
+
+test("a freed number can be handed to a chosen person, not just the next one", opts, async () => {
+  // Freeing 7 is only half of "give 7 to somebody else": the allocator takes
+  // the lowest free number, which may not be the one just released.
+  await reset();
+  const held = [];
+  for (let i = 0; i < 3; i++) {
+    const g = await guest(`v${i}@example.com`);
+    await attendees.issueTicket({ attendeeId: g.id, category: "vip", issuedBy: "chris" });
+    held.push(await attendees.ticketFor(g.id));
+  }
+  assert.deepEqual(held.map((t) => t.number), [1, 2, 3]);
+
+  // Free the middle one and the last one.
+  await attendees.revokeTicket(held[1].id, { release: true });
+  await attendees.revokeTicket(held[2].id, { release: true });
+
+  const chosen = await guest("chosen@example.com");
+  await attendees.issueTicket({ attendeeId: chosen.id, category: "vip", issuedBy: "chris", number: 3 });
+  assert.equal((await attendees.ticketFor(chosen.id)).number, 3, "the asked-for number was not honoured");
+
+  // And the pool still holds 2, which the next automatic issue takes.
+  const auto = await guest("auto@example.com");
+  await attendees.issueTicket({ attendeeId: auto.id, category: "vip", issuedBy: "chris" });
+  assert.equal((await attendees.ticketFor(auto.id)).number, 2);
+});
+
+test("an asked-for number that is taken is refused, not quietly swapped", opts, async () => {
+  await reset();
+  const first = await guest("one@example.com");
+  await attendees.issueTicket({ attendeeId: first.id, category: "vip", issuedBy: "chris" });
+
+  const second = await guest("two@example.com");
+  await assert.rejects(
+    () => attendees.issueTicket({ attendeeId: second.id, category: "vip", issuedBy: "chris", number: 1 }),
+    /already held/
+  );
+  assert.equal(await attendees.ticketFor(second.id), null, "a different badge was issued instead");
+});
+
+test("an asked-for number still has to belong to its category", opts, async () => {
+  await reset();
+  const who = await guest("range@example.com");
+  await assert.rejects(
+    () => attendees.issueTicket({ attendeeId: who.id, category: "vip", issuedBy: "chris", number: 40 }),
+    /outside the vip range/
+  );
+  await assert.rejects(
+    () => attendees.issueTicket({ attendeeId: who.id, category: "speaker", issuedBy: "chris", number: 5 }),
+    /do not carry numbers/
+  );
+  await assert.rejects(
+    () => attendees.issueTicket({ attendeeId: who.id, category: "vip", issuedBy: "chris", number: "seven" }),
+    /whole number/
+  );
+});
+
+test("capacity counts a freed number as available again", opts, async () => {
+  await reset();
+  const who = await guest("cap@example.com");
+  await attendees.issueTicket({ attendeeId: who.id, category: "vip", issuedBy: "chris" });
+  const badge = await attendees.ticketFor(who.id);
+
+  let vip = (await attendees.capacity()).find((c) => c.category === "vip");
+  assert.equal(vip.issued, 1);
+
+  await attendees.revokeTicket(badge.id, { release: true });
+  vip = (await attendees.capacity()).find((c) => c.category === "vip");
+  assert.equal(vip.issued, 0, "a freed place is still being counted as taken");
 });
 
 // ------------------------------------------------------------------ editing

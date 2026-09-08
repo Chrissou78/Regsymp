@@ -25,6 +25,8 @@ let db;
 let attendees;
 let server;
 let base;
+const passes = [];
+let walletOn = true;
 
 before(async () => {
   if (!URL || unsafe) return;
@@ -41,6 +43,14 @@ before(async () => {
       configured: () => true,
       sendResetLink: async (m) => sent.push({ kind: "reset", ...m }),
       sendVerificationLink: async (m) => sent.push({ kind: "verify", ...m })
+    },
+    // No network: record what would have been sent to the pass provider.
+    wallet: {
+      configured: () => walletOn,
+      createPass: async (args) => {
+        passes.push(args);
+        return { serial: `ser-${passes.length}`, url: `https://passes.example/${passes.length}` };
+      }
     }
   });
 
@@ -280,6 +290,43 @@ test("the ticket page carries a QR code and the number", opts, async () => {
   assert.match(body, /<a href="\/portal\/ticket">Ticket<\/a>/, "the menu has no ticket link");
 });
 
+test("a badge is claimed by its holder, and then it is fixed", opts, async () => {
+  // The organisers attribute a badge; accepting it is the guest's own act, and
+  // the moment it stops being something that can be given to somebody else.
+  await reset();
+  const { guest, cookie } = await claimedGuest({ category: "visitor" });
+
+  let page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  assert.match(page, /Claim this badge/, "the badge is not offered to be claimed");
+  assert.match(page, /may pass it to somebody else/);
+  const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+
+  const res = await post("/portal/badge", { csrf, action: "claim" }, cookie);
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "/portal/ticket");
+
+  page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  assert.match(page, /Claimed on \d{4}-\d{2}-\d{2}/);
+  assert.doesNotMatch(page, /Claim this badge/, "it can still be claimed twice over");
+
+  const ticket = await attendees.ticketFor(guest.id);
+  assert.ok(ticket.claimedAt, "the claim was not recorded");
+
+  // And the number is now out of reach.
+  await assert.rejects(
+    () => attendees.revokeTicket(ticket.id, { release: true }),
+    /has been claimed/
+  );
+});
+
+test("the profile says a badge is waiting to be claimed", opts, async () => {
+  await reset();
+  const { cookie } = await claimedGuest({ category: "visitor" });
+  const page = await (await get("/portal", { headers: { cookie } })).text();
+  assert.match(page, /Not claimed yet/);
+  assert.match(page, /p-ticketstrip--unclaimed/);
+});
+
 test("a guest with no ticket is sent back rather than shown an empty one", opts, async () => {
   await reset();
   const guest = await attendees.create({ email: "ada@example.com" }, "chris");
@@ -308,6 +355,84 @@ test("a guest with no ticket is sent back rather than shown an empty one", opts,
       `${path} offers a ticket link to somebody with no ticket`
     );
   }
+});
+
+// -------------------------------------------------------------------- wallet
+
+test("a claimed badge can be put in a phone's wallet", opts, async () => {
+  await reset();
+  passes.length = 0;
+  walletOn = true;
+  const { guest, cookie } = await claimedGuest({ category: "visitor" });
+
+  let page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  assert.doesNotMatch(page, /Add to my wallet/, "an unclaimed badge offered a pass");
+
+  const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+  await post("/portal/badge", { csrf, action: "claim" }, cookie);
+
+  page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  assert.match(page, /Add to my wallet/, "a claimed badge offered no pass");
+
+  const res = await post("/portal/wallet", { csrf }, cookie);
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "https://passes.example/1");
+
+  // The pass carries the same code as the badge, which is the whole point.
+  assert.equal(passes.length, 1);
+  const ticket = await attendees.ticketFor(guest.id);
+  assert.match(passes[0].checkinUrl, new RegExp(`/t/${ticket.code}$`));
+  assert.equal(ticket.walletSerial, "ser-1", "the pass was not remembered");
+});
+
+test("asking twice returns the same pass, not a second one", opts, async () => {
+  // Two passes for one badge number is two things to keep updated, and one of
+  // them will be missed.
+  await reset();
+  passes.length = 0;
+  walletOn = true;
+  const { cookie } = await claimedGuest({ category: "visitor" });
+  const page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+  await post("/portal/badge", { csrf, action: "claim" }, cookie);
+
+  const first = await post("/portal/wallet", { csrf }, cookie);
+  const again = await post("/portal/wallet", { csrf }, cookie);
+
+  assert.equal(again.headers.get("location"), first.headers.get("location"));
+  assert.equal(passes.length, 1, "a second pass was minted");
+});
+
+test("an unclaimed badge is not offered a pass, nor given one", opts, async () => {
+  await reset();
+  passes.length = 0;
+  walletOn = true;
+  const { cookie } = await claimedGuest({ category: "visitor" });
+  const page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+
+  const res = await post("/portal/wallet", { csrf }, cookie);
+  assert.equal(res.headers.get("location"), "/portal/ticket");
+  assert.equal(passes.length, 0, "a pass was made for an unclaimed badge");
+});
+
+test("with no key configured, no button and no pass", opts, async () => {
+  await reset();
+  passes.length = 0;
+  walletOn = false;
+  const { cookie } = await claimedGuest({ category: "visitor" });
+  let page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+  await post("/portal/badge", { csrf, action: "claim" }, cookie);
+
+  page = await (await get("/portal/ticket", { headers: { cookie } })).text();
+  assert.doesNotMatch(page, /Add to my wallet/);
+  // And the badge itself is unaffected: the code above it is the badge.
+  assert.match(page, /<svg/);
+
+  await post("/portal/wallet", { csrf }, cookie);
+  assert.equal(passes.length, 0);
+  walletOn = true;
 });
 
 // ------------------------------------------------------------------ check-in

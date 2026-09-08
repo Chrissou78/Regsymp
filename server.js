@@ -13,6 +13,7 @@ import { createPgSessions } from "./admin/session-store.js";
 import { createAttendees } from "./admin/attendees.js";
 import { createBadgeCategories } from "./admin/badge-categories.js";
 import { createMailer } from "./admin/mail.js";
+import { createWallet } from "./admin/wallet.js";
 import { createPortal } from "./portal/routes.js";
 import { createDb, migrate } from "./admin/db.js";
 import { createPgStore } from "./admin/store-pg.js";
@@ -172,6 +173,15 @@ const badgeCategories = db ? createBadgeCategories({ db }) : null;
 const mailer = createMailer();
 
 /**
+ * Wallet passes, for a badge somebody has claimed.
+ *
+ * The key is read the same way every other credential is: the environment
+ * first, then whatever was saved at /admin/credentials. Absent, and the portal
+ * offers no button -- the QR on the ticket page is the badge either way.
+ */
+const walletPasses = createWallet({ env: (name) => configValue(name) });
+
+/**
  * A speaker editing their profile updates the public page.
  *
  * Speakers live in a content document rather than a table -- there are no
@@ -217,6 +227,7 @@ const portal = attendees
       sessions: createPgSessions({ db, kind: "guest" }),
       secret: () => env("SESSION_SECRET") || configValue("SESSION_SECRET"),
       mail: mailer,
+      wallet: walletPasses,
       publishSpeaker,
       // One sign-in form for the site. The stores stay separate: this only
       // lets the form check the admin one and mint its cookie. Late-bound
@@ -252,9 +263,13 @@ const admin = createAdmin({
         capacity: () => attendees.capacity(),
         create: (fields, by) => attendees.create(fields, by),
         issueTicket: (args) => attendees.issueTicket(args),
-        revoke: async (id) => {
+        // The options matter: whether the number goes back into the pool is the
+        // whole difference between a cancellation and a withdrawal, and this
+        // adapter dropped them, so every cancellation quietly kept the number.
+        revoke: async (id, options = {}) => {
           const ticket = await attendees.ticketFor(id);
-          if (ticket) await attendees.revokeTicket(ticket.id);
+          if (!ticket) return null;
+          return attendees.revokeTicket(ticket.id, options);
         },
         linkSpeaker: (id, slug) => attendees.update(id, { speakerSlug: slug }),
 

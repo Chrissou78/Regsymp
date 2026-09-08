@@ -33,6 +33,10 @@ export function createPortal({
   sessions,
   secret,
   mail = null,
+  // Makes the Apple/Google Wallet pass for a claimed badge. Absent, or present
+  // but unconfigured, and the portal simply does not offer one: the QR on the
+  // ticket page is the badge either way.
+  wallet = null,
   // One sign-in form for the whole site. `admins.verify` checks the separate
   // admin credential store and `admins.issueSession` mints its cookie: the
   // two stores are never merged, and an attendee gains nothing by signing in
@@ -479,6 +483,76 @@ export function createPortal({
       return true;
     }
 
+    // Putting a claimed badge in the phone's wallet.
+    //
+    // The pass is made once and remembered, so a second phone gets the same
+    // pass. The provider's own share page then offers the right button for
+    // whatever device asked, which is one fewer thing for this site to get
+    // wrong about a user agent.
+    if (path === "/portal/wallet" && req.method === "POST") {
+      const form = await readForm(req);
+      requireCsrf(session.id, form.csrf);
+
+      if (!ticket || !ticket.claimedAt || !wallet?.configured()) {
+        redirect(res, ticket ? "/portal/ticket" : "/portal");
+        return true;
+      }
+
+      if (ticket.walletUrl) {
+        redirect(res, ticket.walletUrl);
+        return true;
+      }
+
+      try {
+        const pass = await wallet.createPass({
+          guest,
+          ticket,
+          checkinUrl: `${originOf(req)}${CHECKIN_PREFIX}${ticket.code}`
+        });
+        await attendees.recordWalletPass(ticket.id, pass);
+        redirect(res, pass.url);
+      } catch (err) {
+        console.error("wallet pass failed:", err.message);
+        html(res, 502, ticketPage({
+          guest,
+          ticket,
+          qr: await QRCode.toString(`${originOf(req)}${CHECKIN_PREFIX}${ticket.code}`, {
+            type: "svg",
+            errorCorrectionLevel: "M",
+            margin: 1,
+            width: 260
+          }),
+          token,
+          wallet: true,
+          error:
+            "The wallet pass could not be made just now. Your badge still works — " +
+            "the code above is the badge."
+        }));
+      }
+      return true;
+    }
+
+    // Accepting the badge the organisers are holding for you. Its own path
+    // because /portal/claim/<token> already means setting a password.
+    if (path === "/portal/badge" && req.method === "POST") {
+      const form = await readForm(req);
+      requireCsrf(session.id, form.csrf);
+
+      if (!ticket) {
+        redirect(res, "/portal");
+        return true;
+      }
+
+      try {
+        await attendees.claimTicket(ticket.id);
+      } catch (err) {
+        html(res, 400, profilePage({ guest, ticket, token, error: err.message }));
+        return true;
+      }
+      redirect(res, "/portal/ticket");
+      return true;
+    }
+
     if (path === "/portal/ticket") {
       if (!ticket) {
         redirect(res, "/portal");
@@ -493,7 +567,13 @@ export function createPortal({
         width: 260
       });
 
-      html(res, 200, ticketPage({ guest, ticket, qr, token }));
+      html(res, 200, ticketPage({
+        guest,
+        ticket,
+        qr,
+        token,
+        wallet: Boolean(wallet?.configured())
+      }));
       return true;
     }
 

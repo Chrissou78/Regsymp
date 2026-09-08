@@ -294,6 +294,48 @@
   margin: 0 0 30px;
 }
 
+/* A badge waiting to be claimed should not look settled. */
+.p-ticketstrip--unclaimed {
+  background: #fff;
+  border-style: dashed;
+  border-color: #cfc4a4;
+}
+
+.p-ticket-claim {
+  border-top: 1px solid var(--rule, #e8e4dc);
+  padding: 18px 22px 22px;
+  margin: 0;
+}
+
+.p-ticket-claim .p-note {
+  margin: 0 0 14px;
+}
+
+.p-ticket-claimed {
+  border-top: 1px solid var(--rule, #e8e4dc);
+  padding: 16px 22px 20px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.p-ticket-claimed p {
+  margin: 0 0 14px;
+}
+
+.p-ticket-claimed .p-help {
+  margin: 10px 0 0;
+  display: block;
+}
+
+/* The badge is already valid, so this is an extra way to carry it rather than
+   the thing to do next. Outlined, not filled. */
+.p-btn--wallet {
+  background: transparent;
+  color: var(--navy, #1c2b4a);
+  border: 1px solid var(--navy, #1c2b4a);
+}
+
 .p-ticketstrip-label {
   font-size: 12px;
   letter-spacing: 0.1em;

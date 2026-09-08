@@ -233,10 +233,15 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
       }
       ${
         ticket
-          ? `<a class="p-ticketstrip" href="/portal/ticket">
+          ? `<a class="p-ticketstrip${ticket.claimedAt ? "" : " p-ticketstrip--unclaimed"}"
+                href="/portal/ticket">
                <span class="p-ticketstrip-label">${escape(ticket.categoryLabel)} badge</span>
                <span class="p-ticketstrip-number">${escape(ticket.label)}</span>
-               <span class="p-quiet">View and add to your phone &rarr;</span>
+               <span class="p-quiet">${
+                 ticket.claimedAt
+                   ? "View and add to your phone &rarr;"
+                   : "Not claimed yet &mdash; claim it &rarr;"
+               }</span>
              </a>`
           : `<p class="p-note p-noticket">No ticket has been issued to you yet. The
              organisers will assign one before the event.</p>`
@@ -289,12 +294,13 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
   });
 }
 
-export function ticketPage({ guest, ticket, qr, token }) {
+export function ticketPage({ guest, ticket, qr, token, wallet = false, error = null }) {
   return layout({
     title: "Your ticket",
     guest,
     ticket,
     token,
+    flash: error ? { kind: "error", message: error } : null,
     body: `<div class="p-ticket">
       <div class="p-ticket-head" style="background:${escape(ticket.colour ?? "#1C2B4A")}">
         <span class="p-ticket-kind">${escape(ticket.categoryLabel)}</span>
@@ -316,6 +322,38 @@ export function ticketPage({ guest, ticket, qr, token }) {
           ${ticket.checkedInAt ? `<dt>Checked in</dt><dd>${escape(new Date(ticket.checkedInAt).toISOString().slice(0, 16).replace("T", " "))}</dd>` : ""}
         </dl>
       </div>
+
+      ${
+        ticket.claimedAt
+          ? `<div class="p-ticket-claimed">
+               <p>Claimed on ${escape(
+                 new Date(ticket.claimedAt).toISOString().slice(0, 10)
+               )}. This badge is yours and its number is fixed.</p>
+               ${
+                 wallet
+                   ? `<form method="post" action="/portal/wallet" class="p-inline">
+                        <input type="hidden" name="csrf" value="${escape(token)}">
+                        <button class="p-btn p-btn--wallet" type="submit">
+                          Add to my wallet
+                        </button>
+                      </form>
+                      <p class="p-help">Apple Wallet on an iPhone, Google Wallet on
+                      Android. The pass carries the same code, and updates itself if
+                      anything changes.</p>`
+                   : ""
+               }
+             </div>`
+          : `<form method="post" action="/portal/badge" class="p-ticket-claim">
+               <input type="hidden" name="csrf" value="${escape(token)}">
+               <input type="hidden" name="action" value="claim">
+               <p class="p-note">This badge is being held for you. Claiming it
+               confirms you are coming and fixes ${
+                 ticket.number === null ? "it as yours" : `number ${ticket.number} as yours`
+               } — until you do, the
+               organisers may pass it to somebody else.</p>
+               <button class="p-btn" type="submit">Claim this badge</button>
+             </form>`
+      }
 
       <p class="p-ticket-foot">Present this code at registration. It is unique to you
       and should not be shared.</p>
