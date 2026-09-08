@@ -1105,51 +1105,61 @@ async function ipfsPage({ ipfs, session, token, result }) {
 }
 
 async function credentialsPage({ credentials, session, token, error, revealed }) {
-  const rows = (await credentials.list())
-    .map((entry) => `<li class="a-row a-row--stack">
-      <div class="a-row-head">
-        <span class="a-row-name"><code>${escape(entry.name)}</code></span>
-        <span class="a-count">${
-          entry.set ? `set &middot; ${escape(entry.source ?? "")}` : "not set"
-        }</span>
-      </div>
-      ${entry.help ? `<p class="a-help">${escape(entry.help)}</p>` : ""}
-      ${
-        entry.updatedAt
-          ? `<p class="a-note">Last changed ${escape(
-              new Date(entry.updatedAt).toISOString().slice(0, 16).replace("T", " ")
-            )}${entry.updatedBy ? ` by ${escape(entry.updatedBy)}` : ""}</p>`
-          : ""
-      }
-      <form method="post" action="/admin/credentials" class="a-inline">
-        <input type="hidden" name="csrf" value="${escape(token)}">
-        <input type="hidden" name="name" value="${escape(entry.name)}">
-        <input type="password" name="value" autocomplete="off" spellcheck="false"
-               placeholder="${entry.set ? "Replace this value" : "Set a value"}" required>
-        <button class="a-btn">Save</button>
-      </form>
-      ${
-        (credentials.escrowable ?? []).includes(entry.name) && entry.set
-          ? `<form method="post" action="/admin/credentials" class="a-inline">
-               <input type="hidden" name="csrf" value="${escape(token)}">
-               <input type="hidden" name="name" value="${escape(entry.name)}">
-               <input type="hidden" name="action" value="reveal">
-               <button>Show once</button>
-             </form>`
-          : ""
-      }
-      ${
-        entry.source === "database"
-          ? `<form method="post" action="/admin/credentials" class="a-inline"
-                   onsubmit="return confirm('Clear ${escape(entry.name)}?')">
-               <input type="hidden" name="csrf" value="${escape(token)}">
-               <input type="hidden" name="name" value="${escape(entry.name)}">
-               <input type="hidden" name="action" value="clear">
-               <button class="a-danger">Clear</button>
-             </form>`
-          : ""
-      }
-    </li>`)
+  const entries = await credentials.list();
+
+  const rows = entries
+    .map((entry) => {
+      const escrowable = (credentials.escrowable ?? []).includes(entry.name);
+      const hidden = `<input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="name" value="${escape(entry.name)}">`;
+
+      return `<li class="a-cred">
+        <div class="a-cred-top">
+          <code class="a-cred-name">${escape(entry.name)}</code>
+          <span class="a-cred-state a-cred-state--${entry.set ? "set" : "unset"}">${
+            entry.set ? `set &middot; ${escape(entry.source ?? "")}` : "not set"
+          }</span>
+        </div>
+
+        ${entry.help ? `<p class="a-cred-help">${escape(entry.help)}</p>` : ""}
+
+        ${
+          entry.updatedAt
+            ? `<p class="a-cred-meta">Last changed ${escape(
+                new Date(entry.updatedAt).toISOString().slice(0, 16).replace("T", " ")
+              )}${entry.updatedBy ? ` by ${escape(entry.updatedBy)}` : ""}</p>`
+            : ""
+        }
+
+        <div class="a-cred-actions">
+          <form method="post" action="/admin/credentials" class="a-cred-set">
+            ${hidden}
+            <input name="value" type="password" autocomplete="off" spellcheck="false"
+                   placeholder="${entry.set ? "Replace this value" : "Paste the value"}"
+                   aria-label="New value for ${escape(entry.name)}" required>
+            <button class="a-btn">Save</button>
+          </form>
+
+          ${
+            escrowable && entry.set
+              ? `<form method="post" action="/admin/credentials" class="a-cred-aside">
+                   ${hidden}<input type="hidden" name="action" value="reveal">
+                   <button>Show once</button>
+                 </form>`
+              : ""
+          }
+          ${
+            entry.source === "database"
+              ? `<form method="post" action="/admin/credentials" class="a-cred-aside"
+                       onsubmit="return confirm('Clear ${escape(entry.name)}?')">
+                   ${hidden}<input type="hidden" name="action" value="clear">
+                   <button class="a-danger">Clear</button>
+                 </form>`
+              : ""
+          }
+        </div>
+      </li>`;
+    })
     .join("");
 
   return layout({
@@ -1157,17 +1167,22 @@ async function credentialsPage({ credentials, session, token, error, revealed })
     user: session.user,
     flash: error ? { kind: "error", message: error } : null,
     body: `<h1>Service credentials</h1>
-      ${
-        revealed?.value
-          ? `<div class="a-flash"><p><strong>${escape(revealed.name)}</strong> &mdash; copy this
-             into your password manager now. Losing it makes every encrypted
-             copy unreadable, and this is the only page that will show it.</p>
-             <p><code class="a-reveal">${escape(revealed.value)}</code></p></div>`
-          : ""
-      }
       <p class="a-lede">Held in the database, so they can be changed here rather
       than by whoever has access to the host. Values are never displayed.</p>
-      <ul class="a-list">${rows}</ul>
+
+      ${
+        revealed?.value
+          ? `<div class="a-flash">
+               <p><strong>${escape(revealed.name)}</strong> &mdash; copy this into your
+               password manager now. Losing it makes every encrypted copy
+               unreadable, and this is the only page that will ever show it.</p>
+               <p><code class="a-reveal">${escape(revealed.value)}</code></p>
+             </div>`
+          : ""
+      }
+
+      <ul class="a-creds">${rows}</ul>
+
       <p class="a-note">The database connection string is deliberately absent:
       reading these rows requires it, so it cannot be one of them. It stays an
       environment variable on the host.</p>

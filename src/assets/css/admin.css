@@ -200,12 +200,84 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 .a-edit { font-size: 13px; text-decoration: none; color: var(--a-muted); }
 .a-edit:hover { color: var(--a-gold); }
 
-/* Credential rows stack a heading, a note and two inline forms. */
-.a-row--stack { display: block; }
-.a-row--stack .a-row-head { display: flex; justify-content: space-between; gap: 12px; }
-.a-row--stack .a-note { margin: 4px 0 8px; font-size: 13px; }
-.a-row--stack .a-inline { display: inline-flex; gap: 8px; margin-right: 8px; }
-.a-row--stack input[type="password"] { min-width: 240px; }
+/* ---------------------------------------------------------------------------
+   Credentials and the guest list.
+
+   Their own container classes rather than reusing .a-list, because
+   `.a-list li { display: flex }` is specificity (0,1,1) and silently beat
+   every attempt to make these rows stack -- which is how the name, the help
+   text, the timestamp and two forms all ended up squeezed onto one line.
+   --------------------------------------------------------------------------- */
+
+.a-creds { list-style: none; padding: 0; margin: 24px 0 28px; }
+
+.a-cred {
+  display: block;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--a-line);
+}
+
+.a-cred:first-child { border-top: 1px solid var(--a-line); }
+
+.a-cred-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.a-cred-name { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
+
+.a-cred-state {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.a-cred-state--set { color: #2F6B3A; }
+.a-cred-state--unset { color: var(--a-muted); }
+
+/* Full width, so the sentence reads as a sentence. */
+.a-cred-help {
+  margin: 8px 0 0;
+  max-width: 68ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--a-muted);
+}
+
+.a-cred-meta { margin: 6px 0 0; font-size: 12px; color: var(--a-muted); }
+
+.a-cred-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 14px;
+}
+
+/* The input takes the room that is left, rather than a fixed 240px that
+   collided with everything beside it. */
+.a-cred-set { display: flex; gap: 8px; flex: 1 1 340px; min-width: 0; }
+.a-cred-set input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 9px 11px;
+  border: 1px solid var(--a-line);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.a-cred-aside { flex: 0 0 auto; }
+.a-cred-aside button { font-family: inherit; font-size: 13px; cursor: pointer; }
+
+@media (max-width: 620px) {
+  .a-cred-set { flex-basis: 100%; }
+}
 
 /* A revealed key: long, and needs to be selectable in one go. */
 .a-reveal {
