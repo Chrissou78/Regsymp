@@ -10,6 +10,7 @@ import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.
 import { createAdmin, originFor } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
 import { createAttendees } from "./admin/attendees.js";
+import { createBadgeCategories } from "./admin/badge-categories.js";
 import { createMailer } from "./admin/mail.js";
 import { createPortal } from "./portal/routes.js";
 import { createDb, migrate } from "./admin/db.js";
@@ -166,6 +167,7 @@ const userStore = db
  * populations have no reason to meet.
  */
 const attendees = db ? createAttendees({ db }) : null;
+const badgeCategories = db ? createBadgeCategories({ db }) : null;
 const mailer = createMailer();
 
 /**
@@ -246,6 +248,15 @@ const admin = createAdmin({
           if (ticket) await attendees.revokeTicket(ticket.id);
         },
         linkSpeaker: (id, slug) => attendees.update(id, { speakerSlug: slug }),
+
+        // Badge categories are data, so the organisers can add Press or Staff
+        // without a migration. The number-range rule is still enforced by a
+        // trigger, so nothing here is load-bearing for correctness.
+        categories: () => badgeCategories.list(),
+        addCategory: (fields) => badgeCategories.create(fields),
+        editCategory: (slug, fields) => badgeCategories.update(slug, fields),
+        removeCategory: (slug) => badgeCategories.remove(slug),
+        ticketFor: (id) => attendees.ticketFor(id),
 
         /** The published speaker entries, for linking an account to one. */
         speakerSlugs: async () => {

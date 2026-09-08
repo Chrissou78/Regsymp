@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createDb, migrate } from "../admin/db.js";
-import { createAttendees, TIERS } from "../admin/attendees.js";
+import { createAttendees } from "../admin/attendees.js";
 import { createPortal } from "../portal/routes.js";
 import { createSessions } from "../admin/auth.js";
 
@@ -82,12 +82,12 @@ const post = (p, fields, cookie) =>
 const cookieFrom = (res) => (res.headers.get("set-cookie") ?? "").split(";")[0];
 
 /** An attendee with a ticket and a claimed password. */
-async function claimedGuest({ tier = "vip", password = "a-long-enough-password" } = {}) {
+async function claimedGuest({ category = "vip", password = "a-long-enough-password" } = {}) {
   const guest = await attendees.create(
     { email: "ada@example.com", firstName: "Ada", lastName: "Lovelace", company: "Engines" },
     "chris@onchainlabs.ch"
   );
-  await attendees.issueTicket({ attendeeId: guest.id, tier, issuedBy: "chris", areas: ["main"] });
+  await attendees.issueTicket({ attendeeId: guest.id, category, issuedBy: "chris", areas: ["main"] });
   const token = await attendees.createToken(guest.id, "claim");
   await attendees.redeemToken(token, "claim", password);
   const res = await post("/portal/signin", { email: guest.email, password });
@@ -199,13 +199,13 @@ test("a forgotten-password request never says whether the address exists", opts,
 
 test("the profile shows the guest and their ticket", opts, async () => {
   await reset();
-  const { cookie } = await claimedGuest({ tier: "vip" });
+  const { cookie } = await claimedGuest({ category: "vip" });
 
   const body = await (await get("/portal", { headers: { cookie } })).text();
   assert.match(body, /ada@example\.com/);
   assert.match(body, /Ada/);
   assert.match(body, /1\/33/, "the ticket number is not shown");
-  assert.match(body, /VIP ticket/);
+  assert.match(body, /VIP badge/);
 });
 
 test("a guest can edit their own details", opts, async () => {
@@ -271,11 +271,11 @@ test("consent is recorded, and cleared when unticked", opts, async () => {
 
 test("the ticket page carries a QR code and the number", opts, async () => {
   await reset();
-  const { cookie } = await claimedGuest({ tier: "general" });
+  const { cookie } = await claimedGuest({ category: "visitor" });
 
   const body = await (await get("/portal/ticket", { headers: { cookie } })).text();
   assert.match(body, /<svg/, "no QR code");
-  assert.match(body, new RegExp(`34/${TIERS.general.to}`), "wrong number or label");
+  assert.match(body, /34\/100/, "wrong number or label");
   assert.match(body, /Ada Lovelace/);
 });
 
@@ -301,7 +301,7 @@ test("a guest with no ticket is sent back rather than shown an empty one", opts,
 
 test("scanning a valid code identifies the holder", opts, async () => {
   await reset();
-  const { guest } = await claimedGuest({ tier: "vip" });
+  const { guest } = await claimedGuest({ category: "vip" });
   const ticket = await attendees.ticketFor(guest.id);
 
   const res = await get(`/t/${ticket.code}`);
@@ -447,13 +447,13 @@ test("a ticket cannot be issued to an unconfirmed self-registration", opts, asyn
   const guest = await attendees.byEmail("grace@example.com");
 
   await assert.rejects(
-    () => attendees.issueTicket({ attendeeId: guest.id, tier: "vip", issuedBy: "chris" }),
+    () => attendees.issueTicket({ attendeeId: guest.id, category: "vip", issuedBy: "chris" }),
     /has not confirmed their email/
   );
 
   const url = sent.find((m) => m.kind === "verify").url;
   await attendees.verifyEmail(url.split("/").pop());
-  const ticket = await attendees.issueTicket({ attendeeId: guest.id, tier: "vip", issuedBy: "chris" });
+  const ticket = await attendees.issueTicket({ attendeeId: guest.id, category: "vip", issuedBy: "chris" });
   assert.equal(ticket.number, 1);
 });
 
@@ -463,7 +463,7 @@ test("an address an admin entered needs no click", opts, async () => {
   const guest = await attendees.create({ email: "invited@example.com" }, "chris@onchainlabs.ch");
   assert.equal(guest.selfRegistered, false);
 
-  const ticket = await attendees.issueTicket({ attendeeId: guest.id, tier: "vip", issuedBy: "chris" });
+  const ticket = await attendees.issueTicket({ attendeeId: guest.id, category: "vip", issuedBy: "chris" });
   assert.equal(ticket.number, 1);
 });
 

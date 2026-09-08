@@ -235,6 +235,36 @@ own listing: saving their profile writes their name, role, company, biography
 and LinkedIn onto the public page and rebuilds it. Their slug, photo and
 ordering stay with the organisers.
 
+### Badges
+
+Every badge holder gets a printable badge at **/admin/badges**, filterable by
+category, eight to an A4 sheet at 90x65mm. Plain HTML with a print stylesheet
+rather than a generated PDF: no dependency, it reflows if the stock changes,
+and whoever is printing sees what will come out first.
+
+The badge carries the same QR as the ticket, pointing at `/t/<code>` here, so
+one scan works whether somebody presents a badge, a phone, or a wallet pass.
+
+**Categories are data**, managed at **/admin/categories**. Speaker, VIP and
+Visitor ship with the event and cannot be removed -- removing one would strand
+its badges -- but they can be renamed, recoloured and renumbered. Add your own
+(Press, Staff, Sponsor) with their own block of numbers, or leave the numbers
+blank for a badge that states a category without a place in a sequence, which
+is how Speaker starts.
+
+Two rules are worth knowing:
+
+- **Ranges must not overlap.** Two categories drawing on the same numbers
+  would hand two people the same badge number, and the symptom would surface
+  much later as an inexplicable "none left".
+- **A withdrawn number is never reissued.** A printed badge carrying it may
+  still be in a pocket, so the next badge takes the next number.
+
+The range rule survived becoming data. A CHECK constraint cannot read another
+table, so a trigger on `tickets` enforces it -- which means a caller that
+forgets the rule, or a category edited later, still cannot issue a number
+outside its range. There is a test that inserts straight SQL to prove it.
+
 ### Keeping tests away from live data
 
 The Postgres tests truncate tables, so two guards stand between `npm test` and
@@ -246,7 +276,10 @@ live content:
   the file;
 - the Postgres tests use a separate `TEST_DATABASE_URL` and refuse to run
   unless it is plainly local, printing why. `ALLOW_DESTRUCTIVE_DB_TESTS=1`
-  overrides that, deliberately awkwardly.
+  overrides that, deliberately awkwardly;
+- the files run one at a time (`--test-concurrency=1`). Several truncate the
+  same tables, and in parallel they deleted each other's rows mid-test --
+  eleven failures where every file passed on its own.
 
 ```bash
 docker run -d --name regsymp-dev-pg -e POSTGRES_PASSWORD=dev   -e POSTGRES_DB=regsymp -p 55432:5432 postgres:18

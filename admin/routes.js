@@ -6,6 +6,8 @@ import { createAttemptLimiter } from "./login-attempts.js";
 import { configValue } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
 import { attendeesPage, importPreviewPage } from "./attendees-page.js";
+import { badgeSheetPage, categoriesPage } from "./badges-page.js";
+import QRCode from "qrcode";
 import { parseAttendees } from "./import-attendees.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
 import { slugifyFilename } from "./sanitise.js";
@@ -436,6 +438,96 @@ export function createAdmin(config) {
       return true;
     }
 
+    // ------------------------------------------------------------- badges
+    if (path === "/admin/badges" || path.startsWith("/admin/badges/")) {
+      if (!guests) {
+        html(res, 404, layout({ title: "Not found", user: session.user, body: "<p>Badges need a database.</p>" }));
+        return true;
+      }
+
+      const one = path.startsWith("/admin/badges/") ? path.slice("/admin/badges/".length) : null;
+      const wanted = url.searchParams.get("category");
+      const everyone = await guests.list({ limit: 1000 });
+
+      const holders = everyone.filter(
+        (g) => g.ticket && (!wanted || g.ticket.category === wanted) && (!one || g.ticket.code === one)
+      );
+
+      // The QR is the same one the ticket page shows, so a single scan works
+      // for a badge, a phone, or a wallet pass.
+      const origin = originFor(req);
+      const badges = [];
+      for (const guest of holders) {
+        const ticket = await guests.ticketFor(guest.id);
+        if (!ticket) continue;
+        badges.push({
+          guest,
+          ticket,
+          qr: await QRCode.toString(`${origin}/t/${ticket.code}`, {
+            type: "svg",
+            errorCorrectionLevel: "M",
+            margin: 0,
+            width: 150
+          })
+        });
+      }
+
+      html(res, 200, badgeSheetPage({
+        badges,
+        session,
+        filter: wanted,
+        categories: await guests.categories()
+      }));
+      return true;
+    }
+
+    // -------------------------------------------------------- categories
+    if (path === "/admin/categories") {
+      if (!guests) {
+        html(res, 404, layout({ title: "Not found", user: session.user, body: "<p>Categories need a database.</p>" }));
+        return true;
+      }
+
+      const show = async (flash = null) =>
+        categoriesPage({ categories: await guests.categories(), session, token, flash });
+
+      if (req.method === "GET") {
+        html(res, 200, await show());
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+      const fields = {
+        slug: form.fields.slug,
+        label: form.fields.label,
+        from: form.fields.from,
+        to: form.fields.to,
+        colour: form.fields.colour,
+        sort: form.fields.sort
+      };
+
+      try {
+        let message;
+        if (form.fields.action === "remove") {
+          await guests.removeCategory(form.fields.slug);
+          message = `${form.fields.slug} removed.`;
+        } else if (form.fields.action === "edit") {
+          const saved = await guests.editCategory(form.fields.slug, fields);
+          message = `${saved.label} saved.`;
+        } else {
+          const created = await guests.addCategory(fields);
+          message = `${created.label} added${
+            created.numbered ? ` with numbers ${created.from}–${created.to}` : " (unnumbered)"
+          }.`;
+        }
+        html(res, 200, await show({ kind: "ok", message }));
+      } catch (err) {
+        html(res, 400, await show({ kind: "error", message: err.message }));
+      }
+      return true;
+    }
+
     if (path === "/admin/attendees") {
       if (!guests) {
         html(res, 404, layout({
@@ -451,6 +543,7 @@ export function createAdmin(config) {
         attendeesPage({
           guests: await guests.list({ q: q || null }),
           capacity: await guests.capacity(),
+          categories: await guests.categories(),
           speakerSlugs: await guests.speakerSlugs(),
           session,
           token,
@@ -549,16 +642,20 @@ export function createAdmin(config) {
               .filter(Boolean);
             const ticket = await guests.issueTicket({
               attendeeId: id,
-              tier: form.fields.tier,
+              category: form.fields.category,
               issuedBy: by,
               areas
             });
-            message = `Ticket #${ticket.number} issued.`;
+            message = ticket.number
+              ? `Badge #${ticket.number} issued.`
+              : "Badge issued (unnumbered).";
             break;
           }
           case "revoke":
             await guests.revoke(id);
-            message = "Ticket withdrawn. Its number is now free for somebody else.";
+            message =
+              "Badge withdrawn. Its number is not reissued — a printed badge " +
+              "carrying it may still be in circulation.";
             break;
           case "sendClaim":
             message = (await guests.sendClaim(id, origin))
@@ -790,7 +887,7 @@ export function createAdmin(config) {
             <p class="a-lede">Changes are saved to the content volume and rebuilt
             immediately &mdash; no deploy, and nothing signs you out.</p>
             <ul class="a-list">${rows}</ul>
-            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/attendees">Guest list</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/attendees">Guest list</a> &nbsp;·&nbsp; <a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;

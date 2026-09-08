@@ -11,8 +11,6 @@ import { escape, layout } from "./render.js";
  * page has nothing to do with editing site content.
  */
 
-const TIER_LABEL = { vip: "VIP", general: "Delegate" };
-
 function stateOf(guest) {
   if (!guest.claimed) return { label: "invited", hint: "has not set a password yet" };
   if (guest.selfRegistered && !guest.emailVerified) {
@@ -21,7 +19,7 @@ function stateOf(guest) {
   return { label: "active", hint: "" };
 }
 
-function row({ guest, token, speakerSlugs }) {
+function row({ guest, token, speakerSlugs, categories }) {
   const state = stateOf(guest);
   const canTicket = !guest.selfRegistered || guest.emailVerified;
 
@@ -37,8 +35,10 @@ function row({ guest, token, speakerSlugs }) {
       </span>
       <span class="a-count">${
         guest.ticket
-          ? `${escape(TIER_LABEL[guest.ticket.tier])} #${guest.ticket.number}`
-          : "no ticket"
+          ? `<span class="a-badgedot" style="background:${escape(guest.ticket.colour)}"></span>${escape(
+              guest.ticket.label
+            )}${guest.ticket.number ? ` #${guest.ticket.number}` : ""}`
+          : "no badge"
       }</span>
     </div>
 
@@ -51,10 +51,12 @@ function row({ guest, token, speakerSlugs }) {
     <div class="a-rowactions">
       ${
         guest.ticket
-          ? `<form method="post" action="/admin/attendees" class="a-inline"
-                   onsubmit="return confirm('Withdraw ticket #${guest.ticket.number}?')">
+          ? `<a class="a-count" href="/admin/badges/${escape(guest.ticket.code)}" target="_blank"
+                 rel="noopener">Print badge</a>
+             <form method="post" action="/admin/attendees" class="a-inline"
+                   onsubmit="return confirm('Withdraw this badge?')">
                ${hidden}<input type="hidden" name="action" value="revoke">
-               <button class="a-danger">Withdraw ticket</button>
+               <button class="a-danger">Withdraw badge</button>
              </form>`
           : canTicket
             ? `<form method="post" action="/admin/attendees" class="a-inline">
@@ -113,20 +115,27 @@ function row({ guest, token, speakerSlugs }) {
 export function attendeesPage({
   guests,
   capacity,
+  categories = [],
   speakerSlugs = [],
   session,
   token,
   flash = null,
   q = ""
 }) {
-  const rows = guests.map((guest) => row({ guest, token, speakerSlugs })).join("");
+  const rows = guests.map((guest) => row({ guest, token, speakerSlugs, categories })).join("");
 
   const meters = capacity
     .map(
       (c) => `<li class="a-row">
-        <span class="a-row-name">${escape(TIER_LABEL[c.tier])} &mdash; numbers ${c.from}&ndash;${c.to}</span>
-        <span class="a-count">${c.issued} of ${c.limit} issued${
-          c.issued >= c.limit ? " &middot; full" : ""
+        <span class="a-row-name">
+          <span class="a-badgedot" style="background:${escape(c.colour)}"></span>
+          ${escape(c.label)}${
+            c.numbered ? ` &mdash; numbers ${c.from}&ndash;${c.to}` : " &mdash; unnumbered"
+          }</span>
+        <span class="a-count">${
+          c.numbered
+            ? `${c.issued} of ${c.limit} issued${c.issued >= c.limit ? " &middot; full" : ""}`
+            : `${c.issued} issued`
         }</span>
       </li>`
     )
@@ -142,6 +151,8 @@ export function attendeesPage({
       ever used twice.</p>
 
       <ul class="a-list">${meters}</ul>
+      <p class="a-note"><a href="/admin/badges">Print badges</a> &nbsp;·&nbsp;
+      <a href="/admin/categories">Manage badge categories</a></p>
 
       <form method="get" action="/admin/attendees" class="a-inline a-search">
         <input name="q" value="${escape(q)}" placeholder="Search name, email or company"

@@ -370,3 +370,129 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 }
 .a-pin-meta { font-size: 12px; color: var(--a-muted); }
 .a-pin-links { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; }
+
+/* A dot in the category colour, so categories are told apart at a glance. */
+.a-badgedot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: baseline;
+}
+
+.a-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  text-decoration: none;
+  color: var(--a-muted);
+  border: 1px solid var(--a-line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-right: 6px;
+}
+.a-chip--on { color: #fff; background: var(--a-navy, #1C2B4A); border-color: transparent; }
+
+/* ---------------------------------------------------------------------------
+   Printable badges.
+
+   Plain HTML with a print stylesheet rather than a generated PDF: no
+   dependency, it reflows if the badge stock changes, and whoever is printing
+   sees exactly what will come out before committing paper to it.
+
+   90x65mm sits two across and four down on A4 with 8mm margins: two columns
+   need 183mm of the 194mm available, four rows need 269mm of the 281mm. At
+   95x70 the fourth row overflowed by 8mm and only six printed per sheet.
+   --------------------------------------------------------------------------- */
+
+.b-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 90mm);
+  gap: 4mm;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.b-badge {
+  width: 90mm;
+  height: 65mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #d8d3c8;
+  border-radius: 2mm;
+  overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.b-band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3mm 5mm;
+  flex: 0 0 auto;
+}
+
+.b-cat {
+  font-family: var(--a-sans, inherit);
+  font-size: 11pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.b-num { font-family: Georgia, serif; font-size: 17pt; }
+
+.b-main {
+  flex: 1 1 auto;
+  padding: 4mm 5mm 0;
+  min-height: 0;
+}
+
+.b-name {
+  font-family: Georgia, serif;
+  font-size: 17pt;
+  line-height: 1.15;
+  margin: 0 0 1.5mm;
+  color: #1c2b4a;
+  overflow-wrap: anywhere;
+}
+
+.b-org { font-size: 10pt; margin: 0; color: #2c2e3a; }
+.b-role { font-size: 9pt; margin: 1mm 0 0; color: #6b6e7a; }
+
+.b-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4mm;
+  padding: 3mm 5mm 4mm;
+}
+
+.b-qr { line-height: 0; }
+.b-qr svg { width: 20mm; height: 20mm; display: block; }
+
+.b-event { text-align: right; }
+.b-mark {
+  font-family: Georgia, serif;
+  font-size: 9pt;
+  letter-spacing: 0.2em;
+  margin: 0 0 1mm;
+  color: #1c2b4a;
+}
+.b-when { font-size: 7pt; line-height: 1.35; margin: 0; color: #6b6e7a; }
+.b-areas { font-size: 7pt; margin: 1mm 0 0; color: #b8963a; text-transform: uppercase; letter-spacing: 0.06em; }
+
+@media print {
+  @page { size: A4; margin: 8mm; }
+
+  /* Nothing but the badges goes on the paper. */
+  .a-head, .b-controls { display: none !important; }
+  body, .a-main { background: #fff; margin: 0; padding: 0; max-width: none; }
+  .b-sheet { gap: 3mm; margin: 0; justify-content: start; }
+  .b-badge { border-color: #bbb; }
+}

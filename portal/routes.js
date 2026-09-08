@@ -121,9 +121,11 @@ export function createPortal({
           title: found ? "Valid ticket" : "Not a valid ticket",
           body: found
             ? `<div class="p-card p-card--narrow p-centre">
-                 <span class="p-ticket-kind${found.ticket.tier === "vip" ? " p-ticket-kind--vip" : ""}">${
-                   found.ticket.tier === "vip" ? "VIP" : "Delegate"
-                 }</span>
+                 <span class="p-ticket-kind" style="border-color:${escape(
+                   found.ticket.colour ?? "#1C2B4A"
+                 )};color:${escape(found.ticket.colour ?? "#1C2B4A")}">${escape(
+                   found.ticket.categoryLabel
+                 )}</span>
                  <p class="p-ticket-number">${escape(found.ticket.label)}</p>
                  <h1>${escape(found.guest.name ?? found.guest.email)}</h1>
                  ${found.guest.company ? `<p class="p-lede">${escape(found.guest.company)}</p>` : ""}

@@ -221,7 +221,7 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
       ${
         ticket
           ? `<a class="p-ticketstrip" href="/portal/ticket">
-               <span class="p-ticketstrip-label">${escape(ticket.tier === "vip" ? "VIP" : "Delegate")} ticket</span>
+               <span class="p-ticketstrip-label">${escape(ticket.categoryLabel)} badge</span>
                <span class="p-ticketstrip-number">${escape(ticket.label)}</span>
                <span class="p-quiet">View and add to your phone &rarr;</span>
              </a>`
@@ -277,14 +277,13 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
 }
 
 export function ticketPage({ guest, ticket, qr, token }) {
-  const vip = ticket.tier === "vip";
   return layout({
     title: "Your ticket",
     guest,
     token,
     body: `<div class="p-ticket">
-      <div class="p-ticket-head">
-        <span class="p-ticket-kind${vip ? " p-ticket-kind--vip" : ""}">${vip ? "VIP" : "Delegate"}</span>
+      <div class="p-ticket-head" style="background:${escape(ticket.colour ?? "#1C2B4A")}">
+        <span class="p-ticket-kind">${escape(ticket.categoryLabel)}</span>
         <span class="p-ticket-number">${escape(ticket.label)}</span>
       </div>
 

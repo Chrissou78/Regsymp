@@ -13,18 +13,10 @@ import { hashPassword, verifyPassword } from "./password.js";
  */
 
 /**
- * One sequence of numbers across the event: 1-33 VIP, 34-100 general.
- *
- * Duplicated in a database constraint, deliberately. This copy allocates the
- * next free number; that copy makes the rule impossible to break, including
- * by a future caller that forgets it exists.
+ * Number ranges live in badge_categories now, so the organisers can add and
+ * remove categories without a migration. A trigger on tickets still refuses a
+ * number outside its category's range, so the rule survived becoming data.
  */
-export const TIERS = Object.freeze({
-  vip: { from: 1, to: 33 },
-  general: { from: 34, to: 100 }
-});
-
-export const CAPACITY = TIERS.general.to;
 
 const TOKEN_TTL = {
   claim: 30 * 24 * 60 * 60 * 1000,
@@ -200,10 +192,14 @@ export function createAttendees({ db, now = () => new Date() }) {
       const { rows } = await db.query(
         `select a.*,
                 t.number as ticket_number,
-                t.tier   as ticket_tier,
+                t.category as ticket_category,
+                t.code as ticket_code,
+                c.label as ticket_label,
+                c.colour as ticket_colour,
                 t.revoked_at as ticket_revoked_at
            from attendees a
            left join tickets t on t.attendee_id = a.id and t.revoked_at is null
+           left join badge_categories c on c.slug = t.category
           where ($1::text is null or a.role = $1)
             and ($2::text is null or
                  a.email ilike '%' || $2 || '%' or
@@ -215,7 +211,15 @@ export function createAttendees({ db, now = () => new Date() }) {
       );
       return rows.map((r) => ({
         ...present(r),
-        ticket: r.ticket_number ? { number: r.ticket_number, tier: r.ticket_tier } : null
+        ticket: r.ticket_category
+          ? {
+              number: r.ticket_number,
+              category: r.ticket_category,
+              label: r.ticket_label,
+              colour: r.ticket_colour,
+              code: r.ticket_code
+            }
+          : null
       }));
     },
 
@@ -252,9 +256,14 @@ export function createAttendees({ db, now = () => new Date() }) {
      * the same number; if they somehow do, the unique index rejects one and
      * the retry takes the next. Counting rows and adding one would race.
      */
-    async issueTicket({ attendeeId, tier, issuedBy, areas = [] }) {
-      const range = TIERS[tier];
-      if (!range) throw new Error("Tier must be vip or general.");
+    async issueTicket({ attendeeId, category, issuedBy, areas = [] }) {
+      const found = await db.query(
+        "select slug, label, number_from, number_to from badge_categories where slug = $1",
+        [String(category ?? "")]
+      );
+      if (!found.rows.length) throw new Error("Choose a badge category.");
+      const range = found.rows[0];
+      const numbered = range.number_from !== null;
 
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
@@ -263,45 +272,56 @@ export function createAttendees({ db, now = () => new Date() }) {
               "select 1 from tickets where attendee_id = $1 and revoked_at is null",
               [Number(attendeeId)]
             );
-            if (existing.rows.length) throw new Error("That attendee already holds a ticket.");
+            if (existing.rows.length) throw new Error("That attendee already holds a badge.");
 
-            // An address that signed itself up has to prove itself first.
-            // One an admin typed is already vouched for by a person, so it
-            // does not need to wait for a click.
+            // An address that signed itself up has to prove itself first. One
+            // an admin typed is vouched for by a person, so it need not wait.
             const who = await client.query(
               "select self_registered, email_verified_at, email from attendees where id = $1",
               [Number(attendeeId)]
             );
             if (!who.rows.length) throw new Error("There is no such attendee.");
             if (who.rows[0].self_registered && !who.rows[0].email_verified_at) {
-              throw new Error(
-                `${who.rows[0].email} has not confirmed their email address yet.`
-              );
+              throw new Error(`${who.rows[0].email} has not confirmed their email address yet.`);
             }
 
-            const { rows } = await client.query(
-              `insert into tickets (attendee_id, number, tier, code, issued_by)
-               select $1, n, $2, $3, $4
-                 -- Cast explicitly: an untyped parameter leaves Postgres
-                 -- unable to choose between the generate_series overloads.
-                 from generate_series($5::int, $6::int) as n
-                where not exists (select 1 from tickets t where t.number = n)
-                order by n
-                limit 1
-               returning *`,
-              [
-                Number(attendeeId),
-                tier,
-                randomBytes(24).toString("base64url"),
-                issuedBy ?? null,
-                range.from,
-                range.to
-              ]
-            );
-            if (!rows.length) {
-              throw new Error(
-                `No ${tier} tickets left — ${range.to - range.from + 1} is the limit.`
-              );
+            const code = randomBytes(24).toString("base64url");
+            let rows;
+
+            if (numbered) {
+              // The lowest free number in the range, chosen in one statement
+              // so two simultaneous issues cannot pick the same one.
+              ({ rows } = await client.query(
+                `insert into tickets (attendee_id, number, category, code, issued_by)
+                 select $1, n, $2, $3, $4
+                   from generate_series($5::int, $6::int) as n
+                  where not exists (select 1 from tickets t where t.number = n)
+                  order by n
+                  limit 1
+                 returning *`,
+                [
+                  Number(attendeeId),
+                  range.slug,
+                  code,
+                  issuedBy ?? null,
+                  range.number_from,
+                  range.number_to
+                ]
+              ));
+              if (!rows.length) {
+                throw new Error(
+                  `No ${range.label} badges left — ${range.number_to - range.number_from + 1} is the limit.`
+                );
+              }
+            } else {
+              // Unnumbered, which is how speakers start: a badge that says
+              // what they are rather than where they sit in a sequence.
+              ({ rows } = await client.query(
+                `insert into tickets (attendee_id, number, category, code, issued_by)
+                 values ($1, null, $2, $3, $4)
+                 returning *`,
+                [Number(attendeeId), range.slug, code, issuedBy ?? null]
+              ));
             }
 
             for (const area of areas) {
@@ -317,16 +337,18 @@ export function createAttendees({ db, now = () => new Date() }) {
           if (!raced || attempt === 4) throw err;
         }
       }
-      throw new Error("Could not allocate a ticket number.");
+      throw new Error("Could not allocate a badge number.");
     },
 
     async ticketFor(attendeeId) {
       const { rows } = await db.query(
-        `select t.*, coalesce(array_agg(a.area) filter (where a.area is not null), '{}') as areas
+        `select t.*, c.label as category_label, c.colour, c.number_to,
+                coalesce(array_agg(a.area) filter (where a.area is not null), '{}') as areas
            from tickets t
+           join badge_categories c on c.slug = t.category
            left join ticket_access a on a.ticket_id = t.id
           where t.attendee_id = $1 and t.revoked_at is null
-          group by t.id`,
+          group by t.id, c.label, c.colour, c.number_to`,
         [Number(attendeeId)]
       );
       const row = rows[0];
@@ -334,9 +356,12 @@ export function createAttendees({ db, now = () => new Date() }) {
       return {
         id: Number(row.id),
         number: row.number,
-        tier: row.tier,
+        category: row.category,
+        categoryLabel: row.category_label,
+        colour: row.colour,
         code: row.code,
-        label: `${row.number}/${TIERS[row.tier].to}`,
+        // An unnumbered badge says what it is instead of where it sits.
+        label: row.number === null ? row.category_label : `${row.number}/${row.number_to}`,
         areas: row.areas,
         issuedAt: row.issued_at,
         checkedInAt: row.checked_in_at
@@ -352,13 +377,15 @@ export function createAttendees({ db, now = () => new Date() }) {
     async byTicketCode(code) {
       if (!code || String(code).length < 16) return null;
       const { rows } = await db.query(
-        `select t.*, coalesce(array_agg(x.area) filter (where x.area is not null), '{}') as areas,
+        `select t.*, c.label as category_label, c.colour, c.number_to,
+                coalesce(array_agg(x.area) filter (where x.area is not null), '{}') as areas,
                 a.id as a_id, a.email, a.first_name, a.last_name, a.company, a.role
            from tickets t
            join attendees a on a.id = t.attendee_id
+           join badge_categories c on c.slug = t.category
            left join ticket_access x on x.ticket_id = t.id
           where t.code = $1 and t.revoked_at is null
-          group by t.id, a.id`,
+          group by t.id, a.id, c.label, c.colour, c.number_to`,
         [String(code)]
       );
       const row = rows[0];
@@ -374,8 +401,10 @@ export function createAttendees({ db, now = () => new Date() }) {
         ticket: {
           id: Number(row.id),
           number: row.number,
-          tier: row.tier,
-          label: `${row.number}/${TIERS[row.tier].to}`,
+          category: row.category,
+          categoryLabel: row.category_label,
+          colour: row.colour,
+          label: row.number === null ? row.category_label : `${row.number}/${row.number_to}`,
           areas: row.areas,
           checkedInAt: row.checked_in_at
         }
@@ -396,19 +425,24 @@ export function createAttendees({ db, now = () => new Date() }) {
       await db.query("update tickets set revoked_at = now() where id = $1", [Number(ticketId)]);
     },
 
-    /** How full the event is, per tier. */
+    /** How full the event is, per badge category. */
     async capacity() {
       const { rows } = await db.query(
-        `select tier, count(*)::int as issued
-           from tickets where revoked_at is null group by tier`
+        `select c.slug, c.label, c.number_from, c.number_to, c.colour, c.sort,
+                (select count(*)::int from tickets t
+                  where t.category = c.slug and t.revoked_at is null) as issued
+           from badge_categories c
+          order by c.sort, c.label`
       );
-      const issued = Object.fromEntries(rows.map((r) => [r.tier, r.issued]));
-      return Object.entries(TIERS).map(([tier, range]) => ({
-        tier,
-        issued: issued[tier] ?? 0,
-        limit: range.to - range.from + 1,
-        from: range.from,
-        to: range.to
+      return rows.map((r) => ({
+        category: r.slug,
+        label: r.label,
+        colour: r.colour,
+        issued: r.issued,
+        from: r.number_from,
+        to: r.number_to,
+        numbered: r.number_from !== null,
+        limit: r.number_from === null ? null : r.number_to - r.number_from + 1
       }));
     },
 
