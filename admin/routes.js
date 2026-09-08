@@ -5,7 +5,8 @@ import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
 import { createAttemptLimiter } from "./login-attempts.js";
 import { configValue } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
-import { attendeesPage } from "./attendees-page.js";
+import { attendeesPage, importPreviewPage } from "./attendees-page.js";
+import { parseAttendees } from "./import-attendees.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
 import { slugifyFilename } from "./sanitise.js";
 
@@ -15,6 +16,32 @@ const MAX_IMAGE = 8 * 1024 * 1024;
 
 // Images pinned per click. Bounded so a request cannot outlive a proxy.
 const BATCH = 20;
+
+const BY_EXTENSION = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+  gif: "image/gif",
+  svg: "image/svg+xml"
+};
+
+const BY_SNIFF = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", svg: "image/svg+xml" };
+
+/**
+ * What these bytes actually are, preferring the bytes over the filename.
+ *
+ * Two logos in this repository are JPEGs named `.svg`. Served as
+ * `image/svg+xml` a browser refuses to draw them, which is exactly how the
+ * broken thumbnail turned up. The extension is a hint; the magic bytes are
+ * the answer.
+ */
+function mimeFor(path, bytes) {
+  const sniffed = bytes ? detectImageType(bytes) : null;
+  if (sniffed && BY_SNIFF[sniffed]) return BY_SNIFF[sniffed];
+  return BY_EXTENSION[String(path).split(".").pop()?.toLowerCase()] ?? "application/octet-stream";
+}
 
 /* ------------------------------------------------------------------ pure
  * These are exported so they can be tested without HTTP, sessions or the
@@ -173,6 +200,20 @@ export function createAdmin(config) {
       "Referrer-Policy": "no-referrer"
     });
     res.end(body);
+  };
+
+  const binary = (res, bytes, { type, filename = null, cache = "private, max-age=300" }) => {
+    res.writeHead(200, {
+      "Content-Type": type,
+      "Content-Length": String(bytes.length),
+      "Cache-Control": cache,
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+      ...(filename
+        ? { "Content-Disposition": `attachment; filename="${filename.replace(/[^\w.\-]/g, "_")}"` }
+        : {})
+    });
+    res.end(bytes);
   };
 
   const redirect = (res, to, headers = {}) => {
@@ -449,6 +490,58 @@ export function createAdmin(config) {
             }
             break;
           }
+          case "importPreview": {
+            const paste = String(form.fields.paste ?? "");
+            const parsed = parseAttendees(paste);
+            if (!parsed.rows.length && !parsed.problems.length) {
+              html(res, 400, await render({ kind: "error", message: "There was nothing to read in that paste." }));
+              return true;
+            }
+            html(res, 200, importPreviewPage({
+              parsed,
+              existing: await guests.list({ limit: 1000 }),
+              role: form.fields.role === "speaker" ? "speaker" : "visitor",
+              sendClaim: form.fields.sendClaim === "yes",
+              paste,
+              session,
+              token
+            }));
+            return true;
+          }
+          case "importConfirm": {
+            // Re-parsed from the same text rather than trusting a list of
+            // records round-tripped through the browser: the preview is a
+            // check for the person, not a source of truth for the server.
+            const parsed = parseAttendees(String(form.fields.paste ?? ""));
+            const role = form.fields.role === "speaker" ? "speaker" : "visitor";
+            const notify = form.fields.sendClaim === "yes";
+
+            let added = 0;
+            let skipped = 0;
+            const failures = [];
+
+            for (const record of parsed.rows) {
+              try {
+                const created = await guests.create({ ...record, role }, by);
+                added += 1;
+                if (notify) {
+                  await guests.sendClaim(created.id, origin).catch((err) =>
+                    failures.push(`${record.email}: could not email (${err.message})`)
+                  );
+                }
+              } catch (err) {
+                if (/already registered/i.test(err.message)) skipped += 1;
+                else failures.push(`${record.email}: ${err.message}`);
+              }
+            }
+
+            message =
+              `${added} added` +
+              (skipped ? `, ${skipped} already registered` : "") +
+              (parsed.problems.length ? `, ${parsed.problems.length} unreadable line(s)` : "") +
+              (failures.length ? `. Problems: ${failures.slice(0, 3).join("; ")}` : ".");
+            break;
+          }
           case "issue": {
             const areas = String(form.fields.areas ?? "")
               .split(",")
@@ -490,6 +583,47 @@ export function createAdmin(config) {
       } catch (err) {
         html(res, 400, await render({ kind: "error", message: err.message }));
       }
+      return true;
+    }
+
+    // A thumbnail of the stored copy: no gateway, no decryption, because a
+    // page showing eighty of them should not need eighty round trips.
+    if (path.startsWith("/admin/ipfs/thumb/") && ipfs) {
+      const found = await ipfs.thumbnail(path.slice("/admin/ipfs/thumb/".length));
+      if (!found) {
+        html(res, 404, layout({ title: "Not found", user: session.user, body: "<p>No such image.</p>" }));
+        return true;
+      }
+      binary(res, found.bytes, { type: mimeFor(found.path, found.bytes) });
+      return true;
+    }
+
+    // The pinned copy, fetched back and decrypted. Downloading what is
+    // actually on IPFS is the only thing that proves the encrypted backup is
+    // intact and the key still opens it.
+    if (path.startsWith("/admin/ipfs/original/") && ipfs) {
+      let found;
+      try {
+        found = await ipfs.original(path.slice("/admin/ipfs/original/".length));
+      } catch (err) {
+        html(res, 502, layout({
+          title: "Could not fetch it back",
+          user: session.user,
+          flash: { kind: "error", message: err.message },
+          body: `<p>The pinned copy could not be retrieved or decrypted.</p>
+                 <p><a href="/admin/ipfs">Back to IPFS</a></p>`
+        }));
+        return true;
+      }
+      if (!found) {
+        html(res, 404, layout({ title: "Not found", user: session.user, body: "<p>No such image.</p>" }));
+        return true;
+      }
+      binary(res, found.bytes, {
+        type: mimeFor(found.path, found.bytes),
+        filename: found.path.split("/").pop(),
+        cache: "no-store"
+      });
       return true;
     }
 
@@ -1029,14 +1163,29 @@ async function ipfsPage({ ipfs, session, token, result }) {
   const owner = true; // the route has already checked for write actions
 
   const rows = (await ipfs.list())
-    .slice(0, 200)
-    .map((pin) => `<li class="a-row">
-      <span class="a-row-name">${escape(pin.path.replace(/^src\/assets\/images\//, ""))}</span>
-      <a class="a-count" href="${escape(ipfs.gatewayUrl(pin.cid))}" target="_blank"
-         rel="noopener" title="${pin.encrypted ? "Encrypted — downloads ciphertext" : "Unencrypted"}">${
-           pin.encrypted ? "&#128274; " : ""
-         }${escape(pin.cid.slice(0, 12))}&hellip;</a>
-    </li>`)
+    .slice(0, 300)
+    .map((pin) => {
+      const name = pin.path.replace(/^src\/assets\/images\//, "");
+      return `<li class="a-pin">
+        <a class="a-pin-thumb" href="/admin/ipfs/original/${escape(pin.digest)}"
+           title="Fetch from IPFS, decrypt, and download">
+          <img src="/admin/ipfs/thumb/${escape(pin.digest)}" alt="${escape(name)}"
+               loading="lazy" width="72" height="72">
+        </a>
+        <div class="a-pin-body">
+          <span class="a-pin-name">${escape(name)}</span>
+          <span class="a-pin-meta">
+            ${pin.encrypted ? "&#128274; encrypted" : "unencrypted"} &middot;
+            ${Math.max(1, Math.round(pin.bytes / 1024))} KB
+          </span>
+          <span class="a-pin-links">
+            <a href="/admin/ipfs/original/${escape(pin.digest)}">Download decrypted</a>
+            <a href="${escape(ipfs.gatewayUrl(pin.cid))}" target="_blank" rel="noopener"
+               title="The raw pinned bytes, which are ciphertext">${escape(pin.cid.slice(0, 10))}&hellip;</a>
+          </span>
+        </div>
+      </li>`;
+    })
     .join("");
 
   const failures = status.failures.length
@@ -1099,7 +1248,16 @@ async function ipfsPage({ ipfs, session, token, result }) {
           : ""
       }
       ${failures}
-      ${rows ? `<h2>On IPFS</h2><ul class="a-list">${rows}</ul>` : ""}
+      ${
+        rows
+          ? `<h2>On IPFS</h2>
+             <p class="a-note">Thumbnails come from the database. "Download
+             decrypted" fetches the copy actually pinned on IPFS and decrypts
+             it, which is the only thing that proves the backup is intact and
+             the key still opens it.</p>
+             <ul class="a-pins">${rows}</ul>`
+          : ""
+      }
       <p><a class="a-btn" href="/admin">Back to collections</a></p>`
   });
 }

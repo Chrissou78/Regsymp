@@ -258,9 +258,11 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   margin-top: 14px;
 }
 
-/* The input takes the room that is left, rather than a fixed 240px that
-   collided with everything beside it. */
-.a-cred-set { display: flex; gap: 8px; flex: 1 1 340px; min-width: 0; }
+/* Two rows, always: the field and its Save on one, any secondary action on
+   the next. Sharing one row meant the input shrank in proportion to how many
+   buttons a credential happened to have -- and the one with three of them,
+   the encryption key, squeezed it smallest of all. */
+.a-cred-set { display: flex; gap: 8px; flex: 1 1 100%; min-width: 0; }
 .a-cred-set input {
   flex: 1 1 auto;
   min-width: 0;
@@ -273,10 +275,16 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 }
 
 .a-cred-aside { flex: 0 0 auto; }
+
+/* The field itself is the thing being used, so give it the room. */
+.a-cred-set input { padding: 11px 12px; }
+.a-cred-set .a-btn { white-space: nowrap; }
 .a-cred-aside button { font-family: inherit; font-size: 13px; cursor: pointer; }
 
 @media (max-width: 620px) {
-  .a-cred-set { flex-basis: 100%; }
+  /* Save drops under the field rather than shrinking it. */
+  .a-cred-set { flex-wrap: wrap; }
+  .a-cred-set input { flex-basis: 100%; }
 }
 
 /* A revealed key: long, and needs to be selectable in one go. */
@@ -301,3 +309,64 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 .a-state--active { color: #2F6B3A; }
 .a-state--unconfirmed { color: #9B2C2C; }
 .a-state--invited { color: #7A5E22; }
+
+/* Pasted guest lists, and the preview of what was understood. */
+.a-paste {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px;
+  border: 1px solid var(--a-line);
+  border-radius: 3px;
+  background: #fff;
+  margin-bottom: 12px;
+}
+
+/* A wide table must scroll inside itself rather than widening the page. */
+.a-tablewrap { overflow-x: auto; margin: 14px 0 26px; }
+.a-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.a-table th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--a-muted);
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--a-line);
+  white-space: nowrap;
+}
+.a-table td {
+  padding: 7px 12px 7px 0;
+  border-bottom: 1px solid var(--a-line);
+  vertical-align: top;
+}
+
+/* Pinned images: a thumbnail, its name, and what can be done with it. */
+.a-pins {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 26px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px 20px;
+}
+.a-pin { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.a-pin-thumb { flex: 0 0 auto; line-height: 0; }
+.a-pin-thumb img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border: 1px solid var(--a-line);
+  border-radius: 3px;
+  background: #fff;
+}
+.a-pin-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.a-pin-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.a-pin-meta { font-size: 12px; color: var(--a-muted); }
+.a-pin-links { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; }

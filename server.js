@@ -26,7 +26,8 @@ import {
 } from "./admin/secrets.js";
 import { materialise, seedAdmins, seedContent, writeThrough } from "./admin/db-bootstrap.js";
 import { createPinner } from "./admin/ipfs.js";
-import { backfill, listPins, pinDocument, pinStatus } from "./admin/pins.js";
+import { backfill, documentByDigest, listPins, pinDocument, pinStatus } from "./admin/pins.js";
+import { decrypt, isEncrypted } from "./admin/crypto.js";
 import { configValue, setRuntimeConfig } from "./admin/runtime-config.js";
 import { createFsStore } from "./admin/store-fs.js";
 import { rebuild, lastBuild } from "./admin/rebuild.js";
@@ -286,7 +287,60 @@ const admin = createAdmin({
         gatewayUrl: (cid) => pinner.gatewayUrl(cid),
         // Never on boot: the first run uploads every image on the site, and a
         // deploy is not the moment to find out how long that takes.
-        backfill: (limit) => backfill(db, store, pinner, { limit })
+        backfill: (limit) => backfill(db, store, pinner, { limit }),
+
+        /** The stored copy, for a thumbnail. No gateway, no decryption. */
+        thumbnail: async (digest) => {
+          const row = await documentByDigest(db, digest);
+          return row ? { path: row.path, bytes: row.body } : null;
+        },
+
+        /**
+         * The pinned copy, fetched back and decrypted.
+         *
+         * Deliberately from IPFS rather than from the database: downloading
+         * what is actually pinned is the only thing that proves the encrypted
+         * copy is intact and the key still opens it. Serving the local copy
+         * would look identical and prove nothing.
+         */
+        original: async (digest) => {
+          const row = await documentByDigest(db, digest);
+          if (!row) return null;
+
+          // Gateways rate-limit, and a handful of downloads in a row is
+          // enough to trip one. A short retry turns a transient 429 into a
+          // slightly slower download rather than an error page.
+          let res;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            res = await fetch(pinner.gatewayUrl(row.cid));
+            if (res.ok) break;
+            if (res.status !== 429 && res.status < 500) break;
+            await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+          }
+
+          if (!res.ok) {
+            throw new Error(
+              res.status === 429
+                ? "The IPFS gateway is rate-limiting these requests. Wait a moment and try again."
+                : `The gateway returned ${res.status} for ${row.cid}.`
+            );
+          }
+          const fetched = Buffer.from(await res.arrayBuffer());
+
+          if (!row.encrypted) return { path: row.path, bytes: fetched, verified: true };
+          if (!isEncrypted(fetched)) {
+            throw new Error("The pinned copy is not in the expected encrypted format.");
+          }
+
+          const plain = decrypt(fetched, process.env.IPFS_ENCRYPTION_KEY);
+          // Compare against the database copy: equal means the pinned backup
+          // is byte-for-byte the original, which is the whole claim.
+          return {
+            path: row.path,
+            bytes: plain,
+            verified: Buffer.compare(plain, row.body) === 0
+          };
+        }
       }
     : null,
   // Say so in the interface when content is not actually persistent. Saving

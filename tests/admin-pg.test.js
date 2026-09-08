@@ -463,6 +463,19 @@ test("the session secret is generated once and then reused", opts, async () => {
   assert.equal(await ensureSessionSecret(db), first);
 });
 
+test("a stored credential reports as set even if this process never loaded it", opts, async () => {
+  // Rows are read into the environment at boot. One written afterwards by
+  // another process would otherwise show as "not set" beside a Clear button.
+  await reset();
+  delete process.env.PINATA_JWT;
+  await setSecret(db, "PINATA_JWT", "eyJstored-not-loaded", "chris@onchainlabs.ch");
+  delete process.env.PINATA_JWT; // as though a different process had written it
+
+  const entry = (await secretStatus(db)).find((s) => s.name === "PINATA_JWT");
+  assert.equal(entry.set, true, "a stored credential reported as absent");
+  assert.equal(entry.source, "database");
+});
+
 test("credential status reports names, never values", opts, async () => {
   await reset();
   await setSecret(db, "RESEND_API_KEY", "re_super_secret_value", "chris@onchainlabs.ch");

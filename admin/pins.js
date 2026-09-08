@@ -223,3 +223,22 @@ export async function listPins(db) {
     digest: r.digest
   }));
 }
+
+/**
+ * The stored copy of a pinned image, found by its digest.
+ *
+ * The database holds the plaintext, so a thumbnail needs no gateway round
+ * trip and no decryption -- which matters on a page showing eighty of them.
+ */
+export async function documentByDigest(db, digest) {
+  if (!/^[0-9a-f]{40}$/.test(String(digest ?? ""))) return null;
+  const { rows } = await db.query(
+    `select d.path, d.body, p.cid, p.encrypted
+       from content_documents d
+       join asset_pins p on p.digest = d.digest
+      where d.digest = $1
+      limit 1`,
+    [String(digest)]
+  );
+  return rows[0] ?? null;
+}

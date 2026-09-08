@@ -171,9 +171,123 @@ export function attendeesPage({
         <button class="a-btn">Add</button>
       </form>
 
+      <h2>Add several at once</h2>
+      <p class="a-note">Paste a CSV, a block copied from a spreadsheet, or just a
+      column of addresses. A header row is used if there is one; without one the
+      address is found wherever it sits. You will see what was understood before
+      anything is created.</p>
+      <form method="post" action="/admin/attendees" class="a-form">
+        <input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="action" value="importPreview">
+        <textarea name="paste" rows="6" class="a-paste" aria-label="Pasted guest list"
+                  placeholder="Email,First name,Surname,Company&#10;ada@example.com,Ada,Lovelace,Engines"></textarea>
+        <div class="a-form--inline">
+          <select name="role" aria-label="Role for everyone in this paste">
+            <option value="visitor">All as visitors</option>
+            <option value="speaker">All as speakers</option>
+          </select>
+          <label class="a-check">
+            <input type="checkbox" name="sendClaim" value="yes">
+            <span>Email each of them a link to set a password</span>
+          </label>
+          <button class="a-btn">Read the list</button>
+        </div>
+      </form>
+
       <h2>${guests.length} account${guests.length === 1 ? "" : "s"}</h2>
       ${rows ? `<ul class="a-list">${rows}</ul>` : '<p class="a-note">Nobody yet.</p>'}
 
       <p><a class="a-btn" href="/admin">Back to collections</a></p>`
+  });
+}
+
+/**
+ * What the paste was understood to mean, before anything is created.
+ *
+ * A preview rather than a straight import because the failure that matters is
+ * not a rejected row -- it is a hundred rows accepted with the columns one
+ * place out, which reads perfectly well in a success message.
+ */
+export function importPreviewPage({ parsed, existing, role, sendClaim, paste, session, token }) {
+  const known = new Set(existing.map((g) => g.email));
+  const fresh = parsed.rows.filter((r) => !known.has(r.email));
+  const already = parsed.rows.filter((r) => known.has(r.email));
+
+  const cell = (v) => `<td>${v ? escape(v) : '<span class="a-count">—</span>'}</td>`;
+
+  const table = (rows) => `<div class="a-tablewrap"><table class="a-table">
+    <thead><tr><th>Email</th><th>First name</th><th>Surname</th><th>Company</th><th>Position</th></tr></thead>
+    <tbody>${rows
+      .map(
+        (r) => `<tr>${cell(r.email)}${cell(r.firstName)}${cell(r.lastName)}${cell(r.company)}${cell(
+          r.position
+        )}</tr>`
+      )
+      .join("")}</tbody></table></div>`;
+
+  return layout({
+    title: "Check the list",
+    user: session.user,
+    body: `<h1>Check the list</h1>
+      <p class="a-lede">Read as ${
+        parsed.hadHeader ? "a table with a header row" : "rows without a header"
+      }${
+        parsed.delimiter
+          ? `, separated by ${
+              { "	": "tabs", ",": "commas", ";": "semicolons" }[parsed.delimiter] ?? "a delimiter"
+            }`
+          : ", one field per line"
+      }. Nothing has been created yet.</p>
+
+      <ul class="a-list">
+        <li class="a-row"><span class="a-row-name">To add</span><span class="a-count">${fresh.length}</span></li>
+        <li class="a-row"><span class="a-row-name">Already have an account</span><span class="a-count">${already.length}</span></li>
+        <li class="a-row"><span class="a-row-name">Could not be read</span><span class="a-count">${parsed.problems.length}</span></li>
+      </ul>
+
+      ${
+        fresh.length
+          ? `<h2>Will be added as ${escape(role === "speaker" ? "speakers" : "visitors")}</h2>
+             <p class="a-note">Check the columns line up before confirming. If a surname
+             has landed under Company, the paste needs a header row.</p>
+             ${table(fresh)}`
+          : '<p class="a-note">Nothing new to add.</p>'
+      }
+
+      ${already.length ? `<h2>Skipped &mdash; already registered</h2>${table(already)}` : ""}
+
+      ${
+        parsed.problems.length
+          ? `<h2>Could not be read</h2>
+             <p class="a-note">These lines are listed rather than dropped, so nobody
+             goes missing without anybody noticing.</p>
+             <ul class="a-list">${parsed.problems
+               .map(
+                 (p) => `<li class="a-row">
+                     <span class="a-row-name"><code>${escape(p.text.slice(0, 90))}</code></span>
+                     <span class="a-count">line ${p.line} &middot; ${escape(p.reason)}</span>
+                   </li>`
+               )
+               .join("")}</ul>`
+          : ""
+      }
+
+      <form method="post" action="/admin/attendees" class="a-form">
+        <input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="action" value="importConfirm">
+        <input type="hidden" name="role" value="${escape(role)}">
+        ${sendClaim ? '<input type="hidden" name="sendClaim" value="yes">' : ""}
+        <textarea name="paste" hidden>${escape(paste)}</textarea>
+        <div class="a-form--inline">
+          ${
+            fresh.length
+              ? `<button class="a-btn">Add ${fresh.length} ${
+                  fresh.length === 1 ? "person" : "people"
+                }${sendClaim ? " and email them" : ""}</button>`
+              : ""
+          }
+          <a class="a-count" href="/admin/attendees">Back without adding</a>
+        </div>
+      </form>`
   });
 }

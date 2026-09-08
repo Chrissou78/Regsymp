@@ -109,7 +109,11 @@ export async function secretStatus(db) {
   return MANAGED.map((name) => ({
     name,
     help: DESCRIPTIONS[name] ?? "",
-    set: Boolean(process.env[name]),
+    // Stored counts as set, not just loaded. They are read into the
+    // environment at boot, so a row written afterwards by another process --
+    // or before this one started -- would otherwise be reported as absent
+    // while a Clear button sat next to it.
+    set: Boolean(process.env[name]) || stored.has(name),
     source: stored.has(name) ? "database" : process.env[name] ? "environment" : null,
     updatedAt: stored.get(name)?.updated_at ?? null,
     updatedBy: stored.get(name)?.updated_by ?? null
