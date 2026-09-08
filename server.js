@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
 import { createAdmin, originFor } from "./admin/routes.js";
 import { createSessions } from "./admin/auth.js";
+import { createPgSessions } from "./admin/session-store.js";
 import { createAttendees } from "./admin/attendees.js";
 import { createBadgeCategories } from "./admin/badge-categories.js";
 import { createMailer } from "./admin/mail.js";
@@ -212,7 +213,8 @@ async function publishSpeaker(guest) {
 const portal = attendees
   ? createPortal({
       attendees,
-      sessions: createSessions(),
+      // In Postgres when there is one, so a deploy does not sign anybody out.
+      sessions: createPgSessions({ db, kind: "guest" }),
       secret: () => env("SESSION_SECRET") || configValue("SESSION_SECRET"),
       mail: mailer,
       publishSpeaker,
@@ -227,7 +229,7 @@ const portal = attendees
   : null;
 
 const admin = createAdmin({
-  sessions: createSessions(),
+  sessions: db ? createPgSessions({ db, kind: "admin" }) : createSessions(),
   store,
   userStore,
   secret: env("SESSION_SECRET"),

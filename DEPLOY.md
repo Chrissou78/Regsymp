@@ -389,10 +389,17 @@ files are a few KB, so this costs almost nothing.
   which addresses exist.
 - Eight failed attempts from one address triggers a 15-minute lockout, counted
   per source so one attacker cannot lock everyone out.
-- Sessions are held server-side; the cookie carries only an opaque id, and is
-  `HttpOnly`, `Secure` and `SameSite=Lax`.
-- Sessions live in memory, so a restart signs everyone out — but restarts are
-  now rare, because saving no longer causes one.
+- Sessions are held server-side in the `sessions` table; the cookie carries
+  only an opaque id, and is `HttpOnly`, `Secure` and `SameSite=Lax`.
+- **A restart no longer signs anybody out.** Sessions were in memory, which
+  was defensible until the navigation began showing an "Admin" link from a
+  readable cookie that outlived the server: after every deploy the menu said
+  you were signed in and the first click bounced you to sign in again. One
+  table holds both populations, kept apart by `kind`, so signing out of the
+  portal cannot reach an admin session.
+- The readable hint corrects itself. Whenever a surface turns an
+  unauthenticated request away it removes its own role from `regsymp_who`, so
+  a hint that has outlived its session stops being offered as a link.
 
 ### The volume outranks git
 

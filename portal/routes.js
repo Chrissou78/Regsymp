@@ -71,9 +71,26 @@ export function createPortal({
     return Object.fromEntries(new URLSearchParams(Buffer.concat(chunks).toString("utf8")));
   }
 
-  function sessionFor(req) {
+  /**
+   * Rewrite the readable hint cookie with one role removed.
+   *
+   * The hint lives in the browser and the session lives on the server, so they
+   * can disagree — most obviously after a restart, when the menu offered a
+   * link that immediately bounced to sign in. Whenever a surface turns an
+   * unauthenticated request away, it takes its own role out of the hint so the
+   * menu stops claiming it.
+   */
+  function dropRole(req, role) {
+    const raw = parseCookies(req.headers.cookie).regsymp_who ?? "";
+    const roles = decodeURIComponent(raw).split("-").filter(Boolean).filter((r) => r !== role);
+    return roles.length
+      ? `regsymp_who=${roles.join("-")}; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`
+      : "regsymp_who=; Secure; SameSite=Lax; Path=/; Max-Age=0";
+  }
+
+  async function sessionFor(req) {
     const id = parseCookies(req.headers.cookie)[COOKIE];
-    const session = sessions.get(id);
+    const session = await sessions.get(id);
     return session ? { id, ...session } : null;
   }
 
@@ -92,14 +109,14 @@ export function createPortal({
       ? `regsymp_who=${roles.join("-")}; Secure; SameSite=Lax; Path=/; Max-Age=${EIGHT_HOURS}`
       : "regsymp_who=; Secure; SameSite=Lax; Path=/; Max-Age=0";
 
-  function guestCookie(guest) {
-    const id = sessions.create({ id: guest.id, email: guest.email }, null);
+  async function guestCookie(guest) {
+    const id = await sessions.create({ id: guest.id, email: guest.email }, null);
     return `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${EIGHT_HOURS}`;
   }
 
-  function startSession(res, guest, to = "/portal") {
+  async function startSession(res, guest, to = "/portal") {
     redirect(res, to, {
-      "Set-Cookie": [guestCookie(guest), whoCookie(["guest"])]
+      "Set-Cookie": [await guestCookie(guest), whoCookie(["guest"])]
     });
   }
 
@@ -219,7 +236,7 @@ export function createPortal({
 
       const guest = await attendees.byId(found.attendeeId);
       await attendees.recordLogin(guest.id);
-      startSession(res, guest);
+      await startSession(res, guest);
       return true;
     }
 
@@ -229,7 +246,7 @@ export function createPortal({
     // whitelist rather than a race for the first hundred sign-ups.
     if (path === "/portal/register") {
       if (req.method === "GET") {
-        if (sessionFor(req)) return redirect(res, "/portal"), true;
+        if (await sessionFor(req)) return redirect(res, "/portal"), true;
         html(res, 200, registerPage());
         return true;
       }
@@ -292,7 +309,7 @@ export function createPortal({
       res.writeHead(200, {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
-        "Set-Cookie": [guestCookie(guest), whoCookie(["guest"])]
+        "Set-Cookie": [await guestCookie(guest), whoCookie(["guest"])]
       });
       res.end(checkEmailPage({ email: guest.email }));
       return true;
@@ -330,7 +347,7 @@ export function createPortal({
     // ------------------------------------------------------------- sign in
     if (path === "/portal/signin") {
       if (req.method === "GET") {
-        if (sessionFor(req)) return redirect(res, "/portal"), true;
+        if (await sessionFor(req)) return redirect(res, "/portal"), true;
         html(res, 200, signinPage());
         return true;
       }
@@ -370,11 +387,11 @@ export function createPortal({
       if (isGuest) {
         const guest = await attendees.byEmail(email);
         await attendees.recordLogin(guest.id);
-        cookies.push(guestCookie(guest));
+        cookies.push(await guestCookie(guest));
         roles.push("guest");
       }
       if (isAdmin) {
-        cookies.push(admins.issueSession(email));
+        cookies.push(await admins.issueSession(email));
         roles.push("admin");
       }
       cookies.push(whoCookie(roles));
@@ -409,15 +426,15 @@ export function createPortal({
     }
 
     // ---------------------------------------------------- everything below
-    const session = sessionFor(req);
+    const session = await sessionFor(req);
     if (!session) {
-      redirect(res, "/portal/signin");
+      redirect(res, "/portal/signin", { "Set-Cookie": dropRole(req, "guest") });
       return true;
     }
 
     const guest = await attendees.byId(session.user.id);
     if (!guest) {
-      sessions.destroy(session.id);
+      await sessions.destroy(session.id);
       redirect(res, "/portal/signin", {
         "Set-Cookie": [
           `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
@@ -433,7 +450,7 @@ export function createPortal({
       if (req.method === "POST") {
         const form = await readForm(req);
         requireCsrf(session.id, form.csrf);
-        sessions.destroy(session.id);
+        await sessions.destroy(session.id);
       }
       redirect(res, "/", {
         "Set-Cookie": [
@@ -504,7 +521,7 @@ export function createPortal({
 
       // Every other session for this account goes, in case the password was
       // changed because it leaked.
-      sessions.destroyOthersFor(guest.email, session.id);
+      await sessions.destroyOthersFor(guest.email, session.id);
       html(res, 200, changePasswordPage({ guest, token, saved: true }));
       return true;
     }

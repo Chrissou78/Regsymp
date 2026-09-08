@@ -246,9 +246,26 @@ export function createAdmin(config) {
     return Buffer.concat(chunks);
   }
 
-  function sessionFor(req) {
+  /**
+   * Rewrite the readable hint cookie with one role removed.
+   *
+   * The hint lives in the browser and the session lives on the server, so they
+   * can disagree — most obviously after a restart, when the menu offered a
+   * link that immediately bounced to sign in. Whenever a surface turns an
+   * unauthenticated request away, it takes its own role out of the hint so the
+   * menu stops claiming it.
+   */
+  function dropRole(req, role) {
+    const raw = parseCookies(req.headers.cookie).regsymp_who ?? "";
+    const roles = decodeURIComponent(raw).split("-").filter(Boolean).filter((r) => r !== role);
+    return roles.length
+      ? `regsymp_who=${roles.join("-")}; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`
+      : "regsymp_who=; Secure; SameSite=Lax; Path=/; Max-Age=0";
+  }
+
+  async function sessionFor(req) {
     const id = parseCookies(req.headers.cookie)[COOKIE];
-    const session = sessions.get(id);
+    const session = await sessions.get(id);
     return session ? { id, ...session } : null;
   }
 
@@ -363,7 +380,7 @@ export function createAdmin(config) {
       }
 
       attempts.succeed(source);
-      const id = sessions.create({ email }, null);
+      const id = await sessions.create({ email }, null);
       redirect(res, "/admin", {
         "Set-Cookie":
           `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=28800`
@@ -377,15 +394,21 @@ export function createAdmin(config) {
     // ------------------------------------------------------------- guard
     // Everything below here requires a session. Routes added after this
     // point are protected by default.
-    const session = sessionFor(req);
+    const session = await sessionFor(req);
     if (!session) {
-      if (req.method === "GET") redirect(res, "/admin/signin");
-      else html(res, 403, layout({ title: "Not signed in", user: null, body: "<p>Session expired.</p>" }));
+      // Take "admin" out of the readable hint on the way past, so the menu
+      // stops offering a link that lands here.
+      const correct = { "Set-Cookie": dropRole(req, "admin") };
+      if (req.method === "GET") redirect(res, "/admin/signin", correct);
+      else {
+        res.writeHead(403, { "Content-Type": "text/html; charset=utf-8", ...correct });
+        res.end(layout({ title: "Not signed in", user: null, body: "<p>Session expired.</p>" }));
+      }
       return true;
     }
 
     if (path === "/admin/signout") {
-      sessions.destroy(session.id);
+      await sessions.destroy(session.id);
       redirect(res, "/admin/signin", {
         "Set-Cookie": `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0`
       });
@@ -422,7 +445,7 @@ export function createAdmin(config) {
 
       // If the password was changed because it was compromised, leaving the
       // other sessions signed in would defeat the purpose.
-      const endedElsewhere = sessions.destroyOthersFor?.(session.user.email, session.id) ?? 0;
+      const endedElsewhere = (await sessions.destroyOthersFor?.(session.user.email, session.id)) ?? 0;
 
       html(res, 200, layout({
         title: "Password changed",
@@ -1211,8 +1234,8 @@ export function createAdmin(config) {
    * the caller must have checked the password against admin_users first, and
    * the two credential stores stay separate — this only issues the cookie.
    */
-  function issueSession(email) {
-    const id = sessions.create({ email: String(email).trim().toLowerCase() }, null);
+  async function issueSession(email) {
+    const id = await sessions.create({ email: String(email).trim().toLowerCase() }, null);
     return `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`;
   }
 
