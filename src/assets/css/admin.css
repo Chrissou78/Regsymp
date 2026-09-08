@@ -615,9 +615,12 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   gap: 1.8mm;
   margin: 0;
   padding: 0 5mm 2.5mm;
-  font-size: 5pt;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  /* Lower case, matching the wordmark it sits beside, which is lower case
+     too. The wide tracking went with the capitals; without them it looks
+     wrong, so it goes as well. Set in the markup rather than by transform,
+     so the text is what it says it is. */
+  font-size: 5.5pt;
+  letter-spacing: 0.01em;
   color: #9b9691;
 }
 
