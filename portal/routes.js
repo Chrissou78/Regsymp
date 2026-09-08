@@ -636,7 +636,7 @@ export function createPortal({
       };
       // Role is not editable here, and neither is email: an attendee must not
       // be able to promote themselves or take over another address.
-      if (guest.role === "speaker") {
+      if (guest.category === "speaker") {
         fields.description = String(form.description ?? "").trim() || null;
       }
 
@@ -647,7 +647,7 @@ export function createPortal({
         // A linked speaker's own words belong on the public page. Not awaited
         // for its result: the profile is already saved, and a rebuild failing
         // must not make a successful save look broken.
-        if (guest.role === "speaker" && guest.speakerSlug && publishSpeaker) {
+        if (guest.category === "speaker" && guest.speakerSlug && publishSpeaker) {
           await publishSpeaker(await attendees.byId(guest.id)).catch((err) =>
             console.error("publishing the speaker page failed:", err.message)
           );

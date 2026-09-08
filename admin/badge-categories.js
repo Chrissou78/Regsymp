@@ -83,6 +83,7 @@ export function createBadgeCategories({ db }) {
         limit: r.number_from === null ? null : r.number_to - r.number_from + 1,
         issued: r.issued,
         colour: r.colour,
+        note: r.note,
         sort: r.sort,
         protected: r.protected
       }));
@@ -92,7 +93,7 @@ export function createBadgeCategories({ db }) {
       return (await this.list()).find((c) => c.slug === slug) ?? null;
     },
 
-    async create({ slug, label, from, to, colour, sort }) {
+    async create({ slug, label, from, to, colour, sort, note }) {
       const key = String(slug ?? "").trim().toLowerCase();
       if (!SLUG.test(key)) {
         throw new Error("The identifier should be lowercase letters, digits and hyphens.");
@@ -104,9 +105,17 @@ export function createBadgeCategories({ db }) {
 
       try {
         await db.query(
-          `insert into badge_categories (slug, label, number_from, number_to, colour, sort)
-           values ($1, $2, $3, $4, $5, $6)`,
-          [key, String(label).trim(), range.from, range.to, normaliseColour(colour), Number(sort) || 0]
+          `insert into badge_categories (slug, label, number_from, number_to, colour, sort, note)
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            key,
+            String(label).trim(),
+            range.from,
+            range.to,
+            normaliseColour(colour),
+            Number(sort) || 0,
+            String(note ?? "").trim() || null
+          ]
         );
       } catch (err) {
         if (err.code === "23505") throw new Error(`There is already a category called ${key}.`);
@@ -115,7 +124,7 @@ export function createBadgeCategories({ db }) {
       return this.byslug(key);
     },
 
-    async update(slug, { label, from, to, colour, sort }) {
+    async update(slug, { label, from, to, colour, sort, note }) {
       const existing = await this.byslug(slug);
       if (!existing) throw new Error("There is no such category.");
 
@@ -154,7 +163,7 @@ export function createBadgeCategories({ db }) {
 
       await db.query(
         `update badge_categories
-            set label = $2, number_from = $3, number_to = $4, colour = $5, sort = $6
+            set label = $2, number_from = $3, number_to = $4, colour = $5, sort = $6, note = $7
           where slug = $1`,
         [
           slug,
@@ -162,7 +171,8 @@ export function createBadgeCategories({ db }) {
           range.from,
           range.to,
           normaliseColour(colour ?? existing.colour),
-          Number(sort ?? existing.sort) || 0
+          Number(sort ?? existing.sort) || 0,
+          note === undefined ? existing.note : String(note ?? "").trim() || null
         ]
       );
       return this.byslug(slug);

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { createDb, migrate } from "../admin/db.js";
 import { createBadgeCategories } from "../admin/badge-categories.js";
 import { createAttendees } from "../admin/attendees.js";
-import { attendeesPage } from "../admin/attendees-page.js";
+import { attendeesPage, EXAMPLE_CSV } from "../admin/attendees-page.js";
+import { parseAttendees } from "../admin/import-attendees.js";
 
 /**
  * Badge categories are data now, so the organisers can add Press or Staff
@@ -58,8 +59,8 @@ async function reset() {
   );
 }
 
-const guest = async (email, role = "visitor") =>
-  attendees.create({ email, role }, "chris@onchainlabs.ch");
+const guest = async (email, category = "visitor") =>
+  attendees.create({ email, category }, "chris@onchainlabs.ch");
 
 // ------------------------------------------------------------------ the three
 
@@ -180,19 +181,18 @@ test("every badge type the guest list offers can actually be issued", opts, asyn
 
   // And each one really is issuable, which is what failed before.
   for (const slug of offered) {
-    const someone = await attendees.create({ email: `${slug}@example.com`, role: "visitor" }, "chris");
+    const someone = await attendees.create({ email: `${slug}@example.com`, category: slug }, "chris");
     await attendees.issueTicket({ attendeeId: someone.id, category: slug, issuedBy: "chris" });
   }
 
   assert.equal((await attendees.ticketFor(who.id)), null, "the sample guest should still hold nothing");
 });
 
-test("a full category is offered but cannot be picked", opts, async () => {
+test("a full category cannot be picked for somebody new", opts, async () => {
   await reset();
   await categories.create({ slug: "tiny", label: "Tiny", from: 500, to: 500 });
   const first = await guest("first@example.com");
   await attendees.issueTicket({ attendeeId: first.id, category: "tiny", issuedBy: "chris" });
-  await guest("second@example.com"); // somebody still to be given one
 
   const page = attendeesPage({
     guests: await attendees.list(),
@@ -203,13 +203,16 @@ test("a full category is offered but cannot be picked", opts, async () => {
   });
 
   assert.match(page, /<option value="tiny" disabled>Tiny — full<\/option>/);
-  assert.match(page, /<option value="vip">VIP — 33 left<\/option>/);
+  assert.match(page, /<option value="vip">VIP \(33 left\)<\/option>/);
 });
 
-test("a speaker's badge type is chosen for them, nobody else's is", opts, async () => {
+test("the list is grouped by type, in the categories' own order", opts, async () => {
+  // Read as "who are the speakers", not "who signed up on Tuesday".
   await reset();
-  await guest("speaker@example.com", "speaker");
-  await guest("visitor@example.com", "visitor");
+  await guest("v1@example.com", "visitor");
+  await guest("s1@example.com", "speaker");
+  await guest("v2@example.com", "visitor");
+  await guest("vip1@example.com", "vip");
 
   const page = attendeesPage({
     guests: await attendees.list(),
@@ -219,15 +222,102 @@ test("a speaker's badge type is chosen for them, nobody else's is", opts, async 
     token: "t"
   });
 
+  const headings = [...page.matchAll(/class="a-group-head">[\s\S]*?<\/span>\s*([^<]+)/g)].map(
+    (m) => m[1].trim()
+  );
+  assert.deepEqual(headings, ["Speaker", "VIP", "Visitor"], "the groups are out of order");
+
+  assert.equal((page.match(/class="a-group"/g) || []).length, 3);
+  assert.equal((page.match(/class="a-guest"/g) || []).length, 4);
+});
+
+test("a claimed badge offers nothing to press; an unclaimed one offers Cancel", opts, async () => {
+  await reset();
+  const claimed = await guest("claimed@example.com", "vip");
+  const open = await guest("open@example.com", "vip");
+  await attendees.issueTicket({ attendeeId: claimed.id, category: "vip", issuedBy: "chris" });
+  await attendees.issueTicket({ attendeeId: open.id, category: "vip", issuedBy: "chris" });
+  await attendees.claimTicket((await attendees.ticketFor(claimed.id)).id);
+
+  const page = attendeesPage({
+    guests: await attendees.list(),
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+
+  const rows = page.split('<li class="a-guest">').slice(1);
+  const rowFor = (email) => rows.find((r) => r.includes(email));
+
+  const settled = rowFor("claimed@example.com");
+  assert.match(settled, /a-state--claimed">claimed</);
+  assert.doesNotMatch(settled, /value="revoke"/, "a claimed badge could still be cancelled");
+
+  const cancellable = rowFor("open@example.com");
+  assert.match(cancellable, /a-state--unclaimed">not claimed</);
+  assert.match(cancellable, /name="release" value="yes"/, "cancelling would not free the number");
+  assert.match(cancellable, />Cancel</);
+});
+
+test("somebody with no badge is offered one in their own category", opts, async () => {
+  // No selects and no number box: the account already says what they are.
+  await reset();
+  await guest("none@example.com", "vip");
+
+  const page = attendeesPage({
+    guests: await attendees.list(),
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+
+  const row = page.split('<li class="a-guest">')[1];
+  assert.match(row, /Attribute VIP badge/);
+  assert.doesNotMatch(row, /name="number"/, "the number is chosen by hand again");
+  assert.doesNotMatch(row, /<select name="category"/, "the row asks for a category again");
+});
+
+test("the paste box comes with an example file", opts, async () => {
+  await reset();
+  const page = attendeesPage({
+    guests: [],
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+  assert.match(page, /href="\/admin\/attendees\/example\.csv" download/);
+
+  assert.equal(EXAMPLE_CSV.split("\n")[0], "Email,First name,Surname,Company,Position");
+  // The example has to survive the parser it is an example for.
+  const parsed = parseAttendees(EXAMPLE_CSV);
+  assert.equal(parsed.problems.length, 0);
+  assert.equal(parsed.rows.length, 3);
+  assert.equal(parsed.rows[0].email, "ada@example.com");
+  assert.equal(parsed.rows[0].company, "Analytical Engines");
+});
+
+test("the type is asked once, when the account is made", opts, async () => {
+  // Both places that create accounts ask, and neither assumes.
+  await reset();
+  const page = attendeesPage({
+    guests: [],
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+
   const selects = [...page.matchAll(/<select name="category"[\s\S]*?<\/select>/g)].map((m) => m[0]);
-  assert.equal(selects.length, 2);
-
-  const forSpeaker = selects.find((s) => s.includes('value="speaker" selected'));
-  assert.ok(forSpeaker, "a speaker should default to the speaker badge");
-
-  const forVisitor = selects.find((s) => s !== forSpeaker);
-  assert.match(forVisitor, /<option value="" selected disabled>/, "a visitor should be asked, not assumed");
-  assert.doesNotMatch(forVisitor, /value="[a-z-]+" selected/, "a badge type was chosen for a visitor");
+  assert.equal(selects.length, 2, "adding one person and adding several should both ask");
+  for (const select of selects) {
+    assert.match(select, /<option value="" selected disabled>/, "a type was chosen by default");
+    assert.match(select, /value="speaker"/);
+    assert.match(select, /value="vip"/);
+    assert.match(select, /value="visitor"/);
+  }
 });
 
 // ------------------------------------------------------------------ issuing

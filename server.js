@@ -281,6 +281,7 @@ const admin = createAdmin({
         editCategory: (slug, fields) => badgeCategories.update(slug, fields),
         removeCategory: (slug) => badgeCategories.remove(slug),
         ticketFor: (id) => attendees.ticketFor(id),
+        byId: (id) => attendees.byId(id),
 
         /** The published speaker entries, for linking an account to one. */
         speakerSlugs: async () => {

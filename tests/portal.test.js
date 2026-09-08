@@ -244,10 +244,17 @@ test("a guest cannot promote themselves or change their address", opts, async ()
   const page = await (await get("/portal", { headers: { cookie } })).text();
   const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
 
-  await post("/portal", { csrf, role: "speaker", email: "hacker@example.com", firstName: "Ada" }, cookie);
+  // Category is what decides which badge somebody gets, so it matters more
+  // now than "role" did: promoting yourself to VIP would be helping yourself
+  // to one of thirty-three places.
+  await post(
+    "/portal",
+    { csrf, category: "vip", category: "speaker", email: "hacker@example.com", firstName: "Ada" },
+    cookie
+  );
 
   const after = await attendees.byId(guest.id);
-  assert.equal(after.role, "visitor", "the guest promoted themselves");
+  assert.equal(after.category, "visitor", "the guest promoted themselves");
   assert.equal(after.email, "ada@example.com", "the guest changed their address");
 });
 

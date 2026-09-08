@@ -117,6 +117,7 @@ export function categoriesPage({ categories, session, token, flash = null }) {
       <p class="a-cred-help">
         <code>${escape(c.slug)}</code> &middot;
         ${c.numbered ? `numbers ${c.from}–${c.to}` : "unnumbered"}
+        ${c.note ? ` &middot; badges say &ldquo;${escape(c.note)}&rdquo;` : ""}
         ${c.protected ? " &middot; built in, cannot be removed" : ""}
       </p>
 
@@ -130,6 +131,8 @@ export function categoriesPage({ categories, session, token, flash = null }) {
         <input name="to" value="${c.to ?? ""}" placeholder="last no." aria-label="Last number"
                inputmode="numeric" size="6">
         <input name="colour" value="${escape(c.colour)}" aria-label="Colour" size="9">
+        <input name="note" value="${escape(c.note ?? "")}" placeholder="note on the badge"
+               aria-label="Note shown on every badge in this category">
         <input name="sort" value="${c.sort}" aria-label="Order" size="3" inputmode="numeric">
         <button class="a-btn">Save</button>
         ${
@@ -157,7 +160,9 @@ export function categoriesPage({ categories, session, token, flash = null }) {
 
       <h2>Add a category</h2>
       <p class="a-note">Ranges must not overlap: two categories drawing from the
-      same numbers would hand two people the same badge number.</p>
+      same numbers would hand two people the same badge number. A note is
+      printed on every badge in the category and shown on the ticket and the
+      wallet pass — VIP says &ldquo;Pre-event dinner&rdquo;.</p>
       <form method="post" action="/admin/categories" class="a-form--inline">
         <input type="hidden" name="csrf" value="${escape(token)}">
         <input type="hidden" name="action" value="add">
@@ -166,6 +171,7 @@ export function categoriesPage({ categories, session, token, flash = null }) {
         <input name="from" placeholder="first no." aria-label="First number" size="6" inputmode="numeric">
         <input name="to" placeholder="last no." aria-label="Last number" size="6" inputmode="numeric">
         <input name="colour" placeholder="#7A5E22" aria-label="Colour" size="9">
+        <input name="note" placeholder="note on the badge" aria-label="Note shown on every badge">
         <input name="sort" placeholder="4" aria-label="Order" size="3" inputmode="numeric">
         <button class="a-btn">Add</button>
       </form>

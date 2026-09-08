@@ -201,7 +201,7 @@ const COUNTRIES_NOTE = "Two-letter code or country name — whichever you prefer
 
 export function profilePage({ guest, ticket, token, saved = false, error = null }) {
   const socials = guest.socials ?? {};
-  const speaker = guest.role === "speaker";
+  const speaker = guest.category === "speaker";
 
   return layout({
     title: "Your profile",

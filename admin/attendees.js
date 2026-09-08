@@ -46,7 +46,7 @@ function present(row) {
   return {
     id: Number(row.id),
     email: row.email,
-    role: row.role,
+    category: row.category,
     firstName: row.first_name,
     lastName: row.last_name,
     name: [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
@@ -82,7 +82,7 @@ const WRITABLE = {
   socials: "socials",
   description: "description",
   photoPath: "photo_path",
-  role: "role",
+  category: "category",
   notes: "notes",
   consentMarketing: "consent_marketing",
   speakerSlug: "speaker_slug"
@@ -109,8 +109,15 @@ export function createAttendees({ db, now = () => new Date() }) {
     async create(fields, createdBy) {
       const email = key(fields.email);
       if (!email.includes("@")) throw new Error("That does not look like an email address.");
-      if (!["visitor", "speaker"].includes(fields.role ?? "visitor")) {
-        throw new Error("Role must be visitor or speaker.");
+
+      // Unknown fields are ignored rather than rejected, which made the rename
+      // from `role` to `category` silent: callers kept passing role and
+      // everybody quietly became a visitor. Said out loud instead.
+      if ("role" in fields) {
+        throw new Error("An attendee has a category, not a role. Pass `category`.");
+      }
+      if ("category" in fields && !String(fields.category ?? "").trim()) {
+        throw new Error("Choose a badge category.");
       }
 
       const { sets, values, next } = assignments(fields, 3);
@@ -188,9 +195,12 @@ export function createAttendees({ db, now = () => new Date() }) {
       return found;
     },
 
-    async list({ role = null, q = null, limit = 200 } = {}) {
+    async list({ category = null, q = null, limit = 200 } = {}) {
       const { rows } = await db.query(
         `select a.*,
+                ac.label as category_label,
+                ac.colour as category_colour,
+                ac.sort as category_sort,
                 t.number as ticket_number,
                 t.category as ticket_category,
                 t.code as ticket_code,
@@ -199,19 +209,26 @@ export function createAttendees({ db, now = () => new Date() }) {
                 t.revoked_at as ticket_revoked_at,
                 t.claimed_at as ticket_claimed_at
            from attendees a
+           join badge_categories ac on ac.slug = a.category
            left join tickets t on t.attendee_id = a.id and t.revoked_at is null
            left join badge_categories c on c.slug = t.category
-          where ($1::text is null or a.role = $1)
+          where ($1::text is null or a.category = $1)
             and ($2::text is null or
                  a.email ilike '%' || $2 || '%' or
                  coalesce(a.first_name,'') || ' ' || coalesce(a.last_name,'') ilike '%' || $2 || '%' or
                  coalesce(a.company,'') ilike '%' || $2 || '%')
-          order by t.number nulls last, a.created_at
+          -- Grouped by type, the way the list is read: all the speakers
+          -- together, then the VIPs, then the visitors. Within a type, by
+          -- badge number so the sequence is visible, and the people still
+          -- waiting for one at the end.
+          order by ac.sort, ac.label, t.number nulls last, a.created_at
           limit $3`,
-        [role, q, limit]
+        [category, q, limit]
       );
       return rows.map((r) => ({
         ...present(r),
+        categoryLabel: r.category_label,
+        categoryColour: r.category_colour,
         ticket: r.ticket_category
           ? {
               number: r.ticket_number,
@@ -383,13 +400,13 @@ export function createAttendees({ db, now = () => new Date() }) {
 
     async ticketFor(attendeeId) {
       const { rows } = await db.query(
-        `select t.*, c.label as category_label, c.colour, c.number_to,
+        `select t.*, c.label as category_label, c.colour, c.number_to, c.note,
                 coalesce(array_agg(a.area) filter (where a.area is not null), '{}') as areas
            from tickets t
            join badge_categories c on c.slug = t.category
            left join ticket_access a on a.ticket_id = t.id
           where t.attendee_id = $1 and t.revoked_at is null
-          group by t.id, c.label, c.colour, c.number_to`,
+          group by t.id, c.label, c.colour, c.number_to, c.note`,
         [Number(attendeeId)]
       );
       const row = rows[0];
@@ -403,7 +420,10 @@ export function createAttendees({ db, now = () => new Date() }) {
         code: row.code,
         // An unnumbered badge says what it is instead of where it sits.
         label: row.number === null ? row.category_label : `${row.number}/${row.number_to}`,
-        areas: row.areas,
+        // The category's line first, then anything recorded for this guest.
+        // The door reads one list, and does not care which came from where.
+        areas: [...(row.note ? [row.note] : []), ...row.areas],
+        note: row.note,
         issuedAt: row.issued_at,
         claimedAt: row.claimed_at,
         walletSerial: row.wallet_serial,
@@ -423,7 +443,7 @@ export function createAttendees({ db, now = () => new Date() }) {
       const { rows } = await db.query(
         `select t.*, c.label as category_label, c.colour, c.number_to,
                 coalesce(array_agg(x.area) filter (where x.area is not null), '{}') as areas,
-                a.id as a_id, a.email, a.first_name, a.last_name, a.company, a.role
+                a.id as a_id, a.email, a.first_name, a.last_name, a.company, a.category
            from tickets t
            join attendees a on a.id = t.attendee_id
            join badge_categories c on c.slug = t.category
@@ -440,7 +460,7 @@ export function createAttendees({ db, now = () => new Date() }) {
           email: row.email,
           name: [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
           company: row.company,
-          role: row.role
+          category: row.category
         },
         ticket: {
           id: Number(row.id),

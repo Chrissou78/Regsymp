@@ -305,6 +305,109 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
 .a-form--inline input, .a-form--inline select { font-family: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--a-border, #D8D3C8); border-radius: 3px; }
 .a-search { margin: 0 0 26px; display: flex; gap: 8px; align-items: center; }
 .a-search input { min-width: 260px; font-family: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--a-border, #D8D3C8); border-radius: 3px; }
+/* The guest list, grouped by type.
+   It was one flat list of rows, each carrying several small forms, and it read
+   as a wall. Now: a heading per category, and one line per person with their
+   badge beside them and the occasional extra underneath. */
+.a-group {
+  margin: 0 0 30px;
+}
+
+.a-group-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 8px;
+  padding: 0 0 7px;
+  border-bottom: 1px solid var(--a-border, #D8D3C8);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--a-ink, #2C2E3A);
+}
+
+.a-group-head .a-count {
+  margin-left: auto;
+}
+
+.a-guests {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.a-guest {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 18px;
+  align-items: start;
+  padding: 11px 0;
+  border-bottom: 1px solid #EFECE5;
+}
+
+.a-guest-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.a-guest-name {
+  font-size: 15px;
+  color: var(--a-ink, #2C2E3A);
+}
+
+/* The badge, and whatever can still be done about it. */
+.a-badgecell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.a-badgeis {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+
+/* Second-rank actions, under the name rather than beside the badge. */
+.a-guest-more {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.a-guest-more button,
+.a-guest-more select {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--a-border, #D8D3C8);
+  border-radius: 3px;
+  background: #fff;
+}
+
+@media (max-width: 620px) {
+  /* Stacked, with the badge under the name: side by side, one or the other
+     has to be truncated and neither can afford it. */
+  .a-guest {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .a-badgecell {
+    justify-self: start;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+}
+
 .a-state { text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
 .a-state--active { color: #2F6B3A; }
 .a-state--unconfirmed { color: #9B2C2C; }
@@ -313,8 +416,7 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
    the row says which it is rather than leaving it to be inferred. */
 .a-state--claimed { color: #2F6B3A; }
 .a-state--unclaimed { color: #7A5E22; }
-/* Narrow enough to read as "a number", beside the wider access field. */
-.a-num { width: 5.5em; flex: 0 0 auto; }
+
 
 /* Pasted guest lists, and the preview of what was understood. */
 .a-paste {

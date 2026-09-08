@@ -3,9 +3,17 @@ import { escape, layout } from "./render.js";
 /**
  * The guest list.
  *
- * Registration is open to anyone, so this is where admission is actually
- * decided: an account appears here the moment somebody signs up, and stays
- * ticketless until an admin issues one. That is the whitelist.
+ * Registration is open to anyone, so this is where admission is decided: an
+ * account appears the moment somebody signs up, and carries no badge until an
+ * admin puts them in a category. That is the whitelist.
+ *
+ * An account's category *is* its badge category, so adding somebody here
+ * attributes their badge at the same time -- there is nothing left to choose
+ * afterwards, and a numbered category takes the next number in its range. The
+ * guest then claims it in their own profile, and from that moment it is fixed.
+ *
+ * Grouped by category rather than listed flat: the list is read as "who are
+ * the speakers", not "who signed up on Tuesday".
  *
  * Kept in its own module because admin/routes.js is already long, and this
  * page has nothing to do with editing site content.
@@ -19,148 +27,132 @@ function stateOf(guest) {
   return { label: "active", hint: "" };
 }
 
-/**
- * The badge categories somebody can be given, as they stand right now.
- *
- * Built from the categories table rather than hardcoded, so a category the
- * organisers add at /admin/categories appears here without a code change.
- * This list was hardcoded to "general" and "vip" and posted a field called
- * tier, which 008 dropped: whatever was chosen, the route read no category at
- * all and every attempt to issue a badge failed.
- *
- * No default for a visitor -- the first category would be chosen for them,
- * which is not the same as choosing. A speaker is the exception, being the one
- * case where the right answer is known.
- */
-function categoryOptions(categories, guest) {
-  const preselect = guest.role === "speaker" ? "speaker" : null;
-
-  const options = categories.map((c) => {
-    const full = c.numbered && c.issued >= c.limit;
-    const left = c.numbered ? ` — ${c.limit - c.issued} left` : "";
-    return `<option value="${escape(c.slug)}"${full ? " disabled" : ""}${
-      !full && c.slug === preselect ? " selected" : ""
-    }>${escape(c.label)}${full ? " — full" : left}</option>`;
-  });
-
-  const placeholder = `<option value=""${preselect ? "" : " selected"} disabled>Badge type…</option>`;
-  return placeholder + options.join("");
+/** Every category, as options, for choosing what somebody is. */
+function categoryOptions(categories, { selected = null, plural = false } = {}) {
+  return categories
+    .map((c) => {
+      const full = c.numbered && c.issued >= c.limit;
+      const left = c.numbered ? ` (${Math.max(0, c.limit - c.issued)} left)` : "";
+      const label = plural ? `All as ${c.label}` : c.label;
+      return `<option value="${escape(c.slug)}"${full ? " disabled" : ""}${
+        !full && c.slug === selected ? " selected" : ""
+      }>${escape(label)}${full ? " — full" : left}</option>`;
+    })
+    .join("");
 }
 
-function row({ guest, token, speakerSlugs, categories }) {
-  const state = stateOf(guest);
-  const canTicket = !guest.selfRegistered || guest.emailVerified;
+/**
+ * What can still be done about one person's badge.
+ *
+ * Three states, and only one of them is a button. A claimed badge is in
+ * somebody's hands, so there is nothing to press: the row says so and stops
+ * there.
+ */
+function badgeCell({ guest, hidden }) {
+  if (!guest.ticket) {
+    return `<div class="a-badgecell">
+      <span class="a-count">no badge</span>
+      <form method="post" action="/admin/attendees" class="a-inline">
+        ${hidden}<input type="hidden" name="action" value="issue">
+        <button>Attribute ${escape(guest.categoryLabel ?? guest.category)} badge</button>
+      </form>
+    </div>`;
+  }
 
+  // The number is what the row is scanned for, so it is what the row shows.
+  // An unnumbered badge names its category instead, having nothing else to say.
+  const badge = `<span class="a-badgeis">
+    <span class="a-badgedot" style="background:${escape(guest.ticket.colour)}"></span>
+    ${
+      guest.ticket.number === null
+        ? escape(guest.ticket.label)
+        : `${escape(guest.ticket.label)} <strong>#${guest.ticket.number}</strong>`
+    }
+  </span>`;
+
+  if (guest.ticket.claimedAt) {
+    return `<div class="a-badgecell">
+      ${badge}
+      <span class="a-state a-state--claimed">claimed</span>
+    </div>`;
+  }
+
+  const warning =
+    guest.ticket.number === null
+      ? "Cancel this badge?"
+      : `Cancel this badge? Number ${guest.ticket.number} goes back to the next person.`;
+
+  return `<div class="a-badgecell">
+    ${badge}
+    <span class="a-state a-state--unclaimed">not claimed</span>
+    <form method="post" action="/admin/attendees" class="a-inline"
+          onsubmit="return confirm(&quot;${escape(warning)}&quot;)">
+      ${hidden}<input type="hidden" name="action" value="revoke">
+      <input type="hidden" name="release" value="yes">
+      <button class="a-danger">Cancel</button>
+    </form>
+  </div>`;
+}
+
+function row({ guest, token, speakerSlugs }) {
+  const state = stateOf(guest);
   const hidden = `<input type="hidden" name="csrf" value="${escape(token)}">
     <input type="hidden" name="id" value="${guest.id}">`;
 
-  return `<li class="a-row a-row--stack">
-    <div class="a-row-head">
-      <span class="a-row-name">
-        ${escape(guest.name ?? guest.email)}
-        ${guest.role === "speaker" ? '<span class="a-count">speaker</span>' : ""}
-        <span class="a-count a-state a-state--${escape(state.label)}">${escape(state.label)}</span>
+  const extras = [
+    guest.ticket
+      ? `<a class="a-count" href="/admin/badges/${escape(guest.ticket.code)}" target="_blank"
+            rel="noopener">Print</a>`
+      : "",
+    guest.claimed
+      ? ""
+      : `<form method="post" action="/admin/attendees" class="a-inline">
+           ${hidden}<input type="hidden" name="action" value="sendClaim">
+           <button>Send set-password link</button>
+         </form>`,
+    guest.selfRegistered && !guest.emailVerified
+      ? `<form method="post" action="/admin/attendees" class="a-inline">
+           ${hidden}<input type="hidden" name="action" value="sendVerify">
+           <button>Resend confirmation</button>
+         </form>`
+      : "",
+    guest.category === "speaker"
+      ? `<form method="post" action="/admin/attendees" class="a-inline">
+           ${hidden}<input type="hidden" name="action" value="linkSpeaker">
+           <select name="speakerSlug" aria-label="Public speaker entry">
+             <option value="">— not linked —</option>
+             ${speakerSlugs
+               .map(
+                 (s) =>
+                   `<option value="${escape(s.slug)}"${
+                     s.slug === guest.speakerSlug ? " selected" : ""
+                   }>${escape(s.name)}</option>`
+               )
+               .join("")}
+           </select>
+           <button>Link</button>
+         </form>`
+      : ""
+  ]
+    .filter(Boolean)
+    .join("");
+
+  return `<li class="a-guest">
+    <div class="a-guest-who">
+      <span class="a-guest-name">${escape(guest.name ?? guest.email)}</span>
+      <span class="a-note">
+        ${escape(guest.email)}${guest.company ? ` &middot; ${escape(guest.company)}` : ""}
       </span>
-      <span class="a-count">${
-        guest.ticket
-          ? `<span class="a-badgedot" style="background:${escape(guest.ticket.colour)}"></span>${escape(
-              guest.ticket.label
-            )}${guest.ticket.number ? ` #${guest.ticket.number}` : ""}${
-              guest.ticket.claimedAt
-                ? ' <span class="a-state a-state--claimed">claimed</span>'
-                : ' <span class="a-state a-state--unclaimed">not claimed</span>'
-            }`
-          : "no badge"
-      }</span>
+      <span class="a-note">
+        <span class="a-state a-state--${escape(state.label)}">${escape(state.label)}</span>
+        ${state.hint ? escape(state.hint) : ""}
+        ${guest.selfRegistered ? "&middot; self-registered" : "&middot; added by an admin"}
+      </span>
     </div>
 
-    <p class="a-note">
-      ${escape(guest.email)}${guest.company ? ` &middot; ${escape(guest.company)}` : ""}
-      ${state.hint ? ` &middot; ${escape(state.hint)}` : ""}
-      ${guest.selfRegistered ? " &middot; self-registered" : " &middot; added by an admin"}
-    </p>
+    ${badgeCell({ guest, hidden })}
 
-    <div class="a-rowactions">
-      ${
-        guest.ticket
-          ? `<a class="a-count" href="/admin/badges/${escape(guest.ticket.code)}" target="_blank"
-                 rel="noopener">Print badge</a>
-             <form method="post" action="/admin/attendees" class="a-inline"
-                   onsubmit="return confirm('Withdraw this badge? Its number stays out of circulation.')">
-               ${hidden}<input type="hidden" name="action" value="revoke">
-               <button class="a-danger">Withdraw badge</button>
-             </form>
-             ${
-               guest.ticket.number === null || guest.ticket.claimedAt
-                 ? ""
-                 : `<form method="post" action="/admin/attendees" class="a-inline"
-                          onsubmit="return confirm('Cancel this badge and free number ${
-                            guest.ticket.number
-                          } for someone else?')">
-                      ${hidden}<input type="hidden" name="action" value="revoke">
-                      <input type="hidden" name="release" value="yes">
-                      <button class="a-danger">Cancel &amp; free #${guest.ticket.number}</button>
-                    </form>`
-             }
-             ${
-               guest.ticket.claimedAt
-                 ? `<span class="a-note">Claimed, so it is fixed: the number cannot be
-                    reused. Withdrawing rescinds the place and retires the number
-                    with it.</span>`
-                 : ""
-             }`
-          : canTicket
-            ? `<form method="post" action="/admin/attendees" class="a-inline">
-                 ${hidden}<input type="hidden" name="action" value="issue">
-                 <select name="category" aria-label="Badge category" required>
-                   ${categoryOptions(categories, guest)}
-                 </select>
-                 <input name="number" placeholder="no." aria-label="Badge number"
-                        inputmode="numeric" size="4" class="a-num">
-                 <input name="areas" placeholder="side events, comma separated"
-                        aria-label="Access areas">
-                 <button class="a-btn">Issue</button>
-               </form>`
-            : `<span class="a-note">Cannot issue a ticket until the email is confirmed.</span>`
-      }
-
-      ${
-        guest.claimed
-          ? ""
-          : `<form method="post" action="/admin/attendees" class="a-inline">
-               ${hidden}<input type="hidden" name="action" value="sendClaim">
-               <button>Send set-password link</button>
-             </form>`
-      }
-      ${
-        guest.selfRegistered && !guest.emailVerified
-          ? `<form method="post" action="/admin/attendees" class="a-inline">
-               ${hidden}<input type="hidden" name="action" value="sendVerify">
-               <button>Resend confirmation</button>
-             </form>`
-          : ""
-      }
-
-      ${
-        guest.role === "speaker"
-          ? `<form method="post" action="/admin/attendees" class="a-inline">
-               ${hidden}<input type="hidden" name="action" value="linkSpeaker">
-               <select name="speakerSlug" aria-label="Public speaker entry">
-                 <option value="">— not linked —</option>
-                 ${speakerSlugs
-                   .map(
-                     (s) =>
-                       `<option value="${escape(s.slug)}"${
-                         s.slug === guest.speakerSlug ? " selected" : ""
-                       }>${escape(s.name)}</option>`
-                   )
-                   .join("")}
-               </select>
-               <button>Link</button>
-             </form>`
-          : ""
-      }
-    </div>
+    ${extras ? `<div class="a-guest-more">${extras}</div>` : ""}
   </li>`;
 }
 
@@ -174,7 +166,36 @@ export function attendeesPage({
   flash = null,
   q = ""
 }) {
-  const rows = guests.map((guest) => row({ guest, token, speakerSlugs, categories })).join("");
+  // The store returns them in category order, so grouping is a matter of
+  // noticing where one category ends.
+  const groups = [];
+  for (const guest of guests) {
+    const last = groups[groups.length - 1];
+    if (last && last.slug === guest.category) last.guests.push(guest);
+    else {
+      groups.push({
+        slug: guest.category,
+        label: guest.categoryLabel ?? guest.category,
+        colour: guest.categoryColour,
+        guests: [guest]
+      });
+    }
+  }
+
+  const grouped = groups
+    .map(
+      (g) => `<section class="a-group">
+        <h3 class="a-group-head">
+          <span class="a-badgedot" style="background:${escape(g.colour)}"></span>
+          ${escape(g.label)}
+          <span class="a-count">${g.guests.length}</span>
+        </h3>
+        <ul class="a-guests">${g.guests
+          .map((guest) => row({ guest, token, speakerSlugs }))
+          .join("")}</ul>
+      </section>`
+    )
+    .join("");
 
   const meters = capacity
     .map(
@@ -183,10 +204,10 @@ export function attendeesPage({
           <span class="a-badgedot" style="background:${escape(c.colour)}"></span>
           ${escape(c.label)}${
             c.numbered ? ` &mdash; numbers ${c.from}&ndash;${c.to}` : " &mdash; unnumbered"
-          }</span>
+          }${c.note ? ` &middot; ${escape(c.note)}` : ""}</span>
         <span class="a-count">${
           c.numbered
-            ? `${c.issued} of ${c.limit} issued${c.issued >= c.limit ? " &middot; full" : ""}`
+            ? `${c.issued} of ${c.limit} taken${c.issued >= c.limit ? " &middot; full" : ""}`
             : `${c.issued} issued`
         }</span>
       </li>`
@@ -198,19 +219,14 @@ export function attendeesPage({
     user: session.user,
     flash,
     body: `<h1>Guest list</h1>
-      <p class="a-lede">Anyone can create an account; a ticket is issued here.
-      Numbers are allocated in one sequence across the event, so no number is
-      ever used twice.</p>
+      <p class="a-lede">Anyone can create an account. Adding somebody here puts
+      them in a category, which attributes their badge at the same time — a
+      numbered category takes the next number in its range. They claim it in
+      their own profile, and once claimed it is fixed.</p>
 
       <ul class="a-list">${meters}</ul>
       <p class="a-note"><a href="/admin/badges">Print badges</a> &nbsp;·&nbsp;
       <a href="/admin/categories">Manage badge categories</a></p>
-      <p class="a-note">A badge is attributed here and then claimed by the guest
-      in their own profile. Until they claim it you can <strong>cancel it and
-      free the number</strong> for somebody else; once claimed it is fixed,
-      because they are holding it. Leave the number box empty to take the next
-      free number, or type one in to hand out a particular one — a number freed
-      by a cancellation, for instance.</p>
 
       <form method="get" action="/admin/attendees" class="a-inline a-search">
         <input name="q" value="${escape(q)}" placeholder="Search name, email or company"
@@ -220,8 +236,9 @@ export function attendeesPage({
       </form>
 
       <h2>Add someone directly</h2>
-      <p class="a-note">For speakers and guests the organisers invite. An address
-      entered here counts as vouched for, so it needs no confirmation click.</p>
+      <p class="a-note">For the people the organisers invite. An address entered
+      here counts as vouched for, so it needs no confirmation click, and the
+      badge is attributed as the account is created.</p>
       <form method="post" action="/admin/attendees" class="a-form a-form--inline">
         <input type="hidden" name="csrf" value="${escape(token)}">
         <input type="hidden" name="action" value="create">
@@ -229,9 +246,9 @@ export function attendeesPage({
         <input name="firstName" placeholder="First name" aria-label="First name">
         <input name="lastName" placeholder="Surname" aria-label="Surname">
         <input name="company" placeholder="Company" aria-label="Company">
-        <select name="role" aria-label="Role">
-          <option value="visitor">Visitor</option>
-          <option value="speaker">Speaker</option>
+        <select name="category" aria-label="Badge category" required>
+          <option value="" selected disabled>Type…</option>
+          ${categoryOptions(categories)}
         </select>
         <label class="a-check">
           <input type="checkbox" name="sendClaim" value="yes" checked>
@@ -244,16 +261,17 @@ export function attendeesPage({
       <p class="a-note">Paste a CSV, a block copied from a spreadsheet, or just a
       column of addresses. A header row is used if there is one; without one the
       address is found wherever it sits. You will see what was understood before
-      anything is created.</p>
+      anything is created.
+      &nbsp;<a href="/admin/attendees/example.csv" download>Download an example CSV</a></p>
       <form method="post" action="/admin/attendees" class="a-form">
         <input type="hidden" name="csrf" value="${escape(token)}">
         <input type="hidden" name="action" value="importPreview">
         <textarea name="paste" rows="6" class="a-paste" aria-label="Pasted guest list"
-                  placeholder="Email,First name,Surname,Company&#10;ada@example.com,Ada,Lovelace,Engines"></textarea>
+                  placeholder="Email,First name,Surname,Company,Position&#10;ada@example.com,Ada,Lovelace,Analytical Engines,Mathematician"></textarea>
         <div class="a-form--inline">
-          <select name="role" aria-label="Role for everyone in this paste">
-            <option value="visitor">All as visitors</option>
-            <option value="speaker">All as speakers</option>
+          <select name="category" aria-label="Badge category for everyone in this paste" required>
+            <option value="" selected disabled>Type for all of them…</option>
+            ${categoryOptions(categories, { plural: true })}
           </select>
           <label class="a-check">
             <input type="checkbox" name="sendClaim" value="yes">
@@ -264,11 +282,18 @@ export function attendeesPage({
       </form>
 
       <h2>${guests.length} account${guests.length === 1 ? "" : "s"}</h2>
-      ${rows ? `<ul class="a-list">${rows}</ul>` : '<p class="a-note">Nobody yet.</p>'}
+      ${grouped || '<p class="a-note">Nobody yet.</p>'}
 
       <p><a class="a-btn" href="/admin">Back to collections</a></p>`
   });
 }
+
+/** A file to start from, rather than a format to guess at. */
+export const EXAMPLE_CSV = `Email,First name,Surname,Company,Position
+ada@example.com,Ada,Lovelace,Analytical Engines,Mathematician
+grace@example.com,Grace,Hopper,US Navy,Rear Admiral
+katherine@example.com,Katherine,Johnson,NASA,Aerospace Technologist
+`;
 
 /**
  * What the paste was understood to mean, before anything is created.
@@ -277,7 +302,16 @@ export function attendeesPage({
  * not a rejected row -- it is a hundred rows accepted with the columns one
  * place out, which reads perfectly well in a success message.
  */
-export function importPreviewPage({ parsed, existing, role, sendClaim, paste, session, token }) {
+export function importPreviewPage({
+  parsed,
+  existing,
+  category,
+  categoryLabel,
+  sendClaim,
+  paste,
+  session,
+  token
+}) {
   const known = new Set(existing.map((g) => g.email));
   const fresh = parsed.rows.filter((r) => !known.has(r.email));
   const already = parsed.rows.filter((r) => known.has(r.email));
@@ -316,7 +350,7 @@ export function importPreviewPage({ parsed, existing, role, sendClaim, paste, se
 
       ${
         fresh.length
-          ? `<h2>Will be added as ${escape(role === "speaker" ? "speakers" : "visitors")}</h2>
+          ? `<h2>Will be added as ${escape(categoryLabel ?? category)}, with a badge each</h2>
              <p class="a-note">Check the columns line up before confirming. If a surname
              has landed under Company, the paste needs a header row.</p>
              ${table(fresh)}`
@@ -344,7 +378,7 @@ export function importPreviewPage({ parsed, existing, role, sendClaim, paste, se
       <form method="post" action="/admin/attendees" class="a-form">
         <input type="hidden" name="csrf" value="${escape(token)}">
         <input type="hidden" name="action" value="importConfirm">
-        <input type="hidden" name="role" value="${escape(role)}">
+        <input type="hidden" name="category" value="${escape(category)}">
         ${sendClaim ? '<input type="hidden" name="sendClaim" value="yes">' : ""}
         <textarea name="paste" hidden>${escape(paste)}</textarea>
         <div class="a-form--inline">

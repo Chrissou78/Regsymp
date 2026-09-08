@@ -5,7 +5,7 @@ import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
 import { createAttemptLimiter } from "./login-attempts.js";
 import { configValue } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
-import { attendeesPage, importPreviewPage } from "./attendees-page.js";
+import { attendeesPage, EXAMPLE_CSV, importPreviewPage } from "./attendees-page.js";
 import { badgeSheetPage, categoriesPage } from "./badges-page.js";
 import QRCode from "qrcode";
 import { parseAttendees } from "./import-attendees.js";
@@ -522,6 +522,18 @@ export function createAdmin(config) {
       return true;
     }
 
+    // A file to start from, rather than a format to guess at. Served here so
+    // it is one click from the paste box that consumes it.
+    if (path === "/admin/attendees/example.csv") {
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="regsymp-guests-example.csv"',
+        "Cache-Control": "no-store"
+      });
+      res.end(EXAMPLE_CSV);
+      return true;
+    }
+
     // -------------------------------------------------------- categories
     if (path === "/admin/categories") {
       if (!guests) {
@@ -545,6 +557,7 @@ export function createAdmin(config) {
         from: form.fields.from,
         to: form.fields.to,
         colour: form.fields.colour,
+        note: form.fields.note,
         sort: form.fields.sort
       };
 
@@ -613,14 +626,30 @@ export function createAdmin(config) {
                 firstName: form.fields.firstName,
                 lastName: form.fields.lastName,
                 company: form.fields.company,
-                role: form.fields.role || "visitor"
+                category: form.fields.category
               },
               by
             );
-            message = `${created.email} added.`;
+
+            // Putting somebody in a category is attributing their badge --
+            // there is nothing left to decide, so it is not a second step.
+            // Self-registration deliberately does not come through here:
+            // signing up is open to anyone, and admission is not.
+            const badge = await guests.issueTicket({
+              attendeeId: created.id,
+              category: created.category,
+              issuedBy: by
+            });
+
+            message =
+              `${created.email} added as ${created.category}` +
+              (badge.number === null ? " with a badge." : `, badge #${badge.number}.`);
+
             if (form.fields.sendClaim === "yes") {
               const sent = await guests.sendClaim(created.id, origin);
-              message += sent ? " A set-password link is on its way." : " Email is not configured, so no link was sent.";
+              message += sent
+                ? " A set-password link is on its way."
+                : " Email is not configured, so no link was sent.";
             }
             break;
           }
@@ -631,10 +660,18 @@ export function createAdmin(config) {
               html(res, 400, await render({ kind: "error", message: "There was nothing to read in that paste." }));
               return true;
             }
+            const chosen = String(form.fields.category ?? "");
+            const known = (await guests.categories()).find((c) => c.slug === chosen);
+            if (!known) {
+              html(res, 400, await render({ kind: "error", message: "Choose what they all are first." }));
+              return true;
+            }
+
             html(res, 200, importPreviewPage({
               parsed,
               existing: await guests.list({ limit: 1000 }),
-              role: form.fields.role === "speaker" ? "speaker" : "visitor",
+              category: known.slug,
+              categoryLabel: known.label,
               sendClaim: form.fields.sendClaim === "yes",
               paste,
               session,
@@ -647,17 +684,29 @@ export function createAdmin(config) {
             // records round-tripped through the browser: the preview is a
             // check for the person, not a source of truth for the server.
             const parsed = parseAttendees(String(form.fields.paste ?? ""));
-            const role = form.fields.role === "speaker" ? "speaker" : "visitor";
+            const category = String(form.fields.category ?? "");
             const notify = form.fields.sendClaim === "yes";
 
             let added = 0;
             let skipped = 0;
+            let badges = 0;
             const failures = [];
 
             for (const record of parsed.rows) {
               try {
-                const created = await guests.create({ ...record, role }, by);
+                const created = await guests.create({ ...record, category }, by);
                 added += 1;
+
+                // A badge each, the same as adding one person. Counted
+                // separately because a full category stops the badges without
+                // stopping the accounts, and that difference matters.
+                try {
+                  await guests.issueTicket({ attendeeId: created.id, category, issuedBy: by });
+                  badges += 1;
+                } catch (err) {
+                  failures.push(`${record.email}: account made but no badge (${err.message})`);
+                }
+
                 if (notify) {
                   await guests.sendClaim(created.id, origin).catch((err) =>
                     failures.push(`${record.email}: could not email (${err.message})`)
@@ -670,27 +719,31 @@ export function createAdmin(config) {
             }
 
             message =
-              `${added} added` +
+              `${added} added, ${badges} with a badge` +
               (skipped ? `, ${skipped} already registered` : "") +
               (parsed.problems.length ? `, ${parsed.problems.length} unreadable line(s)` : "") +
               (failures.length ? `. Problems: ${failures.slice(0, 3).join("; ")}` : ".");
             break;
           }
           case "issue": {
-            const areas = String(form.fields.areas ?? "")
-              .split(",")
-              .map((a) => a.trim())
-              .filter(Boolean);
+            // For somebody whose badge was cancelled, or who signed up and has
+            // since been put in a category. No choices to make: the account
+            // says what they are, and a numbered category takes the next
+            // number in its range.
+            const who = await guests.byId(id);
+            if (!who) {
+              message = "There is no such account.";
+              break;
+            }
             const ticket = await guests.issueTicket({
               attendeeId: id,
-              category: form.fields.category,
-              number: form.fields.number,
-              issuedBy: by,
-              areas
+              category: who.category,
+              issuedBy: by
             });
-            message = ticket.number
-              ? `Badge #${ticket.number} issued.`
-              : "Badge issued (unnumbered).";
+            message =
+              ticket.number === null
+                ? `${who.categoryLabel ?? who.category} badge attributed.`
+                : `Badge #${ticket.number} attributed.`;
             break;
           }
           case "revoke": {
@@ -705,18 +758,15 @@ export function createAdmin(config) {
               message = "Badge withdrawn.";
             } else if (release) {
               message =
-                `Badge withdrawn and number ${gone.number} is back in the pool. ` +
-                `Type ${gone.number} into the number box to hand it to somebody in ` +
-                "particular, or leave the box empty and it will be taken in turn.";
+                `Badge cancelled. Number ${gone.number} is back in the pool and goes ` +
+                "to the next badge attributed in that category.";
             } else if (gone.claimed_at) {
               message =
                 `Badge withdrawn. Number ${gone.number} retires with it, because its ` +
                 "holder had claimed it and may still be carrying it.";
             } else {
               message =
-                `Badge withdrawn. Number ${gone.number} stays out of circulation. ` +
-                "It had not been claimed, so Cancel & free would have returned it to " +
-                "the pool for somebody else.";
+                `Badge withdrawn. Number ${gone.number} stays out of circulation.`;
             }
             break;
           }
