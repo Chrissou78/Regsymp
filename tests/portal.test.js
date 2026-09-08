@@ -37,7 +37,11 @@ before(async () => {
     sessions: createSessions(),
     secret: () => "portal-test-secret",
     // No mail in tests: record what would have been sent instead.
-    mail: { configured: () => true, sendResetLink: async (m) => sent.push(m) }
+    mail: {
+      configured: () => true,
+      sendResetLink: async (m) => sent.push({ kind: "reset", ...m }),
+      sendVerificationLink: async (m) => sent.push({ kind: "verify", ...m })
+    }
   });
 
   const { createServer } = await import("node:http");
@@ -343,4 +347,147 @@ test("the session cookie carries nothing but an opaque id", opts, async () => {
   const { cookie } = await claimedGuest();
   assert.doesNotMatch(cookie, /ada|example|@/i, "the cookie carries identifying data");
   assert.match(cookie, /^regsymp_guest=[a-f0-9]{32,}$/);
+});
+
+// --------------------------------------------------------------- registration
+
+test("anyone may create an account, and is signed in straight away", opts, async () => {
+  // An account is identity, not admission: it grants nothing on its own.
+  await reset();
+  const res = await post("/portal/register", {
+    firstName: "Grace",
+    lastName: "Hopper",
+    company: "Navy",
+    email: "grace@example.com",
+    password: "a-long-enough-password"
+  });
+
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /Confirm your email/);
+  assert.match(cookieFrom(res), /^regsymp_guest=/);
+
+  const guest = await attendees.byEmail("grace@example.com");
+  assert.equal(guest.selfRegistered, true);
+  assert.equal(guest.claimed, true);
+  assert.equal(guest.emailVerified, false, "a fresh registration must not be verified");
+  assert.equal(sent.filter((m) => m.kind === "verify").length, 1);
+});
+
+test("an account alone carries no ticket", opts, async () => {
+  await reset();
+  const res = await post("/portal/register", {
+    email: "grace@example.com",
+    password: "a-long-enough-password"
+  });
+  const cookie = cookieFrom(res);
+
+  const guest = await attendees.byEmail("grace@example.com");
+  assert.equal(await attendees.ticketFor(guest.id), null);
+
+  const profile = await (await get("/portal", { headers: { cookie } })).text();
+  assert.match(profile, /No ticket has been issued/);
+});
+
+test("registering an address that already exists reveals nothing", opts, async () => {
+  // Otherwise the form is a membership oracle. The owner gets a reset link
+  // instead, so a genuine returning guest is not stuck.
+  await reset();
+  await claimedGuest();
+  sent.length = 0;
+
+  const res = await post("/portal/register", {
+    email: "ada@example.com",
+    password: "a-different-long-password"
+  });
+
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /Confirm your email/, "the wording differed for a taken address");
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].kind, "reset", "the existing account was not offered a way in");
+
+  // And the original password must still work.
+  assert.equal(await attendees.verify("ada@example.com", "a-long-enough-password"), true);
+  assert.equal(await attendees.verify("ada@example.com", "a-different-long-password"), false);
+});
+
+test("a filled honeypot is accepted and ignored", opts, async () => {
+  // Answering differently would tell a bot exactly what tripped it.
+  await reset();
+  const res = await post("/portal/register", {
+    email: "bot@example.com",
+    password: "a-long-enough-password",
+    website: "http://spam.example"
+  });
+
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /Confirm your email/);
+  assert.equal(await attendees.byEmail("bot@example.com"), null, "the bot got an account");
+});
+
+test("a verification link confirms the address, once", opts, async () => {
+  await reset();
+  await post("/portal/register", { email: "grace@example.com", password: "a-long-enough-password" });
+  const guest = await attendees.byEmail("grace@example.com");
+  const url = sent.find((m) => m.kind === "verify").url;
+  const token = url.split("/").pop();
+
+  const res = await get(`/portal/verify/${token}`);
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /confirmed/i);
+  assert.equal((await attendees.byId(guest.id)).emailVerified, true);
+
+  const again = await get(`/portal/verify/${token}`);
+  assert.equal(again.status, 400);
+});
+
+test("a ticket cannot be issued to an unconfirmed self-registration", opts, async () => {
+  // The rule lives in the store, so the admin screen cannot bypass it.
+  await reset();
+  await post("/portal/register", { email: "grace@example.com", password: "a-long-enough-password" });
+  const guest = await attendees.byEmail("grace@example.com");
+
+  await assert.rejects(
+    () => attendees.issueTicket({ attendeeId: guest.id, tier: "vip", issuedBy: "chris" }),
+    /has not confirmed their email/
+  );
+
+  const url = sent.find((m) => m.kind === "verify").url;
+  await attendees.verifyEmail(url.split("/").pop());
+  const ticket = await attendees.issueTicket({ attendeeId: guest.id, tier: "vip", issuedBy: "chris" });
+  assert.equal(ticket.number, 1);
+});
+
+test("an address an admin entered needs no click", opts, async () => {
+  // A person vouched for it, which is a better signal than a click.
+  await reset();
+  const guest = await attendees.create({ email: "invited@example.com" }, "chris@onchainlabs.ch");
+  assert.equal(guest.selfRegistered, false);
+
+  const ticket = await attendees.issueTicket({ attendeeId: guest.id, tier: "vip", issuedBy: "chris" });
+  assert.equal(ticket.number, 1);
+});
+
+test("an unverified guest is told, and can ask again", opts, async () => {
+  await reset();
+  const res = await post("/portal/register", {
+    email: "grace@example.com",
+    password: "a-long-enough-password"
+  });
+  const cookie = cookieFrom(res);
+
+  const profile = await (await get("/portal", { headers: { cookie } })).text();
+  assert.match(profile, /has not been confirmed/);
+  const csrf = profile.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+
+  sent.length = 0;
+  const resend = await post("/portal/resend", { csrf }, cookie);
+  assert.equal(resend.status, 200);
+  assert.equal(sent.filter((m) => m.kind === "verify").length, 1);
+});
+
+test("a verified guest is not nagged", opts, async () => {
+  await reset();
+  const { cookie } = await claimedGuest();
+  const profile = await (await get("/portal", { headers: { cookie } })).text();
+  assert.doesNotMatch(profile, /has not been confirmed/);
 });

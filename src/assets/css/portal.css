@@ -445,3 +445,13 @@
 .p-note {
   overflow-wrap: anywhere;
 }
+
+/* A honeypot: off-screen rather than display:none, because some bots skip
+   hidden fields but happily fill one they can compute a position for. */
+.p-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

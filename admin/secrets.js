@@ -29,7 +29,8 @@ export const MANAGED = Object.freeze([
   "PINATA_API_KEY",
   "PINATA_API_SECRET",
   "PINATA_GATEWAY",
-  "IPFS_ENCRYPTION_KEY"
+  "IPFS_ENCRYPTION_KEY",
+  "WALLETWALLET_API_KEY"
 ]);
 
 /**
@@ -49,7 +50,9 @@ export const DESCRIPTIONS = Object.freeze({
   PINATA_API_SECRET: "Pinata legacy API secret, paired with the key above.",
   PINATA_GATEWAY: "Your dedicated gateway host, e.g. something.mypinata.cloud. No https://, no trailing slash.",
   IPFS_ENCRYPTION_KEY:
-    "Encrypts every image before it is pinned. Generated automatically. Keep a copy somewhere else: lose it and the pinned copies are unreadable."
+    "Encrypts every image before it is pinned. Generated automatically. Keep a copy somewhere else: lose it and the pinned copies are unreadable.",
+  WALLETWALLET_API_KEY:
+    "Issues Apple and Google Wallet passes for tickets. Without it, tickets still work — the QR code is served from this site either way."
 });
 
 export function isManaged(name) {

@@ -217,3 +217,15 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   border-radius: 3px;
   font-size: 13px;
 }
+
+/* Guest list: rows carry several small forms, and a state chip. */
+.a-rowactions { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.a-rowactions select, .a-rowactions input { font-family: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--a-border, #D8D3C8); border-radius: 3px; }
+.a-form--inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 28px; }
+.a-form--inline input, .a-form--inline select { font-family: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--a-border, #D8D3C8); border-radius: 3px; }
+.a-search { margin: 0 0 26px; display: flex; gap: 8px; align-items: center; }
+.a-search input { min-width: 260px; font-family: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--a-border, #D8D3C8); border-radius: 3px; }
+.a-state { text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
+.a-state--active { color: #2F6B3A; }
+.a-state--unconfirmed { color: #9B2C2C; }
+.a-state--invited { color: #7A5E22; }

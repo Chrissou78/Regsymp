@@ -192,6 +192,49 @@ photos, profile data — exists.
 still on v2 auth. `PINATA_GATEWAY` should be the bare host — the public
 ipfs.io gateway is rate-limited, and is only the fallback.
 
+### The attendee portal
+
+`/portal` is for the people attending. Separate from `/admin` in every way
+that matters: its own table, its own cookie, its own session store. An
+attendee is never one accidental join away from editor privileges, and cannot
+change their own role or email address -- the form does not offer it and the
+handler refuses it, because a form is not a security boundary.
+
+**Registration is open; admission is not.** Anyone may create an account at
+`/portal/register` -- it is identity, not a place at the event. A ticket is
+issued separately from **/admin/attendees**, which is what makes the guest
+list a whitelist rather than a race for the first hundred sign-ups.
+
+That makes verification necessary rather than optional: with open
+registration anybody can type somebody else's address. A ticket cannot be
+issued to a self-registered address that has not been confirmed, and the rule
+lives in the store so the admin screen cannot bypass it. An address an admin
+typed needs no click -- a person vouched for it, which is a better signal.
+
+Neither the sign-in form, the forgotten-password form, nor registration will
+reveal whether an address already has an account. All three answer
+identically, and all run the full key derivation, so timing does not give away
+what the wording refuses to. Registration also carries a honeypot, and a
+filled one is answered as though it succeeded.
+
+**Tickets** are numbered in one sequence: 1-33 VIP, 34-100 general, shown as
+`1/33` and `34/100`. A database constraint enforces the mapping, so capacity
+comes from the range rather than from counting rows and hoping two
+registrations do not race. The lowest free number in the tier is claimed in a
+single statement, with the unique index as the backstop. Withdrawing a ticket
+frees its number.
+
+The QR encodes `/t/<code>` on this site, so door staff scan it with any phone
+rather than needing an app. The code is the credential: a valid one shows its
+holder, an invalid one reveals nothing, a malformed one is not looked up.
+
+**Speakers** live in `src/_data/speakers.json` as content, because there are
+no email addresses for most of the thirty-three. Linking an account to its
+published entry by slug (from the guest list) lets that speaker maintain their
+own listing: saving their profile writes their name, role, company, biography
+and LinkedIn onto the public page and rebuilds it. Their slug, photo and
+ordering stay with the organisers.
+
 ### Keeping tests away from live data
 
 The Postgres tests truncate tables, so two guards stand between `npm test` and

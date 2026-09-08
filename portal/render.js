@@ -86,6 +86,8 @@ export function signinPage({ error = null, email = "" } = {}) {
           <a class="p-quiet" href="/portal/forgot">Forgotten your password?</a>
         </div>
       </form>
+      <p class="p-note"><a class="p-quiet" href="/portal/register">Create an account</a>
+      if you do not have one yet.</p>
       <p class="p-note">Attendance is by invitation. If you have not received a link
       to set your password, please contact the organisers.</p>
     </div>`
@@ -109,6 +111,51 @@ export function setPasswordPage({ token, purpose, email, error = null }) {
         ${field({ name: "confirm", label: "Confirm password", type: "password", attrs: 'required minlength="12" autocomplete="new-password"' })}
         <div class="p-actions"><button class="p-btn" type="submit">Save and sign in</button></div>
       </form>
+    </div>`
+  });
+}
+
+export function registerPage({ error = null, values = {} } = {}) {
+  return layout({
+    title: "Create an account",
+    flash: error ? { kind: "error", message: error } : null,
+    body: `<div class="p-card p-card--narrow">
+      <h1>Create an account</h1>
+      <p class="p-lede">An account lets you keep your details and, once the
+      organisers confirm your place, collect your ticket.</p>
+      <form method="post" action="/portal/register" class="p-form">
+        ${field({ name: "firstName", label: "First name", value: values.firstName ?? "", attrs: "autocomplete=\"given-name\" autofocus" })}
+        ${field({ name: "lastName", label: "Surname", value: values.lastName ?? "", attrs: "autocomplete=\"family-name\"" })}
+        ${field({ name: "company", label: "Company", value: values.company ?? "", attrs: "autocomplete=\"organization\"" })}
+        ${field({ name: "email", label: "Email", type: "email", value: values.email ?? "", attrs: "required autocomplete=\"username\"" })}
+        ${field({ name: "password", label: "Password", type: "password", help: "At least 12 characters.", attrs: "required minlength=\"12\" autocomplete=\"new-password\"" })}
+        <!-- Left empty by people and filled in by bots. -->
+        <div class="p-trap" aria-hidden="true">
+          <label for="f-website">Website</label>
+          <input id="f-website" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+        <div class="p-actions">
+          <button class="p-btn" type="submit">Create account</button>
+          <a class="p-quiet" href="/portal/signin">I already have one</a>
+        </div>
+      </form>
+      <p class="p-note">Creating an account is not a registration for the event.
+      Attendance is by invitation and places are limited; the organisers issue
+      tickets separately.</p>
+    </div>`
+  });
+}
+
+export function checkEmailPage({ email }) {
+  return layout({
+    title: "Confirm your email",
+    body: `<div class="p-card p-card--narrow">
+      <h1>Confirm your email</h1>
+      <p class="p-lede">We have sent a link to <strong>${escape(email)}</strong>.
+      Opening it confirms the address is yours.</p>
+      <p class="p-note">A ticket cannot be issued to an address that has not been
+      confirmed, so this step matters. The link is valid for seven days.</p>
+      <p><a class="p-quiet" href="/portal">Continue to your profile</a></p>
     </div>`
   });
 }
@@ -159,6 +206,18 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
         speaker ? ' · <span class="p-badge">Speaker</span>' : ""
       }</p>
 
+      ${
+        guest.selfRegistered && !guest.emailVerified
+          ? `<div class="p-flash p-flash--error">
+               <p style="margin:0 0 10px">Your email address has not been confirmed
+               yet, so a ticket cannot be issued to it.</p>
+               <form method="post" action="/portal/resend" class="p-inline">
+                 <input type="hidden" name="csrf" value="${escape(token)}">
+                 <button class="p-linkbutton" style="text-decoration:underline">Send the link again</button>
+               </form>
+             </div>`
+          : ""
+      }
       ${
         ticket
           ? `<a class="p-ticketstrip" href="/portal/ticket">

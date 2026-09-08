@@ -3,7 +3,9 @@ import { csrfToken, parseCookies, verifyCsrf } from "../admin/auth.js";
 import { createAttemptLimiter } from "../admin/login-attempts.js";
 import {
   changePasswordPage,
+  checkEmailPage,
   forgotPage,
+  registerPage,
   layout,
   escape,
   profilePage,
@@ -26,7 +28,15 @@ const MAX_BODY = 64 * 1024;
 /** Where a check-in scan lands. Short, because it goes in a QR code. */
 export const CHECKIN_PREFIX = "/t/";
 
-export function createPortal({ attendees, sessions, secret, mail = null, attempts = createAttemptLimiter() }) {
+export function createPortal({
+  attendees,
+  sessions,
+  secret,
+  mail = null,
+  // Called after a speaker saves, to push their fields onto the public page.
+  publishSpeaker = null,
+  attempts = createAttemptLimiter()
+}) {
   const secret$ = () => secret();
 
   const html = (res, status, body) => {
@@ -187,6 +197,111 @@ export function createPortal({ attendees, sessions, secret, mail = null, attempt
       return true;
     }
 
+    // --------------------------------------------------------- registration
+    // Open to anyone. An account is identity, not admission: a ticket is
+    // issued separately by an admin, which is what keeps the guest list a
+    // whitelist rather than a race for the first hundred sign-ups.
+    if (path === "/portal/register") {
+      if (req.method === "GET") {
+        if (sessionFor(req)) return redirect(res, "/portal"), true;
+        html(res, 200, registerPage());
+        return true;
+      }
+
+      const source = clientKey(req);
+      if (attempts.isLocked(source)) {
+        html(res, 429, registerPage({ error: "Too many attempts. Please try again later." }));
+        return true;
+      }
+
+      const form = await readForm(req);
+      const values = {
+        firstName: String(form.firstName ?? "").trim(),
+        lastName: String(form.lastName ?? "").trim(),
+        company: String(form.company ?? "").trim(),
+        email: String(form.email ?? "").trim()
+      };
+
+      // Filled in only by something automated. Answer as though it worked,
+      // so a bot learns nothing from the difference.
+      if (String(form.website ?? "").trim()) {
+        html(res, 200, checkEmailPage({ email: values.email }));
+        return true;
+      }
+
+      let guest;
+      try {
+        guest = await attendees.register({ ...values, password: String(form.password ?? "") });
+      } catch (err) {
+        attempts.fail(source);
+        if (err.code === "DUPLICATE") {
+          // Do not confirm that the address is taken. Send the owner a reset
+          // link instead: if it is their address they can get in, and if it
+          // is not, they learn nothing.
+          const existing = await attendees.byEmail(values.email);
+          if (existing && mail?.configured()) {
+            const token = await attendees.createToken(existing.id, "reset");
+            await mail
+              .sendResetLink({ to: existing.email, url: `${originOf(req)}/portal/reset/${token}` })
+              .catch((e) => console.error("reset email failed:", e.message));
+          }
+          html(res, 200, checkEmailPage({ email: values.email }));
+          return true;
+        }
+        html(res, 400, registerPage({ error: err.message, values }));
+        return true;
+      }
+
+      attempts.succeed(source);
+
+      if (mail?.configured()) {
+        const token = await attendees.createToken(guest.id, "verify");
+        await mail
+          .sendVerificationLink({ to: guest.email, url: `${originOf(req)}/portal/verify/${token}` })
+          .catch((err) => console.error("verification email failed:", err.message));
+      }
+
+      // Signed in straight away: the account works, it just cannot hold a
+      // ticket until the address is confirmed.
+      const id = sessions.create({ id: guest.id, email: guest.email }, null);
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Set-Cookie": `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`
+      });
+      res.end(checkEmailPage({ email: guest.email }));
+      return true;
+    }
+
+    // ------------------------------------------------------- email verified
+    if (path.startsWith("/portal/verify/")) {
+      const token = path.slice("/portal/verify/".length);
+      try {
+        await attendees.verifyEmail(token);
+      } catch (err) {
+        html(res, 400, layout({
+          title: "Link not valid",
+          flash: { kind: "error", message: err.message },
+          body: `<div class="p-card p-card--narrow">
+                   <p>Sign in and ask for a new one from your profile.</p>
+                   <p><a class="p-quiet" href="/portal/signin">Sign in</a></p>
+                 </div>`
+        }));
+        return true;
+      }
+      html(res, 200, layout({
+        title: "Email confirmed",
+        flash: { kind: "ok", message: "Your email address is confirmed." },
+        body: `<div class="p-card p-card--narrow">
+                 <h1>Thank you</h1>
+                 <p class="p-lede">Your address is confirmed. The organisers can
+                 now issue you a ticket if you have a place.</p>
+                 <p><a class="p-btn" href="/portal">Go to your profile</a></p>
+               </div>`
+      }));
+      return true;
+    }
+
     // ------------------------------------------------------------- sign in
     if (path === "/portal/signin") {
       if (req.method === "GET") {
@@ -272,6 +387,20 @@ export function createPortal({ attendees, sessions, secret, mail = null, attempt
       redirect(res, "/", {
         "Set-Cookie": `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`
       });
+      return true;
+    }
+
+    if (path === "/portal/resend") {
+      const form = await readForm(req);
+      requireCsrf(session.id, form.csrf);
+
+      if (!guest.emailVerified && mail?.configured()) {
+        const fresh = await attendees.createToken(guest.id, "verify");
+        await mail
+          .sendVerificationLink({ to: guest.email, url: `${originOf(req)}/portal/verify/${fresh}` })
+          .catch((err) => console.error("verification email failed:", err.message));
+      }
+      html(res, 200, checkEmailPage({ email: guest.email }));
       return true;
     }
 
@@ -362,6 +491,15 @@ export function createPortal({ attendees, sessions, secret, mail = null, attempt
       try {
         await attendees.update(guest.id, fields);
         await attendees.recordConsent(guest.id, form.consentMarketing === "yes");
+
+        // A linked speaker's own words belong on the public page. Not awaited
+        // for its result: the profile is already saved, and a rebuild failing
+        // must not make a successful save look broken.
+        if (guest.role === "speaker" && guest.speakerSlug && publishSpeaker) {
+          await publishSpeaker(await attendees.byId(guest.id)).catch((err) =>
+            console.error("publishing the speaker page failed:", err.message)
+          );
+        }
       } catch (err) {
         html(res, 400, profilePage({ guest, ticket, token, error: err.message }));
         return true;

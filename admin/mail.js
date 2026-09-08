@@ -88,6 +88,26 @@ export function createMailer({ sendImpl = null } = {}) {
       });
     },
 
+    /** Proves the address belongs to whoever typed it. */
+    sendVerificationLink({ to, url }) {
+      return send({
+        to,
+        subject: "Confirm your email for RegSymp",
+        html: template({
+          heading: "Confirm your email",
+          lines: [
+            "Hello,",
+            "Please confirm this address so it can be used for your RegSymp account. Creating an account is not itself a registration for the event — the organisers issue tickets separately, and cannot issue one to an unconfirmed address.",
+            "This link is valid for seven days."
+          ],
+          action: { href: url, label: "Confirm my email" }
+        }),
+        text: `Confirm your email for RegSymp: ${url}
+
+Valid for seven days.`
+      });
+    },
+
     sendResetLink({ to, url }) {
       return send({
         to,

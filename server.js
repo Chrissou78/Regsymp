@@ -167,12 +167,52 @@ const userStore = db
 const attendees = db ? createAttendees({ db }) : null;
 const mailer = createMailer();
 
+/**
+ * A speaker editing their profile updates the public page.
+ *
+ * Speakers live in a content document rather than a table -- there are no
+ * email addresses for most of the thirty-three, so they cannot all become
+ * accounts. Linking an account to its published entry by slug gives the ones
+ * who do have accounts a way to maintain their own listing, without moving
+ * the whole speakers list out of content.
+ */
+async function publishSpeaker(guest) {
+  if (!guest?.speakerSlug || !store) return false;
+
+  const file = await store.getFile("src/_data/speakers.json");
+  if (!file || Array.isArray(file)) return false;
+
+  const speakers = JSON.parse(file.content);
+  const index = speakers.findIndex((s) => s.slug === guest.speakerSlug);
+  if (index === -1) return false;
+
+  const next = speakers.slice();
+  const entry = { ...next[index] };
+  // Only the fields a speaker owns. Their slug, photo and ordering stay put:
+  // the slug is the link itself, and the rest is the organisers' to arrange.
+  if (guest.name) entry.name = guest.name;
+  if (guest.position) entry.role = guest.position;
+  if (guest.company) entry.org = guest.company;
+  if (guest.description) entry.bio = guest.description;
+  if (guest.socials?.linkedin) entry.linkedin = guest.socials.linkedin;
+  next[index] = entry;
+
+  await store.putFile({
+    path: "src/_data/speakers.json",
+    content: JSON.stringify(next, null, 2) + "\n",
+    sha: file.sha,
+    message: `Update speaker profile via portal (${guest.email})`
+  });
+  return true;
+}
+
 const portal = attendees
   ? createPortal({
       attendees,
       sessions: createSessions(),
       secret: () => env("SESSION_SECRET") || configValue("SESSION_SECRET"),
-      mail: mailer
+      mail: mailer,
+      publishSpeaker
     })
   : null;
 
@@ -192,6 +232,49 @@ const admin = createAdmin({
         escrowable: ["IPFS_ENCRYPTION_KEY"],
         reveal: (name) =>
           name === "IPFS_ENCRYPTION_KEY" ? process.env.IPFS_ENCRYPTION_KEY ?? null : null
+      }
+    : null,
+  guests: attendees
+    ? {
+        list: (opts) => attendees.list(opts),
+        capacity: () => attendees.capacity(),
+        create: (fields, by) => attendees.create(fields, by),
+        issueTicket: (args) => attendees.issueTicket(args),
+        revoke: async (id) => {
+          const ticket = await attendees.ticketFor(id);
+          if (ticket) await attendees.revokeTicket(ticket.id);
+        },
+        linkSpeaker: (id, slug) => attendees.update(id, { speakerSlug: slug }),
+
+        /** The published speaker entries, for linking an account to one. */
+        speakerSlugs: async () => {
+          const file = await store?.getFile("src/_data/speakers.json");
+          if (!file || Array.isArray(file)) return [];
+          return JSON.parse(file.content).map((s) => ({ slug: s.slug, name: s.name }));
+        },
+
+        sendClaim: async (id, origin) => {
+          if (!mailer.configured()) return false;
+          const guest = await attendees.byId(id);
+          const token = await attendees.createToken(id, "claim");
+          await mailer.sendClaimLink({
+            to: guest.email,
+            url: `${origin}/portal/claim/${token}`,
+            name: guest.name
+          });
+          return true;
+        },
+
+        sendVerify: async (id, origin) => {
+          if (!mailer.configured()) return false;
+          const guest = await attendees.byId(id);
+          const token = await attendees.createToken(id, "verify");
+          await mailer.sendVerificationLink({
+            to: guest.email,
+            url: `${origin}/portal/verify/${token}`
+          });
+          return true;
+        }
       }
     : null,
   ipfs: db

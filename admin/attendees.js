@@ -26,7 +26,11 @@ export const TIERS = Object.freeze({
 
 export const CAPACITY = TIERS.general.to;
 
-const TOKEN_TTL = { claim: 30 * 24 * 60 * 60 * 1000, reset: 60 * 60 * 1000 };
+const TOKEN_TTL = {
+  claim: 30 * 24 * 60 * 60 * 1000,
+  reset: 60 * 60 * 1000,
+  verify: 7 * 24 * 60 * 60 * 1000
+};
 
 /** A hash to compare against when the account does not exist. */
 const ABSENT = "scrypt$00$00";
@@ -68,6 +72,10 @@ function present(row) {
     claimedAt: row.claimed_at,
     lastLoginAt: row.last_login_at,
     claimed: Boolean(row.password_hash),
+    emailVerified: Boolean(row.email_verified_at),
+    emailVerifiedAt: row.email_verified_at,
+    selfRegistered: row.self_registered,
+    speakerSlug: row.speaker_slug,
     notes: row.notes
   };
 }
@@ -84,7 +92,8 @@ const WRITABLE = {
   photoPath: "photo_path",
   role: "role",
   notes: "notes",
-  consentMarketing: "consent_marketing"
+  consentMarketing: "consent_marketing",
+  speakerSlug: "speaker_slug"
 };
 
 export function createAttendees({ db, now = () => new Date() }) {
@@ -128,6 +137,63 @@ export function createAttendees({ db, now = () => new Date() }) {
         });
       void next;
       return present(rows[0]);
+    },
+
+    /**
+     * Somebody signing themselves up.
+     *
+     * An account on its own grants nothing: it is identity, not admission.
+     * A ticket is issued separately by an admin, which is what keeps the
+     * guest list a whitelist rather than a race for the first hundred.
+     */
+    async register({ email, password, firstName = null, lastName = null, company = null }) {
+      const address = key(email);
+      if (!address.includes("@") || !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(address)) {
+        throw new Error("Please enter a valid email address.");
+      }
+      if (String(password ?? "").length < 12) {
+        throw new Error("Please choose a password of at least 12 characters.");
+      }
+
+      const hash = await hashPassword(password);
+      try {
+        const { rows } = await db.query(
+          `insert into attendees
+             (email, password_hash, first_name, last_name, company,
+              self_registered, claimed_at)
+           values ($1, $2, $3, $4, $5, true, $6)
+           returning *`,
+          [address, hash, firstName, lastName, company, now()]
+        );
+        return present(rows[0]);
+      } catch (err) {
+        if (err.code === "23505") {
+          // Deliberately the same wording the sign-in page would give, so
+          // the form cannot be used to discover who already has an account.
+          const clash = new Error("That address already has an account.");
+          clash.code = "DUPLICATE";
+          throw clash;
+        }
+        throw err;
+      }
+    },
+
+    /** Mark an address as proven, from a verification link. */
+    async verifyEmail(token) {
+      const found = await this.findToken(token, "verify");
+      if (!found) throw new Error("That link is invalid, already used, or expired.");
+
+      await db.tx(async (client) => {
+        await client.query(
+          "update attendees set email_verified_at = coalesce(email_verified_at, $2) where id = $1",
+          [found.attendeeId, now()]
+        );
+        await client.query("update attendee_tokens set used_at = $2 where token_hash = $1", [
+          hashToken(token),
+          now()
+        ]);
+      });
+      return found;
     },
 
     async list({ role = null, q = null, limit = 200 } = {}) {
@@ -198,6 +264,20 @@ export function createAttendees({ db, now = () => new Date() }) {
               [Number(attendeeId)]
             );
             if (existing.rows.length) throw new Error("That attendee already holds a ticket.");
+
+            // An address that signed itself up has to prove itself first.
+            // One an admin typed is already vouched for by a person, so it
+            // does not need to wait for a click.
+            const who = await client.query(
+              "select self_registered, email_verified_at, email from attendees where id = $1",
+              [Number(attendeeId)]
+            );
+            if (!who.rows.length) throw new Error("There is no such attendee.");
+            if (who.rows[0].self_registered && !who.rows[0].email_verified_at) {
+              throw new Error(
+                `${who.rows[0].email} has not confirmed their email address yet.`
+              );
+            }
 
             const { rows } = await client.query(
               `insert into tickets (attendee_id, number, tier, code, issued_by)

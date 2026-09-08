@@ -5,6 +5,7 @@ import { csrfToken, parseCookies, verifyCsrf } from "./auth.js";
 import { createAttemptLimiter } from "./login-attempts.js";
 import { configValue } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
+import { attendeesPage } from "./attendees-page.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
 import { slugifyFilename } from "./sanitise.js";
 
@@ -127,6 +128,8 @@ export function createAdmin(config) {
     credentials = null,
     // IPFS pinning, likewise injected.
     ipfs = null,
+    // The guest list. Present only when there is a database to hold it.
+    guests = null,
     // Why the store cannot be reached, if it cannot. Reported rather than
     // left to surface as an opaque failure on whatever page is opened first.
     unavailable = () => null,
@@ -392,6 +395,104 @@ export function createAdmin(config) {
       return true;
     }
 
+    if (path === "/admin/attendees") {
+      if (!guests) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: session.user,
+          body: `<p>The guest list needs a database.</p>
+                 <p><a href="/admin">Back to collections</a></p>`
+        }));
+        return true;
+      }
+
+      const render = async (flash = null, q = "") =>
+        attendeesPage({
+          guests: await guests.list({ q: q || null }),
+          capacity: await guests.capacity(),
+          speakerSlugs: await guests.speakerSlugs(),
+          session,
+          token,
+          flash,
+          q
+        });
+
+      if (req.method === "GET") {
+        html(res, 200, await render(null, url.searchParams.get("q") ?? ""));
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+      const by = session.user.email;
+      const id = form.fields.id;
+      const origin = originFor(req);
+
+      try {
+        let message = "";
+        switch (form.fields.action) {
+          case "create": {
+            const created = await guests.create(
+              {
+                email: form.fields.email,
+                firstName: form.fields.firstName,
+                lastName: form.fields.lastName,
+                company: form.fields.company,
+                role: form.fields.role || "visitor"
+              },
+              by
+            );
+            message = `${created.email} added.`;
+            if (form.fields.sendClaim === "yes") {
+              const sent = await guests.sendClaim(created.id, origin);
+              message += sent ? " A set-password link is on its way." : " Email is not configured, so no link was sent.";
+            }
+            break;
+          }
+          case "issue": {
+            const areas = String(form.fields.areas ?? "")
+              .split(",")
+              .map((a) => a.trim())
+              .filter(Boolean);
+            const ticket = await guests.issueTicket({
+              attendeeId: id,
+              tier: form.fields.tier,
+              issuedBy: by,
+              areas
+            });
+            message = `Ticket #${ticket.number} issued.`;
+            break;
+          }
+          case "revoke":
+            await guests.revoke(id);
+            message = "Ticket withdrawn. Its number is now free for somebody else.";
+            break;
+          case "sendClaim":
+            message = (await guests.sendClaim(id, origin))
+              ? "A set-password link is on its way."
+              : "Email is not configured, so no link was sent.";
+            break;
+          case "sendVerify":
+            message = (await guests.sendVerify(id, origin))
+              ? "A confirmation link is on its way."
+              : "Email is not configured, so no link was sent.";
+            break;
+          case "linkSpeaker":
+            await guests.linkSpeaker(id, form.fields.speakerSlug || null);
+            message = form.fields.speakerSlug
+              ? "Linked to the public speaker entry. Their edits will update the site."
+              : "Unlinked from the public speaker entry.";
+            break;
+          default:
+            message = "Nothing to do.";
+        }
+        html(res, 200, await render({ kind: "ok", message }));
+      } catch (err) {
+        html(res, 400, await render({ kind: "error", message: err.message }));
+      }
+      return true;
+    }
+
     if (path === "/admin/ipfs") {
       if (!ipfs) {
         html(res, 404, layout({
@@ -555,7 +656,7 @@ export function createAdmin(config) {
             <p class="a-lede">Changes are saved to the content volume and rebuilt
             immediately &mdash; no deploy, and nothing signs you out.</p>
             <ul class="a-list">${rows}</ul>
-            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/attendees">Guest list</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;
