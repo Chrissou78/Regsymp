@@ -37,7 +37,7 @@ test("serves the homepage", async () => {
   assert.match(html, /RegSymp/);
   // The invitation modal was retired: with registration open, somebody who
   // wants in creates an account and the organisers issue a badge.
-  assert.match(html, /Connect to Profile/);
+  assert.match(html, /data-account-link[^>]*>Profile/);
   assert.match(html, /\/portal\/signin/);
 });
 
