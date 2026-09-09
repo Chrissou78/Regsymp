@@ -1213,6 +1213,12 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .footer-bot { display: flex; justify-content: space-between; align-items: center; gap: 32px; padding-top: 28px; font-size: 12px; color: rgba(255,255,255,0.38); }
 .footer-bot .links a { margin: 0; }
 .footer-bot .links a + a { margin-left: 22px; }
+.footer-bot .links { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 22px; }
+/* Inside a sentence the 22px gap between footer links reads as a mistake. */
+.footer-credit a + a,
+.footer-credit a { margin-left: 0; }
+.footer-credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.footer-credit a:hover { color: var(--gold, #B8963A); }
 
 /* ------- Reveal Animations ------- */
 .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.7s ease, transform 0.7s ease; }

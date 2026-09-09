@@ -128,6 +128,30 @@ test("every page offers a way into an account, and no invitation form", async ()
   }
 });
 
+test("every page credits engagewallet and onchainlabs, with working links", async () => {
+  // The words are the easy half. The URLs are the half that rots quietly, so
+  // both are asserted rather than the sentence alone.
+  for (const p of PAGES) {
+    const html = await readOutput(p);
+    assert.match(html, /Secured by/, `${p} has no credit`);
+    assert.match(
+      html,
+      /<a href="https:\/\/engagewallet\.ch"[^>]*>engagewallet\.ch<\/a>/,
+      `${p} does not link engagewallet.ch`
+    );
+    assert.match(
+      html,
+      /<a href="https:\/\/onchainlabs\.ch"[^>]*>onchainlabs\.ch<\/a>/,
+      `${p} does not link onchainlabs.ch`
+    );
+    // Off-site links open in a new tab, and noopener keeps the opener out of
+    // the new page's reach.
+    for (const m of html.matchAll(/<a href="https:\/\/(engagewallet|onchainlabs)\.ch"([^>]*)>/g)) {
+      assert.match(m[2], /rel="noopener"/, `${p}: ${m[1]}.ch link has no rel=noopener`);
+    }
+  }
+});
+
 test("the admin link ships hidden, for the browser to reveal", async () => {
   // These pages are static, so the menu cannot know who is signed in at build
   // time. It ships hidden and site.js reveals it from a readable cookie, which

@@ -73,6 +73,21 @@ export function layout({
 </html>`;
 }
 
+/**
+ * Who built it and who secures it.
+ *
+ * On the sign-in card because that is the page somebody lands on with no
+ * account yet, and the one place in the portal that is not already about
+ * their own badge.
+ */
+export function credit() {
+  return `<p class="p-credit">Secured by
+    <a href="https://engagewallet.ch" target="_blank" rel="noopener">engagewallet.ch</a>
+    &amp; Powered by
+    <a href="https://onchainlabs.ch" target="_blank" rel="noopener">onchainlabs.ch</a>
+  </p>`;
+}
+
 /** A labelled input. */
 function field({ name, label, type = "text", value = "", help = "", attrs = "" }) {
   return `<div class="p-field">
@@ -102,6 +117,7 @@ export function signinPage({ error = null, email = "" } = {}) {
       if you do not have one yet.</p>
       <p class="p-note">Attendance is by invitation. If you have not received a link
       to set your password, please contact the organisers.</p>
+      ${credit()}
     </div>`
   });
 }

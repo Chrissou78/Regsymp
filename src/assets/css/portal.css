@@ -294,6 +294,26 @@
   margin: 0 0 30px;
 }
 
+/* Who built it, under a hairline at the foot of the card. */
+.p-credit {
+  margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule, #e8e4dc);
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.p-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.p-credit a:hover {
+  color: var(--navy, #1c2b4a);
+}
+
 /* A badge waiting to be claimed should not look settled. */
 .p-ticketstrip--unclaimed {
   background: #fff;

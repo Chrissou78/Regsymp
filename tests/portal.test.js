@@ -297,6 +297,13 @@ test("the ticket page carries a QR code and the number", opts, async () => {
   assert.match(body, /<a href="\/portal\/ticket">Ticket<\/a>/, "the menu has no ticket link");
 });
 
+test("the sign-in screen credits engagewallet and onchainlabs", opts, async () => {
+  const html = await (await get("/portal/signin")).text();
+  assert.match(html, /Secured by/);
+  assert.match(html, /<a href="https:\/\/engagewallet\.ch"[^>]*>engagewallet\.ch<\/a>/);
+  assert.match(html, /<a href="https:\/\/onchainlabs\.ch"[^>]*>onchainlabs\.ch<\/a>/);
+});
+
 test("a badge is claimed by its holder, and then it is fixed", opts, async () => {
   // The organisers attribute a badge; accepting it is the guest's own act, and
   // the moment it stops being something that can be given to somebody else.
