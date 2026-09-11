@@ -499,6 +499,20 @@ export function createPortal({
       }
 
       if (ticket.walletUrl) {
+        // Push the current details to the pass before sending them to it, so
+        // a name, a company or a colour changed since it was made reaches
+        // every device that installed it. Not awaited for its result: the
+        // pass already exists and is worth having even if the refresh fails.
+        if (ticket.walletSerial) {
+          wallet
+            .updatePass({
+              serial: ticket.walletSerial,
+              guest,
+              ticket,
+              checkinUrl: `${originOf(req)}${CHECKIN_PREFIX}${ticket.code}`
+            })
+            .catch((err) => console.error("wallet pass refresh failed:", err.message));
+        }
         redirect(res, ticket.walletUrl);
         return true;
       }

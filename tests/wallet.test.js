@@ -73,14 +73,67 @@ test("an unnumbered badge names itself under the code", () => {
   assert.equal(body.headerFields[0].value, "Speaker");
 });
 
-test("each category gets its own colour, within the presets on offer", () => {
-  const preset = (colour) => passBodyFor({ guest, ticket: { ...ticket, colour }, checkinUrl: CHECKIN }).colorPreset;
-  assert.equal(preset("#B8963A"), "orange");
-  assert.equal(preset("#1C2B4A"), "dark");
-  assert.equal(preset("#6B7FA0"), "blue");
-  // A category the organisers add in a colour of their own still gets a pass.
-  assert.equal(preset("#123456"), "dark");
-  assert.equal(preset(null), "dark");
+test("a pass takes the badge's own colour, and falls back to the navy", () => {
+  // The presets on offer are dark, blue, green, red, purple and orange. None
+  // of them is gold, and a Speaker pass in orange looked nothing like the
+  // event -- so the exact colour is sent, with the navy behind it.
+  const body = (colour) => passBodyFor({ guest, ticket: { ...ticket, colour }, checkinUrl: CHECKIN });
+
+  assert.equal(body("#B8963A").color, "#B8963A");
+  assert.equal(body("#1C2B4A").color, "#1C2B4A");
+  assert.equal(body("#6b7fa0").color, "#6B7FA0", "a lowercase hex should still be sent");
+
+  // A category the organisers add in a colour of their own is sent as-is.
+  assert.equal(body("#123456").color, "#123456");
+
+  // Every pass carries the fallback, and it is never orange.
+  for (const colour of ["#B8963A", "#1C2B4A", null, "nonsense"]) {
+    assert.equal(body(colour).colorPreset, "dark");
+  }
+
+  // Nothing usable means nothing sent, rather than a malformed colour.
+  assert.ok(!("color" in body(null)));
+  assert.ok(!("color" in body("nonsense")));
+});
+
+test("a colour the plan will not allow does not cost the pass", async () => {
+  // The background is the least important thing on it.
+  const sent = [];
+  const wallet = createWallet({
+    env: () => "ww_live_test",
+    fetchImpl: async (url, options) => {
+      const body = JSON.parse(options.body);
+      sent.push(body);
+      if ("color" in body) {
+        return {
+          ok: false,
+          status: 402,
+          text: async () => '{"error":"color is available on Pro plans"}'
+        };
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ serialNumber: "ser-1", shareUrl: "u" }) };
+    }
+  });
+
+  const pass = await wallet.createPass({ guest, ticket, checkinUrl: CHECKIN });
+  assert.equal(pass.serial, "ser-1", "the pass was lost over a background colour");
+  assert.equal(sent.length, 2, "it should try once with the colour and once without");
+  assert.equal(sent[1].colorPreset, "dark");
+});
+
+test("a refusal that is not about the colour is still a refusal", async () => {
+  // Otherwise a real problem gets one silent retry and the same failure.
+  let calls = 0;
+  const wallet = createWallet({
+    env: () => "ww_live_test",
+    fetchImpl: async () => {
+      calls += 1;
+      return { ok: false, status: 422, text: async () => '{"error":"barcodeValue is required"}' };
+    }
+  });
+
+  await assert.rejects(() => wallet.createPass({ guest, ticket, checkinUrl: CHECKIN }), /barcodeValue/);
+  assert.equal(calls, 1, "it retried something that had nothing to do with the colour");
 });
 
 test("a badge is personal, and the pass says so", () => {

@@ -16,15 +16,25 @@
 
 const ENDPOINT = "https://api.walletwallet.dev/api/passes";
 
-/** A pass colour per badge category, from the presets the free tier allows. */
-const PRESETS = {
-  "#B8963A": "orange",
-  "#1C2B4A": "dark",
-  "#6B7FA0": "blue"
-};
+/**
+ * The pass background.
+ *
+ * `color` takes the category's own hex, so a pass looks like the badge it
+ * stands for. It is a paid feature at the provider, so `colorPreset` is sent
+ * alongside as the fallback, and that fallback is always "dark" -- the navy
+ * the rest of the site is built on. The presets offered are dark, blue,
+ * green, red, purple and orange: there is no gold among them, and a Speaker
+ * pass mapped to orange looked nothing like the event.
+ *
+ * So: exactly right where the plan allows it, on-brand where it does not,
+ * and never orange.
+ */
+const FALLBACK_PRESET = "dark";
 
-function presetFor(colour) {
-  return PRESETS[String(colour ?? "").toUpperCase()] ?? "dark";
+/** #RRGGBB, or null if there is nothing usable to send. */
+function hex(colour) {
+  const value = String(colour ?? "").trim();
+  return /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : null;
 }
 
 /** Trim to the API's limit without cutting mid-word where it can be helped. */
@@ -76,7 +86,8 @@ export function passBodyFor({ guest, ticket, checkinUrl }) {
       { label: "Badge", value: ticket.code ? "This pass is personal and not transferable." : null }
     ]),
 
-    colorPreset: presetFor(ticket.colour),
+    colorPreset: FALLBACK_PRESET,
+    ...(hex(ticket.colour) ? { color: hex(ticket.colour) } : {}),
     sharingProhibited: true
   };
 }
@@ -100,6 +111,16 @@ export function createWallet({ env, fetchImpl = globalThis.fetch } = {}) {
     });
 
     const text = await res.text();
+
+    // An exact colour is a paid feature. If that is the only objection, the
+    // pass is still worth having: drop the colour, keep the navy preset, and
+    // try once more. A badge that is the wrong shade of blue beats no badge.
+    if (!res.ok && "color" in body && /colou?r|\bpro\b|plan|upgrade/i.test(text)) {
+      const { color, ...plain } = body;
+      console.warn(`wallet: ${color} needs a paid plan, sending the preset instead`);
+      return call(path, method, plain);
+    }
+
     if (!res.ok) {
       // The provider's own words, trimmed: they name the offending field, and
       // guessing at it from a status code alone wastes an afternoon.

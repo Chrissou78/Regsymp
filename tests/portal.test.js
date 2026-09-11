@@ -26,6 +26,7 @@ let attendees;
 let server;
 let base;
 const passes = [];
+const refreshed = [];
 let walletOn = true;
 
 before(async () => {
@@ -50,6 +51,10 @@ before(async () => {
       createPass: async (args) => {
         passes.push(args);
         return { serial: `ser-${passes.length}`, url: `https://passes.example/${passes.length}` };
+      },
+      updatePass: async (args) => {
+        refreshed.push(args);
+        return { serialNumber: args.serial };
       }
     }
   });
@@ -376,6 +381,7 @@ test("a guest with no ticket is sent back rather than shown an empty one", opts,
 test("a claimed badge can be put in a phone's wallet", opts, async () => {
   await reset();
   passes.length = 0;
+  refreshed.length = 0;
   walletOn = true;
   const { guest, cookie } = await claimedGuest({ category: "visitor" });
 
@@ -404,6 +410,7 @@ test("asking twice returns the same pass, not a second one", opts, async () => {
   // them will be missed.
   await reset();
   passes.length = 0;
+  refreshed.length = 0;
   walletOn = true;
   const { cookie } = await claimedGuest({ category: "visitor" });
   const page = await (await get("/portal/ticket", { headers: { cookie } })).text();
@@ -415,11 +422,18 @@ test("asking twice returns the same pass, not a second one", opts, async () => {
 
   assert.equal(again.headers.get("location"), first.headers.get("location"));
   assert.equal(passes.length, 1, "a second pass was minted");
+
+  // The same pass, brought up to date: the page promises it updates itself,
+  // and asking for it again is the moment to make that true.
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(refreshed.length, 1, "the existing pass was not refreshed");
+  assert.equal(refreshed[0].serial, "ser-1");
 });
 
 test("an unclaimed badge is not offered a pass, nor given one", opts, async () => {
   await reset();
   passes.length = 0;
+  refreshed.length = 0;
   walletOn = true;
   const { cookie } = await claimedGuest({ category: "visitor" });
   const page = await (await get("/portal/ticket", { headers: { cookie } })).text();
@@ -433,6 +447,7 @@ test("an unclaimed badge is not offered a pass, nor given one", opts, async () =
 test("with no key configured, no button and no pass", opts, async () => {
   await reset();
   passes.length = 0;
+  refreshed.length = 0;
   walletOn = false;
   const { cookie } = await claimedGuest({ category: "visitor" });
   let page = await (await get("/portal/ticket", { headers: { cookie } })).text();
