@@ -213,6 +213,33 @@ test("redeeming an invalid invitation cannot create an account", async () => {
   assert.equal(res.status, 403);
 });
 
+test("every admin page carries a menu, including the way back to a profile", async () => {
+  // Going into the admin from the portal used to feel like leaving the site:
+  // a brand and a sign-out link, no way to Users, no way to Badges, and no
+  // way back to your own profile.
+  //
+  // Rendered by the server, not revealed by the browser from a cookie. Every
+  // administrator has a profile now, so the link needs no condition -- and
+  // the cookie-driven version did not appear at all for somebody whose
+  // session predated the hint.
+  const login = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=correct-horse-battery"
+  });
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+
+  for (const path of ["/admin", "/admin/users", "/admin/account"]) {
+    const body = await (await call(path, { headers: { Cookie: cookie } })).text();
+    const nav = body.match(/<nav class="a-nav">([\s\S]*?)<\/nav>/);
+    assert.ok(nav, `${path} has no menu`);
+    for (const link of ["/admin", "/admin/attendees", "/admin/badges", "/portal"]) {
+      assert.ok(nav[1].includes(`href="${link}"`), `${path} cannot reach ${link}`);
+    }
+    assert.doesNotMatch(body, /data-profile-link/, `${path} still hides the link behind a cookie`);
+  }
+});
+
 test("signing out clears the cookie the old admin form used to set", async () => {
   // That form set regsymp_admin at Path=/admin while everything else uses
   // Path=/. Clearing a cookie needs the path it was set on, so signing out

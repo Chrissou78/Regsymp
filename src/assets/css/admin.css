@@ -35,6 +35,36 @@ a { color: inherit; }
   background: var(--a-navy);
   color: #F6F3EC;
 }
+/* The admin had a brand and a sign-out link and nothing else, so going into
+   it from the portal felt like leaving the site: no way to Users, no way to
+   Badges, no way back to your own profile. It is the same menu the portal
+   has, from the other side.
+
+   Every administrator has a profile -- migration 014 gave one to the two who
+   did not, and both ways of making an administrator now start from somebody
+   who already has an account -- so the link needs no condition, and is
+   rendered by the server rather than revealed by the browser from a cookie. */
+.a-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-right: auto;
+  margin-left: 8px;
+  font-size: 13px;
+}
+
+.a-nav a {
+  color: rgba(246, 243, 236, 0.78);
+  text-decoration: none;
+}
+
+.a-nav a:hover {
+  color: #F6F3EC;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .a-brand {
   font-weight: 600;
   letter-spacing: 0.14em;
