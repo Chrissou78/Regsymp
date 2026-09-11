@@ -107,6 +107,37 @@ test("promoting somebody twice says so rather than making a second account", opt
   );
 });
 
+// -------------------------------------------- an administrator is a person
+
+test("a new admin account comes with a profile", opts, async () => {
+  // The site had administrators with nowhere to go: no profile, no details,
+  // nothing to edit, and no way back to themselves from the admin.
+  await reset();
+  await users.createUser("fresh@example.com", "a-long-enough-password", "a test");
+
+  const profile = await attendees.byEmail("fresh@example.com");
+  assert.ok(profile, "an administrator was created with no profile");
+  assert.equal(profile.category, "visitor");
+  assert.equal(profile.selfRegistered, false);
+
+  // The same password opens both halves of them.
+  assert.ok(await attendees.verify("fresh@example.com", "a-long-enough-password"));
+  assert.ok(await users.verify("fresh@example.com", "a-long-enough-password"));
+
+  // And no badge: being an administrator is not being a guest.
+  assert.equal(await attendees.ticketFor(profile.id), null);
+});
+
+test("giving an admin a profile does not disturb one they already have", opts, async () => {
+  await reset();
+  const guest = await speaker("keeps@example.com", "the-password-he-knows");
+  await users.promote("keeps@example.com", "chris@onchainlabs.ch");
+
+  const after = await attendees.byEmail("keeps@example.com");
+  assert.equal(after.id, guest.id, "a second profile was made for the same address");
+  assert.equal(after.category, "speaker", "their category was overwritten");
+});
+
 // ------------------------------------------------------ one password, both
 
 test("changing the password on the profile changes it for the admin", opts, async () => {

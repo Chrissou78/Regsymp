@@ -1,5 +1,5 @@
 import { hashPassword, verifyPassword } from "./password.js";
-import { attendeeHash, mirrorPassword } from "./credential-mirror.js";
+import { attendeeHash, ensureProfile, mirrorPassword } from "./credential-mirror.js";
 
 /**
  * Admin accounts in Postgres.
@@ -150,6 +150,13 @@ export function createPgUserStore({ db, now = () => new Date() }) {
            values ($1, $2, $3, true, $4, $5)`,
           [address, hash, first, now(), createdBy ?? null]
         );
+
+        // An administrator is a person, and a person has a profile. Promotion
+        // starts from the guest list so anybody made an admin that way
+        // already has one; this is the first account, which by definition
+        // cannot have been promoted from a list that was empty.
+        await ensureProfile(client, { email: address, hash, createdBy: createdBy ?? null });
+
         return address;
       });
     },

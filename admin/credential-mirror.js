@@ -40,3 +40,26 @@ export async function attendeeHash(db, email) {
   );
   return rows[0]?.password_hash ?? null;
 }
+
+/**
+ * Give an administrator a profile, if they have not got one.
+ *
+ * Promotion starts from the guest list, so it is only the accounts created
+ * before anybody was on it -- the first one, in particular -- that can reach
+ * this. Their password comes with them: one address, one credential.
+ *
+ * No badge: being an administrator is not being a guest, and which badge they
+ * should carry, if any, is a decision for the guest list.
+ */
+export async function ensureProfile(db, { email, hash = null, createdBy = null }) {
+  const address = String(email ?? "").trim().toLowerCase();
+  if (!address) return false;
+
+  const { rowCount } = await db.query(
+    `insert into attendees (email, category, password_hash, claimed_at, self_registered, created_by)
+     select $1, 'visitor', $2, case when $2::text is not null then now() end, false, $3
+      where not exists (select 1 from attendees where email = $1)`,
+    [address, hash, createdBy]
+  );
+  return rowCount > 0;
+}
