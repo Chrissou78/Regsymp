@@ -593,20 +593,39 @@ export function createAdmin(config) {
         return true;
       }
 
-      const render = async (flash = null, q = "") =>
-        attendeesPage({
-          guests: await guests.list({ q: q || null }),
+      const PER = [10, 20, 50];
+
+      const render = async (flash = null, q = "", query = null) => {
+        const per = PER.includes(Number(query?.get("per"))) ? Number(query.get("per")) : 20;
+        const total = await guests.count({ q: q || null });
+        const pages = Math.max(1, Math.ceil(total / per));
+        // Clamped rather than trusted: ?page=9999 should show the last page,
+        // not an empty one that looks like the list has been lost.
+        const page = Math.min(Math.max(1, Number(query?.get("page")) || 1), pages);
+
+        const people = await guests.list({ q: q || null, limit: per, offset: (page - 1) * per });
+
+        // Administering the site is not a badge category, so it travels
+        // separately: one lookup for the page rather than one per row.
+        const administrators = new Set((await storeFor().listUsers()).map((u) => u.email));
+
+        return attendeesPage({
+          guests: people.map((g) => ({ ...g, isAdmin: administrators.has(g.email) })),
           capacity: await guests.capacity(),
           categories: await guests.categories(),
           speakerSlugs: await guests.speakerSlugs(),
           session,
           token,
           flash,
-          q
+          q,
+          total,
+          page,
+          per
         });
+      };
 
       if (req.method === "GET") {
-        html(res, 200, await render(null, url.searchParams.get("q") ?? ""));
+        html(res, 200, await render(null, url.searchParams.get("q") ?? "", url.searchParams));
         return true;
       }
 
@@ -723,6 +742,69 @@ export function createAdmin(config) {
               (skipped ? `, ${skipped} already registered` : "") +
               (parsed.problems.length ? `, ${parsed.problems.length} unreadable line(s)` : "") +
               (failures.length ? `. Problems: ${failures.slice(0, 3).join("; ")}` : ".");
+            break;
+          }
+          case "setEmail": {
+            // The one thing somebody added from the published page is
+            // missing. With it they can be invited like anybody else.
+            const who = await guests.setEmail(id, form.fields.email);
+            message = `${who.email} added. They can be sent a set-password link now.`;
+            break;
+          }
+          case "importSpeakers": {
+            // The people on the public speakers page, as accounts. Most of
+            // them have never given an address, which is why an attendee no
+            // longer needs one: they exist, they can hold a badge, and the
+            // address is filled in when it turns up.
+            const published = (await guests.publishedSpeakers?.()) ?? [];
+            const existing = await guests.list({ limit: 1000 });
+            const linked = new Set(existing.map((g) => g.speakerSlug).filter(Boolean));
+            const named = new Set(existing.map((g) => (g.name ?? "").toLowerCase()).filter(Boolean));
+
+            let added = 0;
+            let badges = 0;
+            const failures = [];
+
+            for (const entry of published) {
+              if (linked.has(entry.slug) || named.has(String(entry.name ?? "").toLowerCase())) continue;
+
+              // Split on the first space: "Lia Müller Peña" is Lia, then the
+              // rest. It is a convention rather than a rule, and the profile
+              // page is where they correct it.
+              const name = String(entry.name ?? "").trim();
+              const cut = name.indexOf(" ");
+              try {
+                const made = await guests.create(
+                  {
+                    firstName: cut === -1 ? name : name.slice(0, cut),
+                    lastName: cut === -1 ? null : name.slice(cut + 1),
+                    company: entry.org,
+                    position: entry.role,
+                    category: "speaker",
+                    speakerSlug: entry.slug
+                  },
+                  by
+                );
+                added += 1;
+                try {
+                  await guests.issueTicket({ attendeeId: made.id, category: "speaker", issuedBy: by });
+                  badges += 1;
+                } catch (err) {
+                  failures.push(`${name}: account made but no badge (${err.message})`);
+                }
+              } catch (err) {
+                failures.push(`${name}: ${err.message}`);
+              }
+            }
+
+            message = !published.length
+              ? "There are no speakers on the published page to add."
+              : added
+              ? `${added} speaker${added === 1 ? "" : "s"} added from the published page, ` +
+                `${badges} with a badge. They have no email address yet, so they cannot ` +
+                "sign in until one is filled in." +
+                (failures.length ? ` Problems: ${failures.slice(0, 3).join("; ")}` : "")
+              : "Every published speaker already has an account here.";
             break;
           }
           case "issue": {
@@ -1024,8 +1106,12 @@ export function createAdmin(config) {
             ${warn ? `<p class="a-warning"><strong>Changes here are temporary.</strong> ${escape(warn)}</p>` : ""}
             <p class="a-lede">Changes are saved to the content volume and rebuilt
             immediately &mdash; no deploy, and nothing signs you out.</p>
-            <ul class="a-list">${rows}</ul>
-            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/attendees">Guest list</a> &nbsp;·&nbsp; <a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <ul class="a-list">${
+              guests
+                ? `<li><a href="/admin/attendees">Users</a></li>`
+                : ""
+            }${rows}</ul>
+            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;

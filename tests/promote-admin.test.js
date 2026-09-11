@@ -107,6 +107,79 @@ test("promoting somebody twice says so rather than making a second account", opt
   );
 });
 
+// --------------------------------------------- people without an address
+
+test("somebody can be added before anybody has their email", opts, async () => {
+  // Twenty-six speakers were published on the site long before their
+  // addresses turned up. They still need a badge and a number.
+  await reset();
+  const who = await attendees.create(
+    { firstName: "Lia", lastName: "Müller Peña", category: "speaker", company: "OnChain Labs" },
+    "chris@onchainlabs.ch"
+  );
+
+  assert.equal(who.email, null);
+  assert.equal(who.name, "Lia Müller Peña");
+
+  // And they can hold a badge, which is the point of being on the list.
+  await attendees.issueTicket({ attendeeId: who.id, category: "speaker", issuedBy: "chris" });
+  assert.ok(await attendees.ticketFor(who.id));
+});
+
+test("a row with neither a name nor an address is refused", opts, async () => {
+  await reset();
+  await assert.rejects(
+    () => attendees.create({ category: "visitor" }, "chris@onchainlabs.ch"),
+    /email address or a name/
+  );
+});
+
+test("people with no address do not collide, and cannot be signed into", opts, async () => {
+  // They all have the same null. An empty lookup must not match any of them,
+  // or one would be handed another's profile.
+  await reset();
+  await attendees.create({ firstName: "One", category: "speaker" }, "chris");
+  await attendees.create({ firstName: "Two", category: "speaker" }, "chris");
+
+  assert.equal(await attendees.byEmail(""), null);
+  assert.equal(await attendees.byEmail(null), null);
+  assert.equal(await attendees.byEmail(undefined), null);
+  assert.equal(await attendees.verify("", ""), false);
+  assert.equal(await attendees.verify(null, "anything"), false);
+});
+
+test("an address can be filled in later, once", opts, async () => {
+  await reset();
+  const who = await attendees.create({ firstName: "Later", category: "speaker" }, "chris");
+
+  const filled = await attendees.setEmail(who.id, "  Later@Example.com ");
+  assert.equal(filled.email, "later@example.com", "the address should be normalised");
+
+  // Not a way to move an address from one person to another.
+  await assert.rejects(() => attendees.setEmail(who.id, "other@example.com"), /already has an email/);
+});
+
+test("filling in an address somebody else already has is refused", opts, async () => {
+  await reset();
+  await attendees.create({ email: "taken@example.com", category: "visitor" }, "chris");
+  const who = await attendees.create({ firstName: "Nameless", category: "speaker" }, "chris");
+
+  await assert.rejects(() => attendees.setEmail(who.id, "taken@example.com"), /already registered/);
+  assert.equal((await attendees.byId(who.id)).email, null, "the address was taken anyway");
+});
+
+test("a guest still cannot change their own address", opts, async () => {
+  // email is kept out of the writable fields for this reason; setEmail is the
+  // admin's own path in and only fills a gap.
+  await reset();
+  const who = await attendees.create({ email: "mine@example.com", category: "visitor" }, "chris");
+  await attendees.update(who.id, { email: "theirs@example.com", company: "Somewhere" });
+
+  const after = await attendees.byId(who.id);
+  assert.equal(after.email, "mine@example.com", "an address was changed through update()");
+  assert.equal(after.company, "Somewhere", "the rest of the update was dropped");
+});
+
 // -------------------------------------------- an administrator is a person
 
 test("a new admin account comes with a profile", opts, async () => {

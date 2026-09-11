@@ -150,7 +150,9 @@ test("a signed-in session reaches the collections index", async () => {
   const body = await res.text();
   assert.match(body, /Collections/);
   assert.match(body, /admin@regsymp\.com/, "the signed-in account is shown");
-  for (const label of ["Speakers", "Partners", "FAQ"]) {
+  // "Speaker pages", not "Speakers": those are the entries on the public
+  // page, and the people are under Users.
+  for (const label of ["Speaker pages", "Partners", "FAQ"]) {
     assert.ok(body.includes(label), `missing ${label}`);
   }
 });

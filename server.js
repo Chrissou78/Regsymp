@@ -285,12 +285,26 @@ const admin = createAdmin({
         removeCategory: (slug) => badgeCategories.remove(slug),
         ticketFor: (id) => attendees.ticketFor(id),
         byId: (id) => attendees.byId(id),
+        setEmail: (id, email) => attendees.setEmail(id, email),
+        count: (opts) => attendees.count(opts),
 
         /** The published speaker entries, for linking an account to one. */
         speakerSlugs: async () => {
           const file = await store?.getFile("src/_data/speakers.json");
           if (!file || Array.isArray(file)) return [];
           return JSON.parse(file.content).map((s) => ({ slug: s.slug, name: s.name }));
+        },
+
+        /** The same entries in full, for making people out of them. */
+        publishedSpeakers: async () => {
+          const file = await store?.getFile("src/_data/speakers.json");
+          if (!file || Array.isArray(file)) return [];
+          return JSON.parse(file.content).map((s) => ({
+            slug: s.slug,
+            name: s.name,
+            org: s.org ?? null,
+            role: s.role ?? null
+          }));
         },
 
         sendClaim: async (id, origin) => {

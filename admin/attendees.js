@@ -108,8 +108,17 @@ export function createAttendees({ db, now = () => new Date() }) {
 
   return {
     async create(fields, createdBy) {
-      const email = key(fields.email);
-      if (!email.includes("@")) throw new Error("That does not look like an email address.");
+      // Somebody can be added before anybody has their address: twenty-six
+      // speakers were published on the site long before their emails turned
+      // up. They cannot sign in until it is filled in; everything else about
+      // them -- a badge, a number, a place in the list -- works.
+      const email = key(fields.email) || null;
+      if (email !== null && !email.includes("@")) {
+        throw new Error("That does not look like an email address.");
+      }
+      if (email === null && !`${fields.firstName ?? ""}${fields.lastName ?? ""}`.trim()) {
+        throw new Error("Give them an email address or a name.");
+      }
 
       // Unknown fields are ignored rather than rejected, which made the rename
       // from `role` to `category` silent: callers kept passing role and
@@ -132,6 +141,9 @@ export function createAttendees({ db, now = () => new Date() }) {
         .catch((err) => {
           if (err.code === "23505" || /unique/i.test(err.message)) {
             throw new Error(`${email} is already registered.`);
+          }
+          if (err.code === "23514" && /have_a_name_or_an_email/.test(err.message ?? "")) {
+            throw new Error("Give them an email address or a name.");
           }
           throw err;
         });
@@ -196,7 +208,22 @@ export function createAttendees({ db, now = () => new Date() }) {
       return found;
     },
 
-    async list({ category = null, q = null, limit = 200 } = {}) {
+    /** How many accounts a search matches, for paging through them. */
+    async count({ category = null, q = null } = {}) {
+      const { rows } = await db.query(
+        `select count(*)::int as n
+           from attendees a
+          where ($1::text is null or a.category = $1)
+            and ($2::text is null or
+                 a.email ilike '%' || $2 || '%' or
+                 coalesce(a.first_name,'') || ' ' || coalesce(a.last_name,'') ilike '%' || $2 || '%' or
+                 coalesce(a.company,'') ilike '%' || $2 || '%')`,
+        [category, q]
+      );
+      return rows[0].n;
+    },
+
+    async list({ category = null, q = null, limit = 200, offset = 0 } = {}) {
       const { rows } = await db.query(
         `select a.*,
                 ac.label as category_label,
@@ -223,8 +250,8 @@ export function createAttendees({ db, now = () => new Date() }) {
           -- badge number so the sequence is visible, and the people still
           -- waiting for one at the end.
           order by ac.sort, ac.label, t.number nulls last, a.created_at
-          limit $3`,
-        [category, q, limit]
+          limit $3 offset $4`,
+        [category, q, limit, Math.max(0, Number(offset) || 0)]
       );
       return rows.map((r) => ({
         ...present(r),
@@ -243,13 +270,47 @@ export function createAttendees({ db, now = () => new Date() }) {
       }));
     },
 
+    /**
+     * Fill in the address of somebody who was added without one.
+     *
+     * Deliberately not part of update(): `email` is kept out of WRITABLE so
+     * that the portal cannot let a guest change their own address, which
+     * would let them take over somebody else's. This is the admin's own path
+     * in, and it only fills a gap -- it will not move an address from one
+     * person to another.
+     */
+    async setEmail(attendeeId, email) {
+      const address = key(email);
+      if (!address.includes("@")) throw new Error("That does not look like an email address.");
+
+      const { rows } = await db
+        .query(
+          `update attendees set email = $2
+            where id = $1 and email is null
+           returning *`,
+          [Number(attendeeId), address]
+        )
+        .catch((err) => {
+          if (err.code === "23505") throw new Error(`${address} is already registered.`);
+          throw err;
+        });
+
+      if (!rows.length) throw new Error("That account already has an email address.");
+      return present(rows[0]);
+    },
+
     async byId(id) {
       const { rows } = await db.query("select * from attendees where id = $1", [Number(id)]);
       return present(rows[0]);
     },
 
     async byEmail(email) {
-      const { rows } = await db.query("select * from attendees where email = $1", [key(email)]);
+      // An empty lookup must not find the people who have no address: they
+      // all share "no email", and one of them would be handed the others'
+      // profile.
+      const address = key(email);
+      if (!address) return null;
+      const { rows } = await db.query("select * from attendees where email = $1", [address]);
       return present(rows[0]);
     },
 

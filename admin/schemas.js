@@ -19,7 +19,9 @@ export const SCHEMAS = {
   speakers: {
     file: "src/_data/speakers.json",
     kind: "array",
-    label: "Speakers",
+    // Not "Speakers": these are the entries on the public speakers page, and
+    // most of the twenty-six have no account here. The people are under Users.
+    label: "Speaker pages",
     identify: (r) => r.name,
     fields: [
       F("slug", "slug", { from: "name", unique: true }),

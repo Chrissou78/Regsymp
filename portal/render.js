@@ -319,10 +319,12 @@ export function profilePage({ guest, admin = false, ticket, token, saved = false
 }
 
 export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = false, error = null }) {
-  // The card is the badge's own colour, the way the wallet pass is, so the
-  // three things somebody can present at the door look like one another.
-  // The text colour is computed rather than chosen: a category added in a
-  // pale colour would be unreadable in white.
+  // A coloured band on a white card. The whole card in the category colour
+  // was tried and set aside: gold is a poor ground for a page of text, and
+  // the band alone already says which badge this is.
+  //
+  // The band's own text is still computed rather than fixed white, because a
+  // category the organisers add in a pale colour would be unreadable.
   const card = ticket.colour ?? "#1C2B4A";
   const ink = inkOn(card);
 
@@ -333,8 +335,8 @@ export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = f
     admin,
     token,
     flash: error ? { kind: "error", message: error } : null,
-    body: `<div class="p-ticket" style="--card:${escape(card)};--ink:${ink}">
-      <div class="p-ticket-head">
+    body: `<div class="p-ticket">
+      <div class="p-ticket-head" style="background:${escape(card)};color:${ink}">
         <span class="p-ticket-kind">${escape(ticket.categoryLabel)}</span>
         <span class="p-ticket-number">${escape(ticket.label)}</span>
       </div>

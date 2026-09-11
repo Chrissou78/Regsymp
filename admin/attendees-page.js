@@ -104,7 +104,7 @@ function row({ guest, token, speakerSlugs }) {
       ? `<a class="a-count" href="/admin/badges/${escape(guest.ticket.code)}" target="_blank"
             rel="noopener">Print</a>`
       : "",
-    guest.claimed
+    guest.claimed || !guest.email
       ? ""
       : `<form method="post" action="/admin/attendees" class="a-inline">
            ${hidden}<input type="hidden" name="action" value="sendClaim">
@@ -116,6 +116,14 @@ function row({ guest, token, speakerSlugs }) {
            <button>Resend confirmation</button>
          </form>`
       : "",
+    guest.email
+      ? ""
+      : `<form method="post" action="/admin/attendees" class="a-inline">
+           ${hidden}<input type="hidden" name="action" value="setEmail">
+           <input name="email" type="email" placeholder="their email" aria-label="Email"
+                  required size="22">
+           <button>Add address</button>
+         </form>`,
     guest.category === "speaker"
       ? `<form method="post" action="/admin/attendees" class="a-inline">
            ${hidden}<input type="hidden" name="action" value="linkSpeaker">
@@ -139,9 +147,15 @@ function row({ guest, token, speakerSlugs }) {
 
   return `<li class="a-guest">
     <div class="a-guest-who">
-      <span class="a-guest-name">${escape(guest.name ?? guest.email)}</span>
+      <span class="a-guest-name">${escape(guest.name ?? guest.email)}${
+        guest.isAdmin ? ' <span class="a-state a-state--admin">admin</span>' : ""
+      }</span>
       <span class="a-note">
-        ${escape(guest.email)}${guest.company ? ` &middot; ${escape(guest.company)}` : ""}
+        ${
+          guest.email
+            ? escape(guest.email)
+            : '<span class="a-state a-state--noemail">no email yet</span>'
+        }${guest.company ? ` &middot; ${escape(guest.company)}` : ""}
       </span>
       <span class="a-note">
         <span class="a-state a-state--${escape(state.label)}">${escape(state.label)}</span>
@@ -156,6 +170,34 @@ function row({ guest, token, speakerSlugs }) {
   </li>`;
 }
 
+/** 1–20 of 87, and the way to the rest of them. */
+function paging({ total, page, per, q }) {
+  if (!total) return "";
+
+  const pages = Math.max(1, Math.ceil(total / per));
+  const from = total ? (page - 1) * per + 1 : 0;
+  const to = Math.min(total, page * per);
+  const href = (p, size = per) =>
+    `/admin/attendees?page=${p}&per=${size}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+
+  const sizes = [10, 20, 50]
+    .map(
+      (size) =>
+        `<a class="a-chip${size === per ? " a-chip--on" : ""}" href="${escape(href(1, size))}">${size}</a>`
+    )
+    .join("");
+
+  return `<div class="a-paging">
+    <span class="a-count">${from}&ndash;${to} of ${total}</span>
+    <span class="a-paging-sizes">Show ${sizes}</span>
+    <span class="a-paging-steps">
+      ${page > 1 ? `<a class="a-chip" href="${escape(href(page - 1))}">&larr; Previous</a>` : ""}
+      ${pages > 1 ? `<span class="a-count">page ${page} of ${pages}</span>` : ""}
+      ${page < pages ? `<a class="a-chip" href="${escape(href(page + 1))}">Next &rarr;</a>` : ""}
+    </span>
+  </div>`;
+}
+
 export function attendeesPage({
   guests,
   capacity,
@@ -164,7 +206,10 @@ export function attendeesPage({
   session,
   token,
   flash = null,
-  q = ""
+  q = "",
+  total = null,
+  page = 1,
+  per = 20
 }) {
   // The store returns them in category order, so grouping is a matter of
   // noticing where one category ends.
@@ -238,11 +283,13 @@ export function attendeesPage({
       <h2>Add someone directly</h2>
       <p class="a-note">For the people the organisers invite. An address entered
       here counts as vouched for, so it needs no confirmation click, and the
-      badge is attributed as the account is created.</p>
+      badge is attributed as the account is created. Leave the address out if
+      you have not got it yet and give a name instead: they will hold a badge
+      but cannot sign in until it is filled in.</p>
       <form method="post" action="/admin/attendees" class="a-form a-form--inline">
         <input type="hidden" name="csrf" value="${escape(token)}">
         <input type="hidden" name="action" value="create">
-        <input name="email" type="email" required placeholder="Email" aria-label="Email">
+        <input name="email" type="email" placeholder="Email (optional)" aria-label="Email">
         <input name="firstName" placeholder="First name" aria-label="First name">
         <input name="lastName" placeholder="Surname" aria-label="Surname">
         <input name="company" placeholder="Company" aria-label="Company">
@@ -255,6 +302,18 @@ export function attendeesPage({
           <span>Email them a link to set a password</span>
         </label>
         <button class="a-btn">Add</button>
+      </form>
+
+      <h2>The published speakers</h2>
+      <p class="a-note">Twenty-six speakers are on the public page and most have
+      never given an address. This makes an account and a badge for each one who
+      has not got one, taking their name, company and title from the page. They
+      cannot sign in until an address is filled in — everything else about them
+      works, and you can add the address here as it arrives.</p>
+      <form method="post" action="/admin/attendees" class="a-form--inline">
+        <input type="hidden" name="csrf" value="${escape(token)}">
+        <input type="hidden" name="action" value="importSpeakers">
+        <button class="a-btn">Add the published speakers</button>
       </form>
 
       <h2>Add several at once</h2>
@@ -281,8 +340,12 @@ export function attendeesPage({
         </div>
       </form>
 
-      <h2>${guests.length} account${guests.length === 1 ? "" : "s"}</h2>
+      <h2>${total ?? guests.length} account${(total ?? guests.length) === 1 ? "" : "s"}${
+        q ? ` matching &ldquo;${escape(q)}&rdquo;` : ""
+      }</h2>
+      ${paging({ total: total ?? guests.length, page, per, q })}
       ${grouped || '<p class="a-note">Nobody yet.</p>'}
+      ${guests.length ? paging({ total: total ?? guests.length, page, per, q }) : ""}
 
       <p><a class="a-btn" href="/admin">Back to collections</a></p>`
   });
