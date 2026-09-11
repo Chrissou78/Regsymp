@@ -267,8 +267,11 @@ export function profilePage({ guest, admin = false, ticket, token, saved = false
                    : "Not claimed yet &mdash; claim it &rarr;"
                }</span>
              </a>`
-          : `<p class="p-note p-noticket">No ticket has been issued to you yet. The
-             organisers will assign one before the event.</p>`
+          : // Nothing. Not every account is going to be given a badge, and
+            // "the organisers will assign one before the event" told people
+            // who will never get one to wait for it. Somebody who has one
+            // sees it; somebody who has not sees their profile.
+            ""
       }
 
       <form method="post" action="/portal" class="p-form p-form--grid">

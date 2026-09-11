@@ -379,8 +379,12 @@ test("a guest with no ticket is sent back rather than shown an empty one", opts,
   assert.equal(ticket.status, 302);
   assert.equal(ticket.headers.get("location"), "/portal");
 
+  // And the profile says nothing about a badge. It used to promise one --
+  // "the organisers will assign one before the event" -- which told people
+  // who are never going to get one to wait for it.
   const profile = await (await get("/portal", { headers: { cookie } })).text();
-  assert.match(profile, /No ticket has been issued/);
+  assert.doesNotMatch(profile, /organisers will assign/);
+  assert.doesNotMatch(profile, /p-ticketstrip/, "an empty badge strip was shown");
 
   // And the menu does not offer one either. It used to, on every page, so the
   // link was there for the majority who have no badge yet -- and following it
@@ -632,7 +636,8 @@ test("an account alone carries no ticket", opts, async () => {
   assert.equal(await attendees.ticketFor(guest.id), null);
 
   const profile = await (await get("/portal", { headers: { cookie } })).text();
-  assert.match(profile, /No ticket has been issued/);
+  assert.doesNotMatch(profile, /p-ticketstrip/, "an account alone showed a badge");
+  assert.doesNotMatch(profile, /organisers will assign/);
 });
 
 test("registering an address that already exists reveals nothing", opts, async () => {

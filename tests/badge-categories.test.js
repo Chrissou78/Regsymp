@@ -279,6 +279,25 @@ test("somebody with no badge is offered one in their own category", opts, async 
   assert.doesNotMatch(row, /<select name="category"/, "the row asks for a category again");
 });
 
+test("adding somebody can leave them without a badge", opts, async () => {
+  // Not every account is going to be given one, so attributing is a choice
+  // the form offers rather than something that always happens.
+  await reset();
+  const page = attendeesPage({
+    guests: [],
+    capacity: await attendees.capacity(),
+    categories: await categories.list(),
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "t"
+  });
+
+  const boxes = [...page.matchAll(/<input type="checkbox" name="badge" value="yes"([^>]*)>/g)];
+  assert.equal(boxes.length, 2, "both ways of adding people should offer the choice");
+  for (const box of boxes) {
+    assert.match(box[1], /checked/, "attributing a badge should still be the default");
+  }
+});
+
 test("the paste box comes with an example file", opts, async () => {
   await reset();
   const page = attendeesPage({

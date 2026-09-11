@@ -282,10 +282,12 @@ export function attendeesPage({
 
       <h2>Add someone directly</h2>
       <p class="a-note">For the people the organisers invite. An address entered
-      here counts as vouched for, so it needs no confirmation click, and the
-      badge is attributed as the account is created. Leave the address out if
-      you have not got it yet and give a name instead: they will hold a badge
-      but cannot sign in until it is filled in.</p>
+      here counts as vouched for, so it needs no confirmation click. The badge
+      is attributed as the account is created — untick that if this is somebody
+      who is not being given one, and it can still be attributed later from
+      their row. Leave the address out if you have not got it yet and give a
+      name instead: they cannot sign in until it is filled in, and everything
+      else about them works.</p>
       <form method="post" action="/admin/attendees" class="a-form a-form--inline">
         <input type="hidden" name="csrf" value="${escape(token)}">
         <input type="hidden" name="action" value="create">
@@ -297,6 +299,10 @@ export function attendeesPage({
           <option value="" selected disabled>Type…</option>
           ${categoryOptions(categories)}
         </select>
+        <label class="a-check">
+          <input type="checkbox" name="badge" value="yes" checked>
+          <span>Attribute a badge</span>
+        </label>
         <label class="a-check">
           <input type="checkbox" name="sendClaim" value="yes" checked>
           <span>Email them a link to set a password</span>
@@ -332,6 +338,10 @@ export function attendeesPage({
             <option value="" selected disabled>Type for all of them…</option>
             ${categoryOptions(categories, { plural: true })}
           </select>
+          <label class="a-check">
+            <input type="checkbox" name="badge" value="yes" checked>
+            <span>Attribute a badge each</span>
+          </label>
           <label class="a-check">
             <input type="checkbox" name="sendClaim" value="yes">
             <span>Email each of them a link to set a password</span>
@@ -371,6 +381,7 @@ export function importPreviewPage({
   category,
   categoryLabel,
   sendClaim,
+  badge = false,
   paste,
   session,
   token
@@ -413,7 +424,9 @@ export function importPreviewPage({
 
       ${
         fresh.length
-          ? `<h2>Will be added as ${escape(categoryLabel ?? category)}, with a badge each</h2>
+          ? `<h2>Will be added as ${escape(categoryLabel ?? category)}${
+              badge ? ", with a badge each" : ", without badges"
+            }</h2>
              <p class="a-note">Check the columns line up before confirming. If a surname
              has landed under Company, the paste needs a header row.</p>
              ${table(fresh)}`
@@ -443,6 +456,7 @@ export function importPreviewPage({
         <input type="hidden" name="action" value="importConfirm">
         <input type="hidden" name="category" value="${escape(category)}">
         ${sendClaim ? '<input type="hidden" name="sendClaim" value="yes">' : ""}
+        ${badge ? '<input type="hidden" name="badge" value="yes">' : ""}
         <textarea name="paste" hidden>${escape(paste)}</textarea>
         <div class="a-form--inline">
           ${

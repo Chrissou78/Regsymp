@@ -666,19 +666,29 @@ export function createAdmin(config) {
               by
             );
 
-            // Putting somebody in a category is attributing their badge --
-            // there is nothing left to decide, so it is not a second step.
-            // Self-registration deliberately does not come through here:
+            // Putting somebody in a category usually attributes their badge
+            // in the same breath -- there is nothing left to decide. Usually,
+            // not always: not every account is going to be given one, and
+            // somebody added without one can be given one later from their
+            // row. Self-registration does not come through here at all:
             // signing up is open to anyone, and admission is not.
-            const badge = await guests.issueTicket({
-              attendeeId: created.id,
-              category: created.category,
-              issuedBy: by
-            });
+            const badge =
+              form.fields.badge === "yes"
+                ? await guests.issueTicket({
+                    attendeeId: created.id,
+                    category: created.category,
+                    issuedBy: by
+                  })
+                : null;
 
+            const who = created.email ?? created.name ?? "They";
             message =
-              `${created.email} added as ${created.category}` +
-              (badge.number === null ? " with a badge." : `, badge #${badge.number}.`);
+              `${who} added as ${created.category}` +
+              (!badge
+                ? ", without a badge."
+                : badge.number === null
+                  ? " with a badge."
+                  : `, badge #${badge.number}.`);
 
             if (form.fields.sendClaim === "yes") {
               const sent = await guests.sendClaim(created.id, origin);
@@ -708,6 +718,7 @@ export function createAdmin(config) {
               category: known.slug,
               categoryLabel: known.label,
               sendClaim: form.fields.sendClaim === "yes",
+              badge: form.fields.badge === "yes",
               paste,
               session,
               token
@@ -732,14 +743,17 @@ export function createAdmin(config) {
                 const created = await guests.create({ ...record, category }, by);
                 added += 1;
 
-                // A badge each, the same as adding one person. Counted
-                // separately because a full category stops the badges without
-                // stopping the accounts, and that difference matters.
-                try {
-                  await guests.issueTicket({ attendeeId: created.id, category, issuedBy: by });
-                  badges += 1;
-                } catch (err) {
-                  failures.push(`${record.email}: account made but no badge (${err.message})`);
+                // A badge each, the same as adding one person, and the same
+                // choice. Counted separately because a full category stops
+                // the badges without stopping the accounts, and that
+                // difference matters.
+                if (form.fields.badge === "yes") {
+                  try {
+                    await guests.issueTicket({ attendeeId: created.id, category, issuedBy: by });
+                    badges += 1;
+                  } catch (err) {
+                    failures.push(`${record.email}: account made but no badge (${err.message})`);
+                  }
                 }
 
                 if (notify) {

@@ -288,12 +288,6 @@
   margin: 0 0 30px;
 }
 
-/* The same slot, when there is no badge to show in it yet. .p-note alone has
-   no bottom margin, which left the sentence sitting on top of the form. */
-.p-noticket {
-  margin: 0 0 30px;
-}
-
 /* Who built it, under a hairline at the foot of the card. */
 .p-credit {
   margin: 22px 0 0;
