@@ -213,6 +213,34 @@ test("redeeming an invalid invitation cannot create an account", async () => {
   assert.equal(res.status, 403);
 });
 
+test("signing out clears the cookie the old admin form used to set", async () => {
+  // That form set regsymp_admin at Path=/admin while everything else uses
+  // Path=/. Clearing a cookie needs the path it was set on, so signing out
+  // could not reach it: it kept somebody signed in on every admin page,
+  // carried no role hint -- so the site could not tell they were an attendee
+  // too -- and outlived every attempt to get rid of it.
+  const login = await call("/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "email=admin@regsymp.com&password=correct-horse-battery"
+  });
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+
+  const out = await call("/admin/signout", { headers: { Cookie: cookie } });
+  const cleared = out.headers.getSetCookie().filter((c) => c.startsWith("regsymp_admin="));
+
+  assert.equal(cleared.length, 2, "both paths should be cleared");
+  assert.ok(
+    cleared.some((c) => /Path=\/;/.test(c) || /Path=\/$/.test(c) || /Path=\/(?!admin)/.test(c)),
+    "the current cookie was not cleared"
+  );
+  assert.ok(
+    cleared.some((c) => /Path=\/admin/.test(c)),
+    "the legacy cookie was not cleared"
+  );
+  for (const c of cleared) assert.match(c, /Max-Age=0/);
+});
+
 test("the account management page is reachable when signed in", async () => {
   const login = await call("/admin/signin", {
     method: "POST",

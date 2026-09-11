@@ -370,6 +370,15 @@ export function createAdmin(config) {
         return true;
       }
 
+      // A submission from a page cached before the forms were merged. Sending
+      // it on costs one retype; letting it through costs a session this site
+      // can no longer describe -- admin only, no role hint, and a cookie on a
+      // path that signing out could not reach.
+      if (signInPath !== "/admin/signin") {
+        redirect(res, signInPath);
+        return true;
+      }
+
       const source = clientKey(req);
       if (attempts.isLocked(source)) {
         const wait = Math.ceil(attempts.retryAfter(source) / 60);
@@ -427,6 +436,13 @@ export function createAdmin(config) {
       redirect(res, "/", {
         "Set-Cookie": [
           `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
+          // And the one this admin's own form used to set. A cookie at
+          // Path=/admin kept somebody signed in on every admin page, carried
+          // no role hint -- so the site could not tell they were also an
+          // attendee -- and could not be cleared by signing out, because
+          // clearing a cookie needs the path it was set on. It outlived every
+          // attempt to get rid of it.
+          `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0`,
           dropRole(req, "admin")
         ]
       });
