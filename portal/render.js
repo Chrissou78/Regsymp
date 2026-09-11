@@ -7,6 +7,8 @@
  * looking like a different product bolted on.
  */
 
+import { inkOn } from "../admin/ink.js";
+
 export function escape(value) {
   return String(value ?? "").replace(
     /[&<>"']/g,
@@ -23,6 +25,10 @@ export function layout({
   // most people arrive before theirs is assigned, and a link that bounces
   // straight back to the profile reads as something being broken.
   ticket = null,
+  // Whether this person also administers the site. Some do: a speaker who
+  // runs it has both, and without a way across, being both is invisible from
+  // here.
+  admin = false,
   flash = null,
   wide = false,
   token = ""
@@ -52,6 +58,7 @@ export function layout({
       ? `<nav class="p-nav">
            <a href="/portal">Profile</a>
            ${ticket ? '<a href="/portal/ticket">Ticket</a>' : ""}
+           ${admin ? '<a class="p-nav-admin" href="/admin">Admin</a>' : ""}
            <form method="post" action="/portal/signout" class="p-inline">
              <input type="hidden" name="csrf" value="${escape(token)}">
              <button class="p-linkbutton">Sign out</button>
@@ -215,7 +222,7 @@ export function forgotPage({ sent = false, error = null } = {}) {
 
 const COUNTRIES_NOTE = "Two-letter code or country name — whichever you prefer.";
 
-export function profilePage({ guest, ticket, token, saved = false, error = null }) {
+export function profilePage({ guest, admin = false, ticket, token, saved = false, error = null }) {
   const socials = guest.socials ?? {};
   const speaker = guest.category === "speaker";
 
@@ -223,6 +230,7 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
     title: "Your profile",
     guest,
     ticket,
+    admin,
     token,
     flash: error
       ? { kind: "error", message: error }
@@ -310,15 +318,23 @@ export function profilePage({ guest, ticket, token, saved = false, error = null 
   });
 }
 
-export function ticketPage({ guest, ticket, qr, token, wallet = false, error = null }) {
+export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = false, error = null }) {
+  // The card is the badge's own colour, the way the wallet pass is, so the
+  // three things somebody can present at the door look like one another.
+  // The text colour is computed rather than chosen: a category added in a
+  // pale colour would be unreadable in white.
+  const card = ticket.colour ?? "#1C2B4A";
+  const ink = inkOn(card);
+
   return layout({
     title: "Your ticket",
     guest,
     ticket,
+    admin,
     token,
     flash: error ? { kind: "error", message: error } : null,
-    body: `<div class="p-ticket">
-      <div class="p-ticket-head" style="background:${escape(ticket.colour ?? "#1C2B4A")}">
+    body: `<div class="p-ticket" style="--card:${escape(card)};--ink:${ink}">
+      <div class="p-ticket-head">
         <span class="p-ticket-kind">${escape(ticket.categoryLabel)}</span>
         <span class="p-ticket-number">${escape(ticket.label)}</span>
       </div>
@@ -379,11 +395,12 @@ export function ticketPage({ guest, ticket, qr, token, wallet = false, error = n
   });
 }
 
-export function changePasswordPage({ guest, ticket = null, token, error = null, saved = false }) {
+export function changePasswordPage({ guest, admin = false, ticket = null, token, error = null, saved = false }) {
   return layout({
     title: "Change password",
     guest,
     ticket,
+    admin,
     token,
     flash: error
       ? { kind: "error", message: error }

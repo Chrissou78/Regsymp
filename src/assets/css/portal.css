@@ -322,7 +322,7 @@
 }
 
 .p-ticket-claim {
-  border-top: 1px solid var(--rule, #e8e4dc);
+  border-top: 1px solid var(--veil);
   padding: 18px 22px 22px;
   margin: 0;
 }
@@ -332,11 +332,11 @@
 }
 
 .p-ticket-claimed {
-  border-top: 1px solid var(--rule, #e8e4dc);
+  border-top: 1px solid var(--veil);
   padding: 16px 22px 20px;
   margin: 0;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--quiet);
 }
 
 .p-ticket-claimed p {
@@ -352,8 +352,17 @@
    the thing to do next. Outlined, not filled. */
 .p-btn--wallet {
   background: transparent;
-  color: var(--navy, #1c2b4a);
-  border: 1px solid var(--navy, #1c2b4a);
+  color: inherit;
+  border: 1px solid currentColor;
+}
+
+.p-btn--wallet:hover {
+  background: color-mix(in srgb, var(--ink, #fff) 14%, transparent);
+}
+
+.p-ticket .p-help,
+.p-ticket .p-note {
+  color: var(--quiet);
 }
 
 .p-ticketstrip-label {
@@ -369,13 +378,28 @@
   color: var(--navy);
 }
 
+/* The card is the badge.
+   --card and --ink come from the category, set on the element, so a ticket,
+   a printed badge and a wallet pass are the same object in three places. The
+   veils are drawn from the ink rather than hardcoded, because the ink is dark
+   on a pale category and light on a deep one. */
 .p-ticket {
-  background: var(--white);
-  border: 1px solid var(--border);
+  background: var(--card, var(--navy));
+  color: var(--ink, #fff);
+  border: none;
   border-radius: 4px;
   overflow: hidden;
   max-width: 520px;
   margin: 0 auto;
+  --veil: color-mix(in srgb, var(--ink, #fff) 22%, transparent);
+  /* Secondary text is the same ink, not a faded one.
+     Fading it is the usual way to make a label recede, and on the navy card
+     it would be fine -- white at 72% still clears 7:1. On the gold one it
+     falls to 3.2:1, under the 4.5:1 that small text needs, and even 95% only
+     reaches 4.7 against gold's 5.0. So the hierarchy is carried by size,
+     tracking and capitals, which it largely was already. The veil stays for
+     rules, which are not text and need only 3:1. */
+  --quiet: var(--ink, #fff);
 }
 
 .p-ticket-head {
@@ -384,8 +408,9 @@
   justify-content: space-between;
   gap: 16px;
   padding: 18px 24px;
-  background: var(--navy);
-  color: var(--white);
+  /* A shade of the card itself, so the band still reads as a band. */
+  background: color-mix(in srgb, var(--ink, #fff) 10%, var(--card, var(--navy)));
+  color: inherit;
 }
 
 .p-ticket-kind {
@@ -409,7 +434,7 @@
 }
 
 .p-ticket-head .p-ticket-number {
-  color: var(--white);
+  color: inherit;
 }
 
 .p-ticket-body {
@@ -420,9 +445,14 @@
   flex-wrap: wrap;
 }
 
+/* The one thing that must not take the card's colour: a scanner needs the
+   quiet zone and the contrast that the code was generated for. */
 .p-qr {
   flex: 0 0 auto;
   line-height: 0;
+  background: #fff;
+  padding: 10px;
+  border-radius: 3px;
 }
 
 .p-qr svg {
@@ -444,7 +474,7 @@
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--quiet);
   margin-top: 12px;
 }
 
@@ -460,8 +490,8 @@
 .p-ticket-foot {
   margin: 0;
   padding: 14px 24px 20px;
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
+  border-top: 1px solid var(--veil);
+  color: var(--quiet);
   font-size: 12px;
   line-height: 1.6;
 }

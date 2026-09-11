@@ -948,8 +948,20 @@ export function createAdmin(config) {
         return true;
       }
 
+      // Who could be promoted: everybody with an account of their own. The
+      // admin list is a subset of the guest list now, never a parallel one.
+      const candidates = async () =>
+        guests ? (await guests.list({ limit: 1000 })).map((g) => ({
+          email: g.email,
+          name: g.name,
+          claimed: g.claimed
+        })) : null;
+
       if (req.method === "GET") {
-        html(res, 200, await usersPage({ store: storeFor(), session, token, origin: originFor(req) }));
+        html(res, 200, await usersPage({
+          store: storeFor(), session, token, origin: originFor(req),
+          candidates: await candidates()
+        }));
         return true;
       }
 
@@ -959,22 +971,35 @@ export function createAdmin(config) {
       try {
         if (form.fields.action === "remove") {
           await storeFor().removeUser(form.fields.email, session.user.email);
-        } else if (form.fields.action === "create") {
-          const created = await storeFor().createUser(
-            form.fields.email,
-            String(form.fields.password ?? ""),
-            session.user.email
-          );
+        } else if (form.fields.action === "promote") {
+          const promoted = await storeFor().promote(form.fields.email, session.user.email);
+
+          // Somebody promoted before they ever set a password needs one, and
+          // it is the same password either side, so this is the same link the
+          // guest list sends.
+          let invited = null;
+          if (promoted.needsPassword && guests) {
+            const who = (await guests.list({ q: promoted.email, limit: 5 })).find(
+              (g) => g.email === promoted.email
+            );
+            invited = who ? await guests.sendClaim(who.id, originFor(req)) : false;
+          }
+
           html(res, 200, await usersPage({
             store: storeFor(), session, token, origin: originFor(req),
-            created
+            candidates: await candidates(),
+            created: promoted.email,
+            needsPassword: promoted.needsPassword,
+            invited
           }));
           return true;
         }
         redirect(res, "/admin/users");
       } catch (err) {
         html(res, 400, await usersPage({
-          store: storeFor(), session, token, origin: originFor(req), error: err.message
+          store: storeFor(), session, token, origin: originFor(req),
+          candidates: await candidates(),
+          error: err.message
         }));
       }
       return true;
@@ -1571,7 +1596,16 @@ async function credentialsPage({ credentials, session, token, error, revealed })
   });
 }
 
-async function usersPage({ store, session, token, created, error }) {
+async function usersPage({
+  store,
+  session,
+  token,
+  created,
+  error,
+  candidates = null,
+  needsPassword = false,
+  invited = null
+}) {
   const users = await store.listUsers();
 
   const userRows = users
@@ -1595,11 +1629,21 @@ async function usersPage({ store, session, token, created, error }) {
 
   const createdBlock = created
     ? `<div class="a-flash">
-         <p>Account created for <strong>${escape(created)}</strong>.
-         Give them the password you just set, and ask them to change it at
-         <code>/admin/account</code> once they are signed in.</p>
+         <p><strong>${escape(created)}</strong> now administers the site.</p>
+         <p>${
+           !needsPassword
+             ? "They sign in with the password they already use for their own profile, so there is nothing to send them."
+             : invited
+               ? "They had not set a password yet, so a link to set one is on its way. It works for both their profile and the admin."
+               : invited === false
+                 ? "They have not set a password yet and no link could be sent — email is not configured. Send them one from the guest list."
+                 : "They have not set a password yet. Send them a set-password link from the guest list."
+         }</p>
        </div>`
     : "";
+
+  const already = new Set(users.map((u) => u.email));
+  const promotable = (candidates ?? []).filter((g) => !already.has(g.email));
 
   return layout({
     title: "Admin accounts",
@@ -1609,25 +1653,39 @@ async function usersPage({ store, session, token, created, error }) {
       <p class="a-lede">Anyone listed here can edit the site.</p>
       ${createdBlock}
       <ul class="a-rows">${userRows}</ul>
-      <h2 class="a-subhead">Add an admin</h2>
-      <p class="a-help">Creates the account immediately. Give them the password,
-      and ask them to change it at <a href="/admin/account">Change your password</a>
-      once they are signed in.</p>
-      <form method="post" action="/admin/users" class="a-form">
-        <input type="hidden" name="csrf" value="${escape(token)}">
-        <input type="hidden" name="action" value="create">
-        <div class="a-field">
-          <label for="f-new-email">Email</label>
-          <input id="f-new-email" name="email" type="email" required>
-        </div>
-        <div class="a-field">
-          <label for="f-new-pass">Password</label>
-          <input id="f-new-pass" name="password" type="text" minlength="12" required
-                 autocomplete="off" spellcheck="false">
-          <span class="a-help">At least 12 characters. Shown as text so you can copy it.</span>
-        </div>
-        <div class="a-actions"><button class="a-btn" type="submit">Create account</button></div>
-      </form>
+      <h2 class="a-subhead">Promote someone</h2>
+      <p class="a-help">An administrator is somebody who already has an account
+      here. Promoting them adds the role and nothing else: they keep the
+      password they already use, and there is no second account and no second
+      password to pass on. Somebody who has not set one yet is sent a link, and
+      the password they choose works for both.</p>
+      ${
+        candidates === null
+          ? '<p class="a-note">The guest list needs a database, so there is nobody to choose from.</p>'
+          : promotable.length
+            ? `<form method="post" action="/admin/users" class="a-form">
+                 <input type="hidden" name="csrf" value="${escape(token)}">
+                 <input type="hidden" name="action" value="promote">
+                 <div class="a-field">
+                   <label for="f-promote">Account</label>
+                   <select id="f-promote" name="email" required>
+                     <option value="" selected disabled>Choose somebody…</option>
+                     ${promotable
+                       .map(
+                         (g) =>
+                           `<option value="${escape(g.email)}">${escape(
+                             g.name ? `${g.name} — ${g.email}` : g.email
+                           )}${g.claimed ? "" : " (no password yet)"}</option>`
+                       )
+                       .join("")}
+                   </select>
+                 </div>
+                 <div class="a-actions"><button class="a-btn" type="submit">Make admin</button></div>
+               </form>`
+            : `<p class="a-note">Nobody left to promote: everybody on the
+               <a href="/admin/attendees">guest list</a> already administers the
+               site.</p>`
+      }
       <p><a href="/admin">Back to collections</a></p>`
   });
 }

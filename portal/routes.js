@@ -385,16 +385,27 @@ export function createPortal({
 
       attempts.succeed(source);
 
+      // One address is one person, so they arrive with every role that address
+      // holds rather than only the one whose password they happened to type.
+      // A speaker who also administers the site was signing in with the
+      // password they use for their profile, and being handed a session that
+      // knew nothing about the other half of them.
+      //
+      // The roles are read from the stores, never inferred from which
+      // credential matched: holding an admin password grants nothing about a
+      // profile that does not exist, and vice versa.
+      const guest = await attendees.byEmail(email);
+      const administers = admins ? await admins.exists(email) : false;
+
       const cookies = [];
       const roles = [];
 
-      if (isGuest) {
-        const guest = await attendees.byEmail(email);
+      if (guest) {
         await attendees.recordLogin(guest.id);
         cookies.push(await guestCookie(guest));
         roles.push("guest");
       }
-      if (isAdmin) {
+      if (administers) {
         cookies.push(await admins.issueSession(email));
         roles.push("admin");
       }
@@ -402,7 +413,7 @@ export function createPortal({
 
       // An attendee lands on their profile; somebody who is only an admin has
       // no profile to land on.
-      redirect(res, isGuest ? "/portal" : "/admin", { "Set-Cookie": cookies });
+      redirect(res, guest ? "/portal" : "/admin", { "Set-Cookie": cookies });
       return true;
     }
 
@@ -451,6 +462,11 @@ export function createPortal({
     // Resolved here rather than per page so that the navigation and the page
     // body can never disagree about whether there is a badge to look at.
     const ticket = await attendees.ticketFor(guest.id);
+
+    // Somebody who is both needs a way across. Read per request rather than
+    // trusted from the cookie: the readable hint decides what a static page
+    // shows, never what a signed-in page believes.
+    const administers = admins ? await admins.exists(guest.email) : false;
 
     const token = csrfToken(session.id, secret$());
 
@@ -530,6 +546,7 @@ export function createPortal({
         html(res, 502, ticketPage({
           guest,
           ticket,
+          admin: administers,
           qr: await QRCode.toString(`${originOf(req)}${CHECKIN_PREFIX}${ticket.code}`, {
             type: "svg",
             errorCorrectionLevel: "M",
@@ -560,7 +577,7 @@ export function createPortal({
       try {
         await attendees.claimTicket(ticket.id);
       } catch (err) {
-        html(res, 400, profilePage({ guest, ticket, token, error: err.message }));
+        html(res, 400, profilePage({ guest, ticket, token, admin: administers, error: err.message }));
         return true;
       }
       redirect(res, "/portal/ticket");
@@ -586,6 +603,7 @@ export function createPortal({
         ticket,
         qr,
         token,
+        admin: administers,
         wallet: Boolean(wallet?.configured())
       }));
       return true;
@@ -593,7 +611,7 @@ export function createPortal({
 
     if (path === "/portal/password") {
       if (req.method === "GET") {
-        html(res, 200, changePasswordPage({ guest, ticket, token }));
+        html(res, 200, changePasswordPage({ guest, ticket, token, admin: administers }));
         return true;
       }
 
@@ -601,31 +619,31 @@ export function createPortal({
       requireCsrf(session.id, form.csrf);
 
       if (!(await attendees.verify(guest.email, String(form.current ?? "")))) {
-        html(res, 400, changePasswordPage({ guest, ticket, token, error: "Your current password is not correct." }));
+        html(res, 400, changePasswordPage({ guest, ticket, token, admin: administers, error: "Your current password is not correct." }));
         return true;
       }
       if (form.password !== form.confirm) {
-        html(res, 400, changePasswordPage({ guest, ticket, token, error: "Those passwords do not match." }));
+        html(res, 400, changePasswordPage({ guest, ticket, token, admin: administers, error: "Those passwords do not match." }));
         return true;
       }
 
       try {
         await attendees.setPassword(guest.id, String(form.password ?? ""));
       } catch (err) {
-        html(res, 400, changePasswordPage({ guest, ticket, token, error: err.message }));
+        html(res, 400, changePasswordPage({ guest, ticket, token, admin: administers, error: err.message }));
         return true;
       }
 
       // Every other session for this account goes, in case the password was
       // changed because it leaked.
       await sessions.destroyOthersFor(guest.email, session.id);
-      html(res, 200, changePasswordPage({ guest, ticket, token, saved: true }));
+      html(res, 200, changePasswordPage({ guest, ticket, token, admin: administers, saved: true }));
       return true;
     }
 
     if (path === "/portal") {
       if (req.method === "GET") {
-        html(res, 200, profilePage({ guest, ticket, token }));
+        html(res, 200, profilePage({ guest, ticket, token, admin: administers }));
         return true;
       }
 
@@ -667,7 +685,7 @@ export function createPortal({
           );
         }
       } catch (err) {
-        html(res, 400, profilePage({ guest, ticket, token, error: err.message }));
+        html(res, 400, profilePage({ guest, ticket, token, admin: administers, error: err.message }));
         return true;
       }
 
@@ -675,6 +693,7 @@ export function createPortal({
         guest: await attendees.byId(guest.id),
         ticket,
         token,
+        admin: administers,
         saved: true
       }));
       return true;
@@ -684,6 +703,7 @@ export function createPortal({
       title: "Not found",
       guest,
       ticket,
+      admin: administers,
       token,
       body: `<div class="p-card p-card--narrow"><h1>Not found</h1>
              <p><a class="p-quiet" href="/portal">Back to your profile</a></p></div>`

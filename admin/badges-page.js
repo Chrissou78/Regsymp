@@ -1,4 +1,5 @@
 import { escape, layout } from "./render.js";
+import { inkOn } from "./ink.js";
 
 /**
  * Printable access badges, and the categories they come in.
@@ -12,15 +13,6 @@ import { escape, layout } from "./render.js";
  * this site — so one scan works whether somebody presents a badge, a phone,
  * or a wallet pass.
  */
-
-/** A readable text colour for a given background. */
-function inkOn(hex) {
-  const value = String(hex ?? "").replace("#", "");
-  if (value.length !== 6) return "#FFFFFF";
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16));
-  // Rec. 709 luma: a gold badge needs dark text, a navy one light.
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 150 ? "#1C2B4A" : "#FFFFFF";
-}
 
 function badge({ guest, ticket, qr }) {
   const ink = inkOn(ticket.colour);

@@ -1,4 +1,5 @@
 import { hashPassword, verifyPassword } from "./password.js";
+import { attendeeHash, mirrorPassword } from "./credential-mirror.js";
 
 /**
  * Admin accounts in Postgres.
@@ -34,6 +35,51 @@ export function createPgUserStore({ db, now = () => new Date() }) {
   const key = (email) => String(email ?? "").trim().toLowerCase();
 
   return {
+    /**
+     * Whether an address administers the site, without asking for a password.
+     *
+     * Membership and authentication are different questions. This answers the
+     * first, so a signed-in attendee can be shown the way to the admin when
+     * they are also one, and their session can carry both roles.
+     */
+    async exists(email) {
+      const { rowCount } = await db.query("select 1 from admin_users where email = $1", [key(email)]);
+      return rowCount > 0;
+    },
+
+    /**
+     * Make an existing attendee an administrator.
+     *
+     * Not "create an account": they have one. Promotion copies the password
+     * they already use, so one address stays one person with one password --
+     * inventing a second one here is what left a speaker signing in with the
+     * password they knew and being told they were not an admin.
+     *
+     * Somebody who has never set a password cannot be promoted, because
+     * admin_users has nowhere to put one and they would have no way in. Send
+     * them a set-password link first.
+     */
+    async promote(email, promotedBy) {
+      const address = key(email);
+
+      // Null when they have not set one yet. verify() refuses a null hash, so
+      // the role grants nothing until they do, and they get the same
+      // set-password link the guest list sends.
+      const hash = await attendeeHash(db, address);
+
+      try {
+        await db.query(
+          `insert into admin_users (email, password_hash, is_owner, must_change_password, created_at, created_by)
+           values ($1, $2, false, false, $3, $4)`,
+          [address, hash, now(), promotedBy ?? null]
+        );
+      } catch (err) {
+        if (err.code === "23505") throw new Error(`${address} already administers the site.`);
+        throw err;
+      }
+      return { email: address, needsPassword: hash === null };
+    },
+
     async findHash(email) {
       const { rows } = await db.query(
         "select password_hash from admin_users where email = $1",
@@ -126,14 +172,19 @@ export function createPgUserStore({ db, now = () => new Date() }) {
         throw new Error("That is the same as your current password.");
       }
 
+      // `hash` above is the current one, still needed for the checks.
+      const next = await hashPassword(newPassword);
       await db.query(
         `update admin_users
             set password_hash = $2,
                 password_changed_at = $3,
                 must_change_password = false
           where email = $1`,
-        [address, await hashPassword(newPassword), now()]
+        [address, next, now()]
       );
+
+      // The same person's profile, if they have one.
+      await mirrorPassword(db, { email: address, hash: next, to: "attendee" });
     },
 
     async removeUser(email, removedBy) {

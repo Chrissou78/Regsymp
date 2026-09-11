@@ -24,10 +24,28 @@ export function layout({ title, user, body, flash }) {
   <a class="a-brand" href="/admin">RegSymp Admin</a>
   <div class="a-user">${
     user
-      ? `<span>${escape(user.email ?? user.login)}</span><a href="/admin/signout">Sign out</a>`
+      ? `<span>${escape(user.email ?? user.login)}</span>` +
+        // An administrator who is also an attendee has a profile and a badge
+        // of their own, and no way back to them from here.
+        //
+        // Revealed by the browser from the readable role hint rather than
+        // threaded through every page that calls this layout. It grants
+        // nothing: /portal checks the real session, and shows this person
+        // their own profile or nobody's.
+        `<a href="/portal" data-profile-link hidden>Profile</a>` +
+        `<a href="/admin/signout">Sign out</a>`
       : ""
   }</div>
 </header>
+<script>
+  (function () {
+    var raw = document.cookie.match(/(?:^|; )regsymp_who=([^;]*)/);
+    var roles = raw ? decodeURIComponent(raw[1]).split("-") : [];
+    if (roles.indexOf("guest") === -1) return;
+    var links = document.querySelectorAll("[data-profile-link]");
+    for (var i = 0; i < links.length; i++) links[i].hidden = false;
+  })();
+</script>
 <main class="a-main">
 ${notice}
 ${body}

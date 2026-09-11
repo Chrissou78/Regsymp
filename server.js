@@ -234,7 +234,10 @@ const portal = attendees
       // because the admin is constructed below.
       admins: {
         verify: (email, password) => userStore.verify(email, password),
-        issueSession: (email) => admin.issueSession(email)
+        issueSession: (email) => admin.issueSession(email),
+        // Membership, without a password: what decides whether somebody is
+        // shown the way to the admin, and which roles their session carries.
+        exists: (email) => userStore.exists(email)
       }
     })
   : null;

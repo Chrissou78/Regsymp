@@ -223,7 +223,12 @@ test("the account management page is reachable when signed in", async () => {
   assert.equal(res.status, 200);
   const body = await res.text();
   assert.match(body, /Admin accounts/);
-  assert.match(body, /Add an admin/);
+  // An administrator is somebody who already has an account, so the page
+  // promotes from the guest list rather than creating a second account with a
+  // second password. Without a database there is nobody to choose from, and
+  // it says so rather than offering an empty list.
+  assert.match(body, /Promote someone/);
+  assert.doesNotMatch(body, /name="password"/, "the page still invents a password");
   assert.match(body, /admin@regsymp\.com/);
 });
 

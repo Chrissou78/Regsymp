@@ -29,6 +29,17 @@ const passes = [];
 const refreshed = [];
 let walletOn = true;
 
+/** Who administers the site, in these tests. */
+const admins = {
+  passwords: new Map(),
+  add(email, password) {
+    this.passwords.set(String(email).toLowerCase(), password);
+  },
+  clear() {
+    this.passwords.clear();
+  }
+};
+
 before(async () => {
   if (!URL || unsafe) return;
   db = createDb({ url: URL });
@@ -56,6 +67,13 @@ before(async () => {
         refreshed.push(args);
         return { serialNumber: args.serial };
       }
+    },
+    // A stand-in for the separate admin credential store, so the "one address
+    // is one person" rule can be exercised without one.
+    admins: {
+      verify: async (email, password) => admins.passwords.get(email) === password,
+      exists: async (email) => admins.passwords.has(email),
+      issueSession: async () => "regsymp_admin=fake-admin-session; Path=/"
     }
   });
 
@@ -79,6 +97,7 @@ const sent = [];
 async function reset() {
   await db.query("truncate attendees cascade");
   sent.length = 0;
+  admins.clear();
 }
 
 const get = (p, init) => fetch(base + p, { redirect: "manual", ...init });
@@ -374,6 +393,67 @@ test("a guest with no ticket is sent back rather than shown an empty one", opts,
       `${path} offers a ticket link to somebody with no ticket`
     );
   }
+});
+
+// ------------------------------------------------------ being two things
+
+test("somebody who is both arrives as both, whichever password they used", opts, async () => {
+  // A speaker who also administers the site was signing in with the password
+  // they use for their profile and getting a session that knew nothing about
+  // the other half of them: no admin cookie, no admin link, no way across.
+  await reset();
+  const { guest, cookie } = await claimedGuest({ category: "speaker" });
+  admins.add(guest.email, "a-different-admin-password");
+
+  // The password they know is the profile one.
+  const res = await post("/portal/signin", {
+    email: guest.email,
+    password: "a-long-enough-password"
+  });
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "/portal", "an attendee should land on their profile");
+
+  const set = res.headers.getSetCookie().join("; ");
+  assert.match(set, /regsymp_guest=/, "no guest session");
+  assert.match(set, /regsymp_admin=/, "no admin session, so no admin panel");
+  assert.match(set, /regsymp_who=[^;]*admin/, "the menu would not offer the admin");
+
+  // And the other password works the same way round.
+  const other = await post("/portal/signin", {
+    email: guest.email,
+    password: "a-different-admin-password"
+  });
+  const otherSet = other.headers.getSetCookie().join("; ");
+  assert.match(otherSet, /regsymp_guest=/, "the admin password should still reach their profile");
+  assert.match(otherSet, /regsymp_admin=/);
+
+  void cookie;
+});
+
+test("an attendee who administers nothing gets no admin session", opts, async () => {
+  // The roles come from the stores, never from which password matched.
+  await reset();
+  const { guest } = await claimedGuest();
+  const res = await post("/portal/signin", {
+    email: guest.email,
+    password: "a-long-enough-password"
+  });
+  const set = res.headers.getSetCookie().join("; ");
+  assert.match(set, /regsymp_guest=/);
+  assert.doesNotMatch(set, /regsymp_admin=/, "an ordinary attendee was handed an admin session");
+  assert.doesNotMatch(set, /regsymp_who=[^;]*admin/);
+});
+
+test("the portal offers the admin only to somebody who administers it", opts, async () => {
+  await reset();
+  const { guest, cookie } = await claimedGuest({ category: "speaker" });
+
+  let page = await (await get("/portal", { headers: { cookie } })).text();
+  assert.doesNotMatch(page, /href="\/admin"/, "an attendee was offered the admin");
+
+  admins.add(guest.email, "a-different-admin-password");
+  page = await (await get("/portal", { headers: { cookie } })).text();
+  assert.match(page, /href="\/admin"/, "somebody who is both has no way across");
 });
 
 // -------------------------------------------------------------------- wallet

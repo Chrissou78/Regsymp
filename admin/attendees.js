@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { hashPassword, verifyPassword } from "./password.js";
+import { mirrorPassword } from "./credential-mirror.js";
 
 /**
  * Attendees and their tickets.
@@ -602,13 +603,18 @@ export function createAttendees({ db, now = () => new Date() }) {
       if (String(password ?? "").length < 12) {
         throw new Error("Please choose a password of at least 12 characters.");
       }
-      await db.query(
+      const hash = await hashPassword(password);
+      const { rows } = await db.query(
         `update attendees
             set password_hash = $2,
                 claimed_at = coalesce(claimed_at, $3)
-          where id = $1`,
-        [Number(attendeeId), await hashPassword(password), now()]
+          where id = $1
+         returning email`,
+        [Number(attendeeId), hash, now()]
       );
+
+      // If this person also administers the site, that is the same password.
+      if (rows.length) await mirrorPassword(db, { email: rows[0].email, hash, to: "admin" });
     },
 
     async recordLogin(attendeeId) {

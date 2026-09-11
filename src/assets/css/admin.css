@@ -408,6 +408,10 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   }
 }
 
+/* An author `display` rule outranks the user agent's [hidden]. That is how a
+   hidden call to action stayed on the homepage once already. */
+[hidden] { display: none !important; }
+
 .a-state { text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
 .a-state--active { color: #2F6B3A; }
 .a-state--unconfirmed { color: #9B2C2C; }
