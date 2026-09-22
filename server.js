@@ -16,6 +16,7 @@ import { createMailer } from "./admin/mail.js";
 import { createWallet } from "./admin/wallet.js";
 import { createSettings } from "./admin/site-settings.js";
 import { sleepPage } from "./admin/sleep-page.js";
+import { isEntryPoint } from "./admin/entry-point.js";
 import { createPortal } from "./portal/routes.js";
 import { createDb, migrate } from "./admin/db.js";
 import { createPgStore } from "./admin/store-pg.js";
@@ -740,10 +741,8 @@ const server = createServer(async (req, res) => {
 });
 
 // Only bind a port when run directly, so tests can listen on an ephemeral one.
-const isEntryPoint =
-  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isEntryPoint) {
+// See entry-point.js for why argv[1] alone is not enough to tell.
+if (isEntryPoint(import.meta.url)) {
   await bootstrap();
 
   server.listen(PORT, HOST, () => {
