@@ -4,8 +4,14 @@ import { readdir, readFile } from "node:fs/promises";
 import { SCHEMAS, getSchema, validateRecord } from "../admin/schemas.js";
 
 test("every data file has a schema, and every schema points at a real file", async () => {
+  // events.json is generated from the events table before every build, not
+  // edited as a document, so it deliberately has no schema. Everything else in
+  // here is something somebody edits, and an editable file with no schema is
+  // one the admin cannot reach.
+  const GENERATED = new Set(["events.json"]);
+
   const onDisk = (await readdir("src/_data"))
-    .filter((f) => f.endsWith(".json"))
+    .filter((f) => f.endsWith(".json") && !GENERATED.has(f))
     .map((f) => `src/_data/${f}`);
   const inSchemas = Object.values(SCHEMAS).map((s) => s.file);
 

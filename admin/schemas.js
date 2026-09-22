@@ -91,6 +91,20 @@ export const SCHEMAS = {
     ]
   },
 
+  upcomingCopy: {
+    file: "src/_data/upcomingCopy.json",
+    kind: "object",
+    label: "The 33 section",
+    fields: [
+      F("eyebrow", "text", { required: true, max: 80 }),
+      F("heading", "text", { required: true, max: 120 }),
+      F("footnote", "text", {
+        max: 160,
+        help: "The line under the list. Leave empty to show none."
+      })
+    ]
+  },
+
   editions: {
     file: "src/_data/editions.json",
     kind: "array",

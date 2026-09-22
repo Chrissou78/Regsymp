@@ -17,6 +17,20 @@ const ROOT = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 
 let chain = Promise.resolve();
 let last = null;
+let prepare = null;
+
+/**
+ * Something to do before every build.
+ *
+ * Events live in a table, and the templates read them the way they read any
+ * other content: out of src/_data. Materialising them here rather than at the
+ * call sites means every build has them fresh -- the one at boot, the one
+ * after an admin saves, and the one after an event is made live -- without
+ * each of those having to remember.
+ */
+export function beforeEachBuild(fn) {
+  prepare = fn;
+}
 
 export function rebuild({ quiet = true } = {}) {
   const run = chain.then(() => build(quiet));
@@ -30,6 +44,7 @@ export function rebuild({ quiet = true } = {}) {
 
 async function build(quiet) {
   const started = Date.now();
+  if (prepare) await prepare();
   const { default: Eleventy } = await import("@11ty/eleventy");
   const eleventy = new Eleventy(path.join(ROOT, "src"), path.join(ROOT, "_site"), {
     quietMode: quiet,

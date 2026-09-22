@@ -1,0 +1,32 @@
+{#
+  The 33 — upcoming highlights.
+
+  Built from the events table, so adding a date is adding a row rather than
+  editing a template. Renders nothing at all when there is nothing to announce:
+  a heading over an empty list reads as something having gone wrong.
+#}
+{% if events.upcoming and events.upcoming.length %}
+<section class="upcoming" id="the-33" aria-labelledby="upcoming-title">
+  <div class="container">
+    <p class="eyebrow">{{ upcomingCopy.eyebrow }}</p>
+    <h2 class="h2" id="upcoming-title">{{ upcomingCopy.heading }}</h2>
+
+    <ol class="upcoming-list">
+      {% for event in events.upcoming %}
+      <li class="upcoming-item reveal">
+        <p class="upcoming-where">
+          <span class="upcoming-place">{{ event.city or event.name }}</span>
+          <span class="upcoming-sep" aria-hidden="true">·</span>
+          <span class="upcoming-when">{{ event.whenLabel }}</span>
+        </p>
+        {% if event.tagline %}<p class="upcoming-what">{{ event.tagline }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+
+    {% if upcomingCopy.footnote %}
+    <p class="upcoming-foot">{{ upcomingCopy.footnote }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}

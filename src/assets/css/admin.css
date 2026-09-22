@@ -477,6 +477,9 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
    rather than another group to sort people into. */
 .a-state--admin { color: #6B3FA0; }
 .a-state--noemail { color: #9B2C2C; }
+.a-state--event-live { color: #2F6B3A; }
+.a-state--event-draft { color: #7A5E22; }
+.a-state--event-past { color: #6B6E7A; }
 
 
 /* Pasted guest lists, and the preview of what was understood. */

@@ -8,6 +8,7 @@ import { escape, errorList, field, layout } from "./render.js";
 import { attendeesPage, EXAMPLE_CSV, importPreviewPage } from "./attendees-page.js";
 import { badgeSheetPage, categoriesPage } from "./badges-page.js";
 import { sleepSettingsPage } from "./sleep-page.js";
+import { eventPage, eventsPage } from "./events-page.js";
 import QRCode from "qrcode";
 import { parseAttendees } from "./import-attendees.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
@@ -167,6 +168,10 @@ export function createAdmin(config) {
     // Runtime settings: whether the site is open, and what it says when it is
     // not. Present only when there is a database to hold them.
     settings = null,
+    // The events the site can be about, and the rebuild that puts the live one
+    // on the pages. Present only when there is a database.
+    events = null,
+    rebuildSite = null,
     // Why the store cannot be reached, if it cannot. Reported rather than
     // left to surface as an opaque failure on whatever page is opened first.
     unavailable = () => null,
@@ -551,6 +556,124 @@ export function createAdmin(config) {
         "Cache-Control": "no-store"
       });
       res.end(EXAMPLE_CSV);
+      return true;
+    }
+
+    // ----------------------------------------------------------- events
+    if (path === "/admin/events" || path.startsWith("/admin/events/")) {
+      if (!events) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: session.user,
+          body: "<p>Events need a database.</p>"
+        }));
+        return true;
+      }
+
+      const one = path.startsWith("/admin/events/") ? path.slice("/admin/events/".length) : null;
+
+      // ---- one event
+      if (one) {
+        const found = await events.bySlug(one);
+        if (!found) {
+          html(res, 404, layout({
+            title: "Not found",
+            user: session.user,
+            body: `<p>There is no event called <code>${escape(one)}</code>.</p>
+                   <p><a href="/admin/events">Back to events</a></p>`
+          }));
+          return true;
+        }
+
+        if (req.method === "GET") {
+          html(res, 200, eventPage({ event: found, session, token }));
+          return true;
+        }
+
+        const form = await readForm(req, readBody);
+        requireCsrf(session.id, form.fields.csrf, secret$());
+
+        try {
+          const saved = await events.update(one, {
+            name: form.fields.name,
+            series: form.fields.series,
+            tagline: form.fields.tagline,
+            summary: form.fields.summary,
+            city: form.fields.city,
+            country: form.fields.country,
+            venue: form.fields.venue,
+            whenLabel: form.fields.whenLabel,
+            startsOn: form.fields.startsOn,
+            endsOn: form.fields.endsOn,
+            upcoming: form.fields.upcoming === "yes",
+            sort: form.fields.sort
+          });
+          // The pages are built from these, so a save that does not rebuild is
+          // a save nobody can see.
+          if (rebuildSite) await rebuildSite().catch(() => {});
+          html(res, 200, eventPage({
+            event: saved,
+            session,
+            token,
+            flash: { kind: "ok", message: "Saved." }
+          }));
+        } catch (err) {
+          html(res, 400, eventPage({
+            event: found,
+            session,
+            token,
+            flash: { kind: "error", message: err.message }
+          }));
+        }
+        return true;
+      }
+
+      // ---- the list
+      const show = async (flash = null) =>
+        eventsPage({ events: await events.list(), session, token, flash });
+
+      if (req.method === "GET") {
+        html(res, 200, await show());
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+
+      try {
+        let message = "";
+        switch (form.fields.action) {
+          case "create": {
+            const made = await events.create(
+              {
+                slug: form.fields.slug,
+                name: form.fields.name,
+                city: form.fields.city,
+                whenLabel: form.fields.whenLabel
+              },
+              session.user.email
+            );
+            message = `${made.name} added as a draft. Nothing on the site has changed.`;
+            break;
+          }
+          case "activate": {
+            const made = await events.activate(form.fields.slug);
+            message = `The site is about ${made.name} now.`;
+            break;
+          }
+          case "remove":
+            await events.remove(form.fields.slug);
+            message = "Event removed.";
+            break;
+          default:
+            message = "Nothing to do.";
+        }
+
+        if (rebuildSite) await rebuildSite().catch(() => {});
+        html(res, 200, await show({ kind: "ok", message }));
+      } catch (err) {
+        html(res, 400, await show({ kind: "error", message: err.message }));
+      }
       return true;
     }
 
@@ -1182,10 +1305,8 @@ export function createAdmin(config) {
             ${warn ? `<p class="a-warning"><strong>Changes here are temporary.</strong> ${escape(warn)}</p>` : ""}
             <p class="a-lede">Changes are saved to the content volume and rebuilt
             immediately &mdash; no deploy, and nothing signs you out.</p>
-            <ul class="a-list">${
-              guests
-                ? `<li><a href="/admin/attendees">Users</a></li>`
-                : ""
+            <ul class="a-list">${events ? `<li><a href="/admin/events">Events</a></li>` : ""}${
+              guests ? `<li><a href="/admin/attendees">Users</a></li>` : ""
             }${rows}</ul>
             <p class="a-admins">${settings ? '<a href="/admin/sleep">Sleep mode</a> &nbsp;·&nbsp; ' : ""}${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })

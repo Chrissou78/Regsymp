@@ -3,7 +3,7 @@
 import { loaded as envFile } from "./admin/load-env.js";
 import { createServer } from "node:http";
 import { createReadStream, existsSync } from "node:fs";
-import { stat, readFile } from "node:fs/promises";
+import { stat, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
@@ -15,6 +15,7 @@ import { createBadgeCategories } from "./admin/badge-categories.js";
 import { createMailer } from "./admin/mail.js";
 import { createWallet } from "./admin/wallet.js";
 import { createSettings } from "./admin/site-settings.js";
+import { createEvents } from "./admin/events.js";
 import { sleepBanner, sleepPage } from "./admin/sleep-page.js";
 import { isEntryPoint } from "./admin/entry-point.js";
 import { createPortal } from "./portal/routes.js";
@@ -36,7 +37,7 @@ import { backfill, documentByDigest, listPins, pinDocument, pinStatus } from "./
 import { decrypt, isEncrypted } from "./admin/crypto.js";
 import { configValue, setRuntimeConfig } from "./admin/runtime-config.js";
 import { createFsStore } from "./admin/store-fs.js";
-import { rebuild, lastBuild } from "./admin/rebuild.js";
+import { beforeEachBuild, rebuild, lastBuild } from "./admin/rebuild.js";
 import {
   durability,
   ensureContentDir,
@@ -186,6 +187,42 @@ const walletPasses = createWallet({ env: (name) => configValue(name) });
 
 /** Settings the running site consults, as opposed to content it is built from. */
 const settings = db ? createSettings({ db }) : null;
+
+/**
+ * The events the site is about. Written into src/_data before every build, so
+ * the templates read them out of the same place as everything else and no
+ * template has to know that a database exists.
+ */
+const events = db ? createEvents({ db }) : null;
+
+if (events) {
+  beforeEachBuild(async () => {
+    // Deliberately not fatal, and deliberately not patient. If the database
+    // cannot be reached, the last events.json written is still on disk and the
+    // site builds from that -- the alternative is a database blip turning into
+    // a site that will not build at all, which is the failure this whole boot
+    // path exists to avoid.
+    //
+    // Timed rather than only caught: an unreachable host does not refuse a
+    // connection, it hangs, and the pool waits ten seconds before saying so.
+    // A build is not the place to find that out.
+    try {
+      const data = await Promise.race([
+        events.toData(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("the database did not answer in time")), 2000).unref()
+        )
+      ]);
+      await writeFile(
+        path.join(PROJECT_ROOT, "src", "_data", "events.json"),
+        JSON.stringify(data, null, 2) + "\n",
+        "utf8"
+      );
+    } catch (err) {
+      console.error("events could not be read, building with the last ones:", err.message);
+    }
+  });
+}
 
 /**
  * A speaker editing their profile updates the public page.
@@ -405,6 +442,8 @@ const admin = createAdmin({
   // One sign-in form for the site, when the portal is mounted to serve it.
   signInPath: attendees ? "/portal/signin" : "/admin/signin",
   settings,
+  events,
+  rebuildSite: () => rebuild(),
   // Say so in the interface when content is not actually persistent. Saving
   // to an unmounted volume looks entirely normal right up until a deploy
   // throws the work away. A database is durable by construction.

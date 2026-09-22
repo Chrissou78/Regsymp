@@ -2629,3 +2629,68 @@ body { background: var(--off-white); }
 
 /* Honeypot: off-screen rather than display:none, which some bots skip */
 .invite-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* ------- The 33: where we are going next -------
+   A list of places and dates rather than cards. The content is one line each,
+   and a card grid around one line of text is a lot of furniture for very
+   little. */
+.upcoming {
+  background: var(--navy-deep);
+  color: var(--white);
+  padding: clamp(80px, 12vh, 140px) 0;
+}
+
+.upcoming .h2 {
+  color: var(--white);
+  margin: 0 0 clamp(36px, 6vh, 64px);
+}
+
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 760px;
+}
+
+.upcoming-item {
+  padding: 22px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.upcoming-item:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.upcoming-where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.upcoming-place { color: var(--white); }
+.upcoming-sep { color: rgba(255, 255, 255, 0.35); }
+.upcoming-when { color: var(--gold); }
+
+.upcoming-what {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: clamp(15px, 1.4vw, 17px);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 54ch;
+}
+
+.upcoming-foot {
+  margin: clamp(36px, 6vh, 56px) 0 0;
+  font-family: var(--serif);
+  font-size: clamp(17px, 2vw, 21px);
+  letter-spacing: 0.02em;
+  color: var(--gold);
+}
