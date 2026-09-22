@@ -22,6 +22,10 @@ export const SCHEMAS = {
     // Not "Speakers": these are the entries on the public speakers page, and
     // most of the twenty-six have no account here. The people are under Users.
     label: "Speaker pages",
+    // Who speaks depends on which event it is, so each event keeps its own
+    // list. The file above is where the live event's copy is materialised for
+    // the build; the one being edited is events/<slug>/speakers.json.
+    perEvent: true,
     identify: (r) => r.name,
     fields: [
       F("slug", "slug", { from: "name", unique: true }),
@@ -42,6 +46,8 @@ export const SCHEMAS = {
   partners: {
     file: "src/_data/partners.json",
     kind: "nested",
+    // Sponsors are sponsors of an event, not of the organisation.
+    perEvent: true,
     label: "Partners",
     identify: (r) => r.label,
     childKey: "logos",

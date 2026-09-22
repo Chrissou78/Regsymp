@@ -130,6 +130,14 @@ const store = db
   ? createPgStore({
       db,
       onWrite: async ({ path: relative, buffer, digest }) => {
+        // An event's own lists are not read by Eleventy directly: the live
+        // event's are materialised into src/_data before each build. So they
+        // are not written through to disk, but a save still has to rebuild or
+        // the change is saved and invisible.
+        if (relative.startsWith("events/")) {
+          await rebuild();
+          return;
+        }
         if (!relative.startsWith("src/")) return;
         await writeThrough({ root: PROJECT_ROOT, relative, buffer });
         await rebuild();
@@ -195,6 +203,51 @@ const settings = db ? createSettings({ db }) : null;
  */
 const events = db ? createEvents({ db }) : null;
 
+/** Per-event lists, and where each one lands when its event is the live one. */
+const PER_EVENT = ["speakers.json", "partners.json"];
+
+/**
+ * Write one event's lists into src/_data, where the templates read them.
+ *
+ * A missing list is written as an empty one rather than skipped: leaving the
+ * previous event's speakers on disk would put them on the new event's page,
+ * which is the one mistake this whole arrangement exists to prevent.
+ */
+/**
+ * Give the live event the lists the site already had.
+ *
+ * Run once, at boot, and idempotent: an event that already has its own list
+ * keeps it. Without this the first build after the change would materialise
+ * nothing and the speakers page would go empty -- the content was never lost,
+ * it just belonged to nobody, and this is the moment it acquires an owner.
+ */
+async function adoptExistingContent(slug) {
+  for (const name of PER_EVENT) {
+    const target = `events/${slug}/${name}`;
+    const already = await store.getFile(target);
+    if (already && !Array.isArray(already)) continue;
+
+    const current = await store.getFile(`src/_data/${name}`);
+    if (!current || Array.isArray(current)) continue;
+
+    await store.putFile({
+      path: target,
+      content: current.content,
+      message: `adopted by ${slug}, which is the event this content was always about`,
+      author: "the move to per-event content"
+    });
+    console.log(`events: ${name} is now ${slug}'s`);
+  }
+}
+
+async function materialiseEvent(slug) {
+  for (const name of PER_EVENT) {
+    const doc = await store?.getFile(`events/${slug}/${name}`);
+    const body = doc && !Array.isArray(doc) ? doc.content : "[]";
+    await writeFile(path.join(PROJECT_ROOT, "src", "_data", name), body, "utf8");
+  }
+}
+
 if (events) {
   beforeEachBuild(async () => {
     // Deliberately not fatal, and deliberately not patient. If the database
@@ -218,6 +271,11 @@ if (events) {
         JSON.stringify(data, null, 2) + "\n",
         "utf8"
       );
+
+      // And the live event's own lists become the site's. Who speaks and who
+      // sponsors belongs to an event, so the pages are built from whichever
+      // event the site is currently about.
+      if (data.live) await materialiseEvent(data.live.slug);
     } catch (err) {
       console.error("events could not be read, building with the last ones:", err.message);
     }
@@ -518,6 +576,15 @@ async function bootstrapDatabase() {
     const content = await seedContent({ db, store, root: PROJECT_ROOT });
     const admins = await seedAdmins({ db, root: PROJECT_ROOT });
     const written = await materialise({ db, store, root: PROJECT_ROOT });
+
+    // Speakers and sponsors belong to an event now. The ones the site already
+    // had belong to the event it is currently about.
+    if (events) {
+      const live = await events.live();
+      if (live) await adoptExistingContent(live.slug).catch((err) => {
+        console.error("events could not adopt the existing content:", err.message);
+      });
+    }
     dbBoot = { applied, credentials, content, admins, written };
 
     console.log(

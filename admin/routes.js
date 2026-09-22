@@ -1315,15 +1315,45 @@ export function createAdmin(config) {
     }
 
     const parts = path.split("/").filter(Boolean); // admin, collection, ...
-    const schema = getSchema(parts[1]);
-    if (!schema) {
+    const base = getSchema(parts[1]);
+    if (!base) {
       html(res, 404, layout({ title: "Not found", user: session.user, body: "<p>No such collection.</p>" }));
       return true;
     }
 
+    // Who speaks and who sponsors depends on which event it is, so those
+    // collections are edited per event: the schema is the same, the file it
+    // points at is not. Everything downstream reads schema.file, so pointing
+    // it somewhere else is the whole change -- validation, revisions and
+    // image handling come along unaltered.
+    //
+    // Which event: the one asked for, or the live one. Editing a draft is how
+    // an event gets prepared before anybody sees it.
+    let schema = base;
+    let editing = null;
+    if (base.perEvent && events) {
+      const asked = url.searchParams.get("event");
+      editing = (asked ? await events.bySlug(asked) : null) ?? (await events.live());
+      if (!editing) {
+        html(res, 200, layout({
+          title: base.label,
+          user: session.user,
+          body: `<h1>${escape(base.label)}</h1>
+                 <p class="a-lede">This belongs to an event, and there is no event to
+                 belong to yet.</p>
+                 <p><a class="a-btn" href="/admin/events">Add one</a></p>`
+        }));
+        return true;
+      }
+      schema = { ...base, file: `events/${editing.slug}/${base.file.split("/").pop()}` };
+    }
+
     try {
       return await handleCollection({
-        req, res, url, parts, schema, gh, session, token, secret, html, redirect, readBody
+        req, res, url, parts, schema, gh, session, token, secret, html, redirect, readBody,
+        editing,
+        allEvents: base.perEvent && events ? await events.list() : null,
+        afterWrite: rebuildSite
       });
     } catch (err) {
       const message =
@@ -1350,9 +1380,13 @@ export function createAdmin(config) {
     const { req, res, url, parts, schema, gh, session, token, secret, html, redirect, readBody } = ctx;
     const collection = parts[1];
 
+    // An event being prepared has no speakers and no sponsors yet. That is
+    // where every event starts, so it is an empty list rather than a failure.
     const file = await gh.getFile(schema.file);
-    if (!file) throw new Error(`${schema.file} could not be read from the repository.`);
-    const doc = JSON.parse(file.content);
+    if (!file && !ctx.editing) {
+      throw new Error(`${schema.file} could not be read from the repository.`);
+    }
+    const doc = file ? JSON.parse(file.content) : schema.kind === "object" ? {} : [];
 
     // ---- single-object collections (site settings) ---------------------
     if (schema.kind === "object") {
@@ -1380,7 +1414,7 @@ export function createAdmin(config) {
         path: schema.file,
         content: serialise(result.value),
         message: `Update site settings via admin (${session.user.email})`,
-        sha: file.sha
+        sha: file?.sha
       });
       html(res, 200, layout({ title: "Saved", user: session.user, body: savedBody(commit, `/admin/${collection}`, schema.label) }));
       return true;
@@ -1475,7 +1509,7 @@ export function createAdmin(config) {
         path: schema.file,
         content: serialise(nextGroups),
         message: tierMessage,
-        sha: file.sha
+        sha: file?.sha
       });
       html(res, 200, layout({
         title: "Saved",
@@ -1490,7 +1524,9 @@ export function createAdmin(config) {
       html(res, 200, layout({
         title: schema.label,
         user: session.user,
-        body: groupIndex(schema, doc, collection, token)
+        body:
+          eventBar({ editing: ctx.editing, allEvents: ctx.allEvents, collection }) +
+          groupIndex(schema, doc, collection, token)
       }));
       return true;
     }
@@ -1505,7 +1541,9 @@ export function createAdmin(config) {
       html(res, 200, layout({
         title: schema.label,
         user: session.user,
-        body: listView({ schema, list, base, token, fields })
+        body:
+          eventBar({ editing: ctx.editing, allEvents: ctx.allEvents, collection }) +
+          listView({ schema, list, base, token, fields })
       }));
       return true;
     }
@@ -1564,7 +1602,7 @@ export function createAdmin(config) {
       path: schema.file,
       content: serialise(nextDoc),
       message,
-      sha: file.sha
+      sha: file?.sha
     });
 
     html(res, 200, layout({ title: "Saved", user: session.user, body: savedBody(commit, base, schema.label) }));
@@ -2095,6 +2133,47 @@ function savedBody(commit, backTo, label) {
     <p class="a-note">The site was rebuilt as you saved it. The previous version is
     kept, so a bad edit can be undone.</p>
     <p><a class="a-btn" href="${escape(backTo)}">Back to ${escape(label)}</a></p>
+  </div>`;
+}
+
+/**
+ * Which event you are editing, and how to edit another one.
+ *
+ * Without this the page looks the same whichever event it is showing, and
+ * editing a draft while believing you are editing the live site is a mistake
+ * that only becomes visible on the public page.
+ */
+function eventBar({ editing, allEvents, collection }) {
+  if (!editing) return "";
+
+  const options = (allEvents ?? [])
+    .map(
+      (e) =>
+        `<option value="${escape(e.slug)}"${e.slug === editing.slug ? " selected" : ""}>${escape(
+          e.name
+        )}${e.status === "live" ? " — live" : e.status === "past" ? " — past" : " — draft"}</option>`
+    )
+    .join("");
+
+  return `<div class="a-eventbar">
+    <span class="a-eventbar-what">
+      Editing <strong>${escape(editing.name)}</strong>
+      <span class="a-state a-state--event-${escape(editing.status)}">${escape(editing.status)}</span>
+      ${
+        editing.status === "live"
+          ? "&mdash; changes here are on the public site as soon as you save."
+          : "&mdash; a draft. Nothing here reaches the public site until this event is made live."
+      }
+    </span>
+    ${
+      options
+        ? `<form method="get" action="/admin/${escape(collection)}" class="a-inline">
+             <label class="a-help" for="f-which-event">Event</label>
+             <select id="f-which-event" name="event" onchange="this.form.submit()">${options}</select>
+             <noscript><button>Switch</button></noscript>
+           </form>`
+        : ""
+    }
   </div>`;
 }
 

@@ -5,7 +5,9 @@
   editing a template. Renders nothing at all when there is nothing to announce:
   a heading over an empty list reads as something having gone wrong.
 #}
-{% if events.upcoming and events.upcoming.length %}
+{# `events` is generated before each build; guard it so a checkout that has
+   never run the server still builds. #}
+{% if events and events.upcoming and events.upcoming.length %}
 <section class="upcoming" id="the-33" aria-labelledby="upcoming-title">
   <div class="container">
     <p class="eyebrow">{{ upcomingCopy.eyebrow }}</p>
