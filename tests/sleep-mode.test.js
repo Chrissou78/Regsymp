@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createDb, migrate } from "../admin/db.js";
 import { createSettings } from "../admin/site-settings.js";
-import { sleepPage } from "../admin/sleep-page.js";
+import { sleepBanner, sleepPage } from "../admin/sleep-page.js";
 
 /**
  * Closed for a while.
@@ -52,6 +52,20 @@ test("the notice says what it was given, and escapes it", () => {
   assert.match(html, /assets\/css\/styles\.css/);
   // And a way in for somebody who already has a badge.
   assert.match(html, /href="\/portal"/);
+});
+
+test("an administrator is told why they are seeing the real site", () => {
+  // They bypass the notice so that checking what is about to be published
+  // does not require publishing it. Silently, that is indistinguishable from
+  // the switch not working -- and the person who just turned it on is the one
+  // person guaranteed to look.
+  const banner = sleepBanner();
+  assert.match(banner, /asleep/);
+  assert.match(banner, /signed in as an administrator/);
+  assert.match(banner, /href="\/admin\/sleep"/, "no way back to the switch");
+  // It has to survive whatever page it lands on, so it carries its own styles.
+  assert.match(banner, /position:fixed/);
+  assert.match(banner, /z-index:2147483647/);
 });
 
 // -------------------------------------------------------------- the setting

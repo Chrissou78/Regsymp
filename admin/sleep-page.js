@@ -131,3 +131,21 @@ export function sleepSettingsPage({ sleep, session, token, flash = null }) {
       <p><a href="/admin">Back to collections</a></p>`
   });
 }
+
+/**
+ * What an administrator sees instead of the notice.
+ *
+ * They are shown the real site while it is asleep, so that checking what is
+ * about to be published does not require publishing it. Done silently, that is
+ * indistinguishable from the switch not working -- and the person who has just
+ * turned it on is the one person guaranteed to look.
+ *
+ * Inline styles and the highest z-index there is: it has to survive whatever
+ * page it lands on.
+ */
+export function sleepBanner() {
+  return `<div role="status" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#B8963A;color:#1C2B4A;padding:9px 16px;text-align:center;font:500 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,0.25)">
+  The site is asleep &mdash; visitors see the closed notice. You are seeing the real site because you are signed in as an administrator.
+  <a href="/admin/sleep" style="color:#1C2B4A;text-decoration:underline;margin-left:10px">Wake it</a>
+</div>`;
+}

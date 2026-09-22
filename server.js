@@ -3,7 +3,7 @@
 import { loaded as envFile } from "./admin/load-env.js";
 import { createServer } from "node:http";
 import { createReadStream, existsSync } from "node:fs";
-import { stat } from "node:fs/promises";
+import { stat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleInvitation, configStatus, env } from "./api/_lib/send-invitation.js";
@@ -15,7 +15,7 @@ import { createBadgeCategories } from "./admin/badge-categories.js";
 import { createMailer } from "./admin/mail.js";
 import { createWallet } from "./admin/wallet.js";
 import { createSettings } from "./admin/site-settings.js";
-import { sleepPage } from "./admin/sleep-page.js";
+import { sleepBanner, sleepPage } from "./admin/sleep-page.js";
 import { isEntryPoint } from "./admin/entry-point.js";
 import { createPortal } from "./portal/routes.js";
 import { createDb, migrate } from "./admin/db.js";
@@ -686,11 +686,14 @@ const server = createServer(async (req, res) => {
   //
   // Assets are still served: the page that says the site is closed is styled by
   // the same stylesheet as the site that is closed.
+  let bypassingSleep = false;
   if (settings && !pathname.startsWith("/assets/") && !pathname.startsWith("/img/")) {
     const asleep = await settings.sleep().catch(() => ({ on: false }));
     if (asleep.on) {
       // An administrator sees the real site. Otherwise the only way to check
-      // what is about to be published would be to publish it.
+      // what is about to be published would be to publish it -- but done
+      // silently that is indistinguishable from the switch not working, so
+      // the page says which of the two is happening.
       const signedIn = await admin.sessionFor(req).catch(() => null);
       if (!signedIn) {
         return send(res, 200, sleepPage(asleep), {
@@ -698,6 +701,7 @@ const server = createServer(async (req, res) => {
           "Cache-Control": "no-store"
         });
       }
+      bypassingSleep = true;
     }
   }
 
@@ -735,6 +739,19 @@ const server = createServer(async (req, res) => {
   };
 
   if (req.method === "HEAD") return send(res, 200, "", headers);
+
+  // Normally streamed. A page carrying the sleep banner is read instead,
+  // because the body is being changed on the way out -- and it goes without an
+  // ETag and uncached, since it is no longer the file on disk.
+  if (bypassingSleep && ext === ".html") {
+    const page = await readFile(found.file, "utf8");
+    return send(
+      res,
+      200,
+      page.includes("</body>") ? page.replace("</body>", `${sleepBanner()}</body>`) : page + sleepBanner(),
+      { "Content-Type": headers["Content-Type"], "Cache-Control": "no-store" }
+    );
+  }
 
   res.writeHead(200, headers);
   createReadStream(found.file).pipe(res);
