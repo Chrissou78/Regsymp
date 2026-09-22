@@ -7,6 +7,7 @@ import { configValue } from "./runtime-config.js";
 import { escape, errorList, field, layout } from "./render.js";
 import { attendeesPage, EXAMPLE_CSV, importPreviewPage } from "./attendees-page.js";
 import { badgeSheetPage, categoriesPage } from "./badges-page.js";
+import { sleepSettingsPage } from "./sleep-page.js";
 import QRCode from "qrcode";
 import { parseAttendees } from "./import-attendees.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
@@ -163,6 +164,9 @@ export function createAdmin(config) {
     // form; this points at it when it exists, and falls back to the admin's
     // own form on a checkout with no database.
     signInPath = "/admin/signin",
+    // Runtime settings: whether the site is open, and what it says when it is
+    // not. Present only when there is a database to hold them.
+    settings = null,
     // Why the store cannot be reached, if it cannot. Reported rather than
     // left to surface as an opaque failure on whatever page is opened first.
     unavailable = () => null,
@@ -547,6 +551,48 @@ export function createAdmin(config) {
         "Cache-Control": "no-store"
       });
       res.end(EXAMPLE_CSV);
+      return true;
+    }
+
+    // ------------------------------------------------------- sleep mode
+    if (path === "/admin/sleep") {
+      if (!settings) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: session.user,
+          body: "<p>Sleep mode needs a database.</p>"
+        }));
+        return true;
+      }
+
+      const show = async (flash = null) =>
+        sleepSettingsPage({ sleep: await settings.sleep(), session, token, flash });
+
+      if (req.method === "GET") {
+        html(res, 200, await show());
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+
+      const on = form.fields.on === "yes";
+      await settings.set(
+        "sleep",
+        {
+          on,
+          heading: String(form.fields.heading ?? "").trim(),
+          message: String(form.fields.message ?? "").trim()
+        },
+        session.user.email
+      );
+
+      html(res, 200, await show({
+        kind: "ok",
+        message: on
+          ? "The site is asleep. Visitors see the notice; you still see the site."
+          : "The site is awake."
+      }));
       return true;
     }
 
@@ -1141,7 +1187,7 @@ export function createAdmin(config) {
                 ? `<li><a href="/admin/attendees">Users</a></li>`
                 : ""
             }${rows}</ul>
-            <p class="a-admins">${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <p class="a-admins">${settings ? '<a href="/admin/sleep">Sleep mode</a> &nbsp;·&nbsp; ' : ""}${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;
@@ -1470,7 +1516,12 @@ export function createAdmin(config) {
     return `${COOKIE}=${id}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}`;
   }
 
-  return { handle, issueSession };
+  // sessionFor is exported so the site can ask "is somebody signed in here?"
+  // without the admin having to serve the answer. Sleep mode uses it: an
+  // administrator sees the real site while everybody else sees the notice,
+  // because otherwise the only way to check what is about to be published
+  // would be to publish it.
+  return { handle, issueSession, sessionFor };
 }
 
 /* ------------------------------------------------------------- helpers */

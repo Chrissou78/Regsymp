@@ -14,6 +14,8 @@ import { createAttendees } from "./admin/attendees.js";
 import { createBadgeCategories } from "./admin/badge-categories.js";
 import { createMailer } from "./admin/mail.js";
 import { createWallet } from "./admin/wallet.js";
+import { createSettings } from "./admin/site-settings.js";
+import { sleepPage } from "./admin/sleep-page.js";
 import { createPortal } from "./portal/routes.js";
 import { createDb, migrate } from "./admin/db.js";
 import { createPgStore } from "./admin/store-pg.js";
@@ -180,6 +182,9 @@ const mailer = createMailer();
  * offers no button -- the QR on the ticket page is the badge either way.
  */
 const walletPasses = createWallet({ env: (name) => configValue(name) });
+
+/** Settings the running site consults, as opposed to content it is built from. */
+const settings = db ? createSettings({ db }) : null;
 
 /**
  * A speaker editing their profile updates the public page.
@@ -398,6 +403,7 @@ const admin = createAdmin({
     : null,
   // One sign-in form for the site, when the portal is mounted to serve it.
   signInPath: attendees ? "/portal/signin" : "/admin/signin",
+  settings,
   // Say so in the interface when content is not actually persistent. Saving
   // to an unmounted volume looks entirely normal right up until a deploy
   // throws the work away. A database is durable by construction.
@@ -669,6 +675,30 @@ const server = createServer(async (req, res) => {
   if (portal && (await portal.handle(req, res, url))) return;
 
   if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });
+
+  // ---- closed for a while --------------------------------------------------
+  //
+  // After the admin and the portal, so that both stay reachable while the site
+  // is asleep -- somebody has to be able to wake it up, and an attendee's badge
+  // is theirs whether or not the next event has been announced. Before anything
+  // is served out of _site, because that is the thing being replaced.
+  //
+  // Assets are still served: the page that says the site is closed is styled by
+  // the same stylesheet as the site that is closed.
+  if (settings && !pathname.startsWith("/assets/") && !pathname.startsWith("/img/")) {
+    const asleep = await settings.sleep().catch(() => ({ on: false }));
+    if (asleep.on) {
+      // An administrator sees the real site. Otherwise the only way to check
+      // what is about to be published would be to publish it.
+      const signedIn = await admin.sessionFor(req).catch(() => null);
+      if (!signedIn) {
+        return send(res, 200, sleepPage(asleep), {
+          "Content-Type": MIME[".html"],
+          "Cache-Control": "no-store"
+        });
+      }
+    }
+  }
 
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.setHeader("Allow", "GET, HEAD");
