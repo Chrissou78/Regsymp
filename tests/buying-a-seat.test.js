@@ -66,8 +66,8 @@ before(async () => {
   if (!URL || unsafe) return;
   db = createDb({ url: URL });
   await migrate(db);
-  attendees = createAttendees({ db });
   events = createEvents({ db });
+  attendees = createAttendees({ db, liveEvent: () => events.live() });
   prices = createPrices({ db });
 
   const tickets = createPaymentPages({
@@ -241,7 +241,12 @@ test("an address and a name are required, because the badge carries both", opts,
 test("somebody who already holds a badge is not sold a second", opts, async () => {
   await reset();
   const guest = await attendees.create({ email: "held@example.com" }, "a test");
-  await attendees.issueTicket({ attendeeId: guest.id, category: "vip", issuedBy: "a test" });
+  await attendees.issueTicket({
+    attendeeId: guest.id,
+    category: "vip",
+    eventSlug: "palma-2026",
+    issuedBy: "a test"
+  });
 
   const res = await buy({ category: "vip", email: "held@example.com", name: "Held" });
   assert.equal(res.status, 200);
@@ -271,7 +276,7 @@ test("a paid session issues the badge that was paid for", opts, async () => {
   assert.equal(guest.firstName, "A");
   assert.equal(guest.lastName, "Buyer");
 
-  const ticket = await attendees.ticketFor(guest.id);
+  const ticket = await attendees.ticketFor(guest.id, "palma-2026");
   assert.ok(ticket, "paid and got nothing");
   assert.equal(ticket.category, "vip");
 
@@ -370,6 +375,7 @@ test("a badge they already hold is recorded, not issued twice", opts, async () =
   const held = await attendees.issueTicket({
     attendeeId: guest.id,
     category: "visitor",
+    eventSlug: "palma-2026",
     issuedBy: "a test"
   });
 
@@ -409,7 +415,10 @@ test("an unsendable confirmation does not undo the badge", opts, async () => {
 
   assert.equal(res.status, 200);
   const guest = await attendees.byEmail("buyer@example.com");
-  assert.ok(await attendees.ticketFor(guest.id), "the badge was rolled back over an email");
+  assert.ok(
+    await attendees.ticketFor(guest.id, "palma-2026"),
+    "the badge was rolled back over an email"
+  );
 });
 
 // ---------------------------------------------------------------- coming back
@@ -430,4 +439,141 @@ test("a made-up session id shows nothing about anybody", opts, async () => {
   const body = await (await get("/tickets/thanks?session=cs_invented")).text();
   assert.doesNotMatch(body, /buyer@example\.com/);
   assert.match(body, /Nearly there/);
+});
+
+// ------------------------------------------------- one badge for each event
+
+/** Make a second event live, with the same seats on sale. */
+async function switchTo(slug, name) {
+  await events.create({ slug, name, city: name, whenLabel: "January 2027" }, "a test");
+  await events.activate(slug);
+  await prices.set(slug, "vip", { amount: "3300", onSale: true });
+  await prices.set(slug, "visitor", { amount: "500", onSale: true });
+}
+
+test("the same person can buy the same badge level at two events", opts, async () => {
+  await reset();
+
+  // Palma first.
+  await buy({ category: "vip", email: "buyer@example.com", name: "A Buyer" });
+  await webhook(completed("cs_test_1"));
+
+  // Then Davos, a year later, with the same address and the same level.
+  await switchTo("davos-2027", "The 33 · Davos");
+  const second = await buy({ category: "vip", email: "buyer@example.com", name: "A Buyer" });
+  assert.equal(second.status, 302, "holding a Palma badge blocked a Davos seat");
+  assert.equal(asked[1].amount, 330000, "the Davos price, not the Palma one");
+  await webhook(completed("cs_test_2"));
+
+  const guest = await attendees.byEmail("buyer@example.com");
+  const held = await attendees.ticketsFor(guest.id);
+  assert.equal(held.length, 2);
+  assert.deepEqual(
+    held.map((t) => t.eventSlug).sort(),
+    ["davos-2027", "palma-2026"],
+    "one badge each, not one badge overwritten"
+  );
+  assert.ok(held.every((t) => t.category === "vip"));
+});
+
+test("numbers start again at each event", opts, async () => {
+  await reset();
+  // Numbered categories draw from the category's range, and the range is per
+  // event: thirty-three VIP seats at Palma and thirty-three at Davos are
+  // sixty-six seats, not a range used twice.
+  await buy({ category: "vip", email: "first@example.com", name: "First" });
+  await webhook(
+    completed("cs_test_1", { customer_details: { email: "first@example.com", name: "First" } })
+  );
+
+  await switchTo("davos-2027", "The 33 · Davos");
+  await buy({ category: "vip", email: "second@example.com", name: "Second" });
+  await webhook(
+    completed("cs_test_2", { customer_details: { email: "second@example.com", name: "Second" } })
+  );
+
+  const one = await attendees.ticketFor(
+    (await attendees.byEmail("first@example.com")).id,
+    "palma-2026"
+  );
+  const two = await attendees.ticketFor(
+    (await attendees.byEmail("second@example.com")).id,
+    "davos-2027"
+  );
+  assert.equal(one.number, two.number, "the second event should start its numbering again");
+});
+
+test("buying twice for the same event is still refused", opts, async () => {
+  await reset();
+  await buy({ category: "vip", email: "buyer@example.com", name: "A Buyer" });
+  await webhook(completed("cs_test_1"));
+
+  const again = await buy({ category: "visitor", email: "buyer@example.com", name: "A Buyer" });
+  assert.equal(again.status, 200);
+  assert.match(await again.text(), /already have a badge/);
+  assert.equal(asked.length, 1, "a second seat at the same event was opened for payment");
+});
+
+test("a badge carries the event it admits to, all the way to the door", opts, async () => {
+  await reset();
+  await buy({ category: "vip", email: "buyer@example.com", name: "A Buyer" });
+  await webhook(completed("cs_test_1"));
+
+  const guest = await attendees.byEmail("buyer@example.com");
+  const badge = await attendees.ticketFor(guest.id, "palma-2026");
+  const scanned = await attendees.byTicketCode(badge.code);
+  assert.equal(scanned.ticket.eventSlug, "palma-2026");
+  assert.equal(scanned.ticket.eventName, "RegSymp Palma");
+});
+
+// ------------------------------------------------------------------ refunds
+
+test("a refund is recorded and the badge is left for somebody to decide", opts, async () => {
+  await reset();
+  await buy({ category: "vip", email: "buyer@example.com", name: "A Buyer" });
+  await webhook(completed("cs_test_1", { payment_intent: "pi_test_1" }));
+
+  const paid = await prices.bySession("cs_test_1");
+  assert.equal(paid.paymentIntent, "pi_test_1", "the intent is what a refund is issued against");
+
+  await webhook({
+    id: "evt_refund",
+    type: "charge.refunded",
+    data: { object: { id: "ch_1", payment_intent: "pi_test_1" } }
+  });
+
+  const after = await prices.bySession("cs_test_1");
+  assert.equal(after.status, "refunded");
+  assert.equal(after.chargeId, "ch_1");
+  assert.ok(after.refundedAt);
+
+  // Deliberately still valid. Withdrawing a refunded seat is a decision about
+  // a person, and the payments page shows the pair so somebody can make it.
+  const guest = await attendees.byEmail("buyer@example.com");
+  assert.ok(await attendees.ticketFor(guest.id, "palma-2026"));
+});
+
+test("a refund for a payment nobody has heard of changes nothing", opts, async () => {
+  await reset();
+  const res = await webhook({
+    id: "evt_refund",
+    type: "charge.refunded",
+    data: { object: { id: "ch_9", payment_intent: "pi_unknown" } }
+  });
+  assert.equal(res.status, 200, "an unknown refund is not an error, it is just not ours");
+  assert.equal((await prices.list({})).length, 0);
+});
+
+test("refunded money stops counting towards the takings", opts, async () => {
+  await reset();
+  await buy({ category: "vip", email: "buyer@example.com", name: "A Buyer" });
+  await webhook(completed("cs_test_1", { payment_intent: "pi_test_1" }));
+  assert.equal((await prices.takings("palma-2026"))[0].sold, 1);
+
+  await webhook({
+    id: "evt_refund",
+    type: "charge.refunded",
+    data: { object: { id: "ch_1", payment_intent: "pi_test_1" } }
+  });
+  assert.deepEqual(await prices.takings("palma-2026"), []);
 });

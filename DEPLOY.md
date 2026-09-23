@@ -343,6 +343,39 @@ waiting in their profile.
    `regsymp.vercel.app`.
 4. Price the categories on the event's page and tick **On sale**.
 
+#### Selling into somebody else's account
+
+Set `STRIPE_ACCOUNT` to a connected account (`acct_…`) and the money goes
+there instead of into this platform's balance. `STRIPE_CONNECT_MODE` decides
+how, and the two are not interchangeable:
+
+- **`direct`** (the default). Requests carry a `Stripe-Account` header, so the
+  connected account is the merchant of record: its name on the statement, its
+  balance, its liability for a dispute. Its events are delivered to a
+  **Connect** webhook endpoint and carry an `account` field.
+- **`destination`**. This platform is the merchant of record and the money is
+  transferred on, with `on_behalf_of` set so the buyer still sees a name they
+  recognise. Events arrive on the platform's own endpoint.
+
+Which is right is a question about who the buyer is contracting with.
+
+With direct charges the endpoint receives events for **every** account
+connected to this platform, and this endpoint issues badges. So the account on
+each event is checked against `STRIPE_ACCOUNT` and anything else is refused: a
+signature proves Stripe sent it, only the account proves it is ours.
+
+#### Refunds
+
+A refund arrives as `charge.refunded`, carrying its payment intent rather than
+its session — which is why the intent is recorded against every payment. The
+payment goes to `refunded` and stops counting towards the takings.
+
+**The badge is deliberately left alone.** Whether a refunded seat should be
+withdrawn is a decision about a person — they may have been refunded a
+difference, or comped — so /admin/payments flags the pair in red and somebody
+decides. Subscribe to `charge.refunded` alongside the others if you want this
+to happen automatically rather than by hand.
+
 Step 3 is the one that gets forgotten, and forgetting it means money taken and
 no badge issued. **/admin/payments** says so in red when the secret is missing,
 and `/api/health` reports `payments.checkout` and `payments.webhook` separately
@@ -382,6 +415,30 @@ real one back.
 
 The seats are never sold while the site is asleep. The webhook is exempt: money
 already taken has to become a badge whatever the front door says.
+
+### A badge belongs to an event
+
+The same person can hold a badge at Palma and another at Davos, buy a seat at
+both, and redeem each when its event comes round. Two rules that were written
+when there was only ever one event are now per event, and both are enforced by
+the schema rather than only by the code that issues badges:
+
+- **One badge per person, per event** (`tickets_one_per_event`).
+- **One holder per number, per event** (`tickets_number_held`). Numbering
+  starts again at each event, so thirty-three VIP seats at Palma and
+  thirty-three at Davos are sixty-six seats rather than a range used twice.
+
+Everywhere a badge is issued, withdrawn, printed or counted now takes an event,
+defaulting to the live one. The guest list and the badge sheet carry the same
+`?event=<slug>` switcher as the per-event collections, and the guest list shows
+which event it is looking at — attributing a Davos badge while believing you
+are looking at Palma is a mistake nobody notices until the door.
+
+In the portal, somebody with several badges sees them all on their profile,
+each on its own page at `/portal/ticket?event=<slug>`, each claimed and added
+to a wallet separately. A scan at the door reports which event the badge
+admits to, because a badge from the wrong event is a valid badge and still the
+wrong answer.
 
 ### Keeping tests away from live data
 

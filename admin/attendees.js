@@ -41,6 +41,40 @@ function digestsMatch(a, b) {
   return timingSafeEqual(left, right);
 }
 
+/**
+ * A badge, as everything above the store sees it.
+ *
+ * It carries its event, because a badge without one is only half an answer
+ * now: "VIP 7" is a different thing at Palma and at Davos.
+ */
+function presentTicket(row) {
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    number: row.number,
+    category: row.category,
+    categoryLabel: row.category_label,
+    colour: row.colour,
+    code: row.code,
+    eventSlug: row.event_slug,
+    eventName: row.event_name ?? null,
+    eventWhen: row.when_label ?? null,
+    eventWhere: [row.city, row.country].filter(Boolean).join(", ") || null,
+    eventStatus: row.event_status ?? null,
+    // An unnumbered badge says what it is instead of where it sits.
+    label: row.number === null ? row.category_label : `${row.number}/${row.number_to}`,
+    // The category's line first, then anything recorded for this guest.
+    // The door reads one list, and does not care which came from where.
+    areas: [...(row.note ? [row.note] : []), ...(row.areas ?? [])],
+    note: row.note,
+    issuedAt: row.issued_at,
+    claimedAt: row.claimed_at,
+    walletSerial: row.wallet_serial,
+    walletUrl: row.wallet_url,
+    checkedInAt: row.checked_in_at
+  };
+}
+
 /** The shape handed to templates. Never includes the password hash. */
 function present(row) {
   if (!row) return null;
@@ -89,7 +123,30 @@ const WRITABLE = {
   speakerSlug: "speaker_slug"
 };
 
-export function createAttendees({ db, now = () => new Date() }) {
+export function createAttendees({ db, now = () => new Date(), liveEvent = null }) {
+  /**
+   * Which event a badge is about.
+   *
+   * Everything to do with badges is per event now: the same person may hold
+   * VIP 7 at Palma and VIP 7 at Davos, and redeem each when its time comes.
+   * Callers that know the event say so; the rest mean the one the site is
+   * currently about, which is what the admin's guest list is looking at.
+   *
+   * Never silently null. A badge with no event cannot be numbered or checked
+   * in, so "there is no event" is an answer, not a default.
+   */
+  async function scope(eventSlug) {
+    const asked = String(eventSlug ?? "").trim();
+    if (asked) return asked;
+
+    const live = liveEvent ? await liveEvent() : null;
+    const slug = typeof live === "string" ? live : live?.slug;
+    if (!slug) {
+      throw new Error("There is no live event, so there is nothing to issue a badge for.");
+    }
+    return slug;
+  }
+
   /** Turn a field object into a parameterised SET clause. */
   function assignments(fields, start = 1) {
     const sets = [];
@@ -223,7 +280,10 @@ export function createAttendees({ db, now = () => new Date() }) {
       return rows[0].n;
     },
 
-    async list({ category = null, q = null, limit = 200, offset = 0 } = {}) {
+    async list({ category = null, q = null, limit = 200, offset = 0, eventSlug = null } = {}) {
+      // Which event's badges to show beside each person. The guest list is
+      // always looking at one event; without one it means the live one.
+      const event = await scope(eventSlug);
       const { rows } = await db.query(
         `select a.*,
                 ac.label as category_label,
@@ -238,7 +298,8 @@ export function createAttendees({ db, now = () => new Date() }) {
                 t.claimed_at as ticket_claimed_at
            from attendees a
            join badge_categories ac on ac.slug = a.category
-           left join tickets t on t.attendee_id = a.id and t.revoked_at is null
+           left join tickets t
+             on t.attendee_id = a.id and t.revoked_at is null and t.event_slug = $5
            left join badge_categories c on c.slug = t.category
           where ($1::text is null or a.category = $1)
             and ($2::text is null or
@@ -251,7 +312,7 @@ export function createAttendees({ db, now = () => new Date() }) {
           -- waiting for one at the end.
           order by ac.sort, ac.label, t.number nulls last, a.created_at
           limit $3 offset $4`,
-        [category, q, limit, Math.max(0, Number(offset) || 0)]
+        [category, q, limit, Math.max(0, Number(offset) || 0), event]
       );
       return rows.map((r) => ({
         ...present(r),
@@ -337,7 +398,9 @@ export function createAttendees({ db, now = () => new Date() }) {
      * the same number; if they somehow do, the unique index rejects one and
      * the retry takes the next. Counting rows and adding one would race.
      */
-    async issueTicket({ attendeeId, category, issuedBy, areas = [], number = null }) {
+    async issueTicket({ attendeeId, category, issuedBy, areas = [], number = null, eventSlug = null }) {
+      const event = await scope(eventSlug);
+
       // A number asked for by name rather than taken from the top of the pool.
       // Freeing VIP 7 is only half of "give 7 to somebody else": without this
       // the allocator would hand out the lowest free number, which may not be
@@ -362,10 +425,12 @@ export function createAttendees({ db, now = () => new Date() }) {
         try {
           return await db.tx(async (client) => {
             const existing = await client.query(
-              "select 1 from tickets where attendee_id = $1 and revoked_at is null",
-              [Number(attendeeId)]
+              "select 1 from tickets where attendee_id = $1 and event_slug = $2 and revoked_at is null",
+              [Number(attendeeId), event]
             );
-            if (existing.rows.length) throw new Error("That attendee already holds a badge.");
+            if (existing.rows.length) {
+              throw new Error("That attendee already holds a badge for this event.");
+            }
 
             // An address that signed itself up has to prove itself first. One
             // an admin typed is vouched for by a person, so it need not wait.
@@ -388,8 +453,8 @@ export function createAttendees({ db, now = () => new Date() }) {
               // Said plainly here rather than left to the unique index, whose
               // message names an index instead of the problem.
               const held = await client.query(
-                "select 1 from tickets where number = $1 and released_at is null",
-                [wanted]
+                "select 1 from tickets where number = $1 and event_slug = $2 and released_at is null",
+                [wanted, event]
               );
               if (held.rows.length) {
                 throw new Error(
@@ -398,21 +463,21 @@ export function createAttendees({ db, now = () => new Date() }) {
                 );
               }
               ({ rows } = await client.query(
-                `insert into tickets (attendee_id, number, category, code, issued_by)
-                 values ($1, $2, $3, $4, $5)
+                `insert into tickets (attendee_id, number, category, code, issued_by, event_slug)
+                 values ($1, $2, $3, $4, $5, $6)
                  returning *`,
-                [Number(attendeeId), wanted, range.slug, code, issuedBy ?? null]
+                [Number(attendeeId), wanted, range.slug, code, issuedBy ?? null, event]
               ));
             } else if (numbered) {
               // The lowest free number in the range, chosen in one statement
               // so two simultaneous issues cannot pick the same one.
               ({ rows } = await client.query(
-                `insert into tickets (attendee_id, number, category, code, issued_by)
-                 select $1, n, $2, $3, $4
+                `insert into tickets (attendee_id, number, category, code, issued_by, event_slug)
+                 select $1, n, $2, $3, $4, $7
                    from generate_series($5::int, $6::int) as n
                   where not exists (
                           select 1 from tickets t
-                           where t.number = n and t.released_at is null
+                           where t.number = n and t.event_slug = $7 and t.released_at is null
                         )
                   order by n
                   limit 1
@@ -423,7 +488,8 @@ export function createAttendees({ db, now = () => new Date() }) {
                   code,
                   issuedBy ?? null,
                   range.number_from,
-                  range.number_to
+                  range.number_to,
+                  event
                 ]
               ));
               if (!rows.length) {
@@ -435,10 +501,10 @@ export function createAttendees({ db, now = () => new Date() }) {
               // Unnumbered, which is how speakers start: a badge that says
               // what they are rather than where they sit in a sequence.
               ({ rows } = await client.query(
-                `insert into tickets (attendee_id, number, category, code, issued_by)
-                 values ($1, null, $2, $3, $4)
+                `insert into tickets (attendee_id, number, category, code, issued_by, event_slug)
+                 values ($1, null, $2, $3, $4, $5)
                  returning *`,
-                [Number(attendeeId), range.slug, code, issuedBy ?? null]
+                [Number(attendeeId), range.slug, code, issuedBy ?? null, event]
               ));
             }
 
@@ -460,38 +526,44 @@ export function createAttendees({ db, now = () => new Date() }) {
       throw new Error("Could not allocate a badge number.");
     },
 
-    async ticketFor(attendeeId) {
+    /**
+     * One person's badge for one event.
+     *
+     * Somebody may hold several -- a seat at Palma and a seat bought for
+     * Davos -- so "their badge" is always a question about an event. Without
+     * one it means the event the site is currently about.
+     */
+    async ticketFor(attendeeId, eventSlug = null) {
+      const event = await scope(eventSlug);
+      const found = await this.ticketsFor(attendeeId);
+      return found.find((t) => t.eventSlug === event) ?? null;
+    },
+
+    /**
+     * Every badge somebody holds, across every event.
+     *
+     * What the portal shows: each one redeemable when its own event comes
+     * round, the nearest first. An event with no date sorts last rather than
+     * first, because "date unknown" is not "imminent".
+     */
+    async ticketsFor(attendeeId) {
       const { rows } = await db.query(
         `select t.*, c.label as category_label, c.colour, c.number_to, c.note,
+                e.name as event_name, e.when_label, e.city, e.country,
+                e.status as event_status, e.starts_on,
                 coalesce(array_agg(a.area) filter (where a.area is not null), '{}') as areas
            from tickets t
            join badge_categories c on c.slug = t.category
+           join events e on e.slug = t.event_slug
            left join ticket_access a on a.ticket_id = t.id
           where t.attendee_id = $1 and t.revoked_at is null
-          group by t.id, c.label, c.colour, c.number_to, c.note`,
+          group by t.id, c.label, c.colour, c.number_to, c.note,
+                   e.name, e.when_label, e.city, e.country, e.status, e.starts_on
+          order by case e.status when 'live' then 0 when 'draft' then 1 else 2 end,
+                   e.starts_on nulls last, e.name`,
         [Number(attendeeId)]
       );
-      const row = rows[0];
-      if (!row) return null;
-      return {
-        id: Number(row.id),
-        number: row.number,
-        category: row.category,
-        categoryLabel: row.category_label,
-        colour: row.colour,
-        code: row.code,
-        // An unnumbered badge says what it is instead of where it sits.
-        label: row.number === null ? row.category_label : `${row.number}/${row.number_to}`,
-        // The category's line first, then anything recorded for this guest.
-        // The door reads one list, and does not care which came from where.
-        areas: [...(row.note ? [row.note] : []), ...row.areas],
-        note: row.note,
-        issuedAt: row.issued_at,
-        claimedAt: row.claimed_at,
-        walletSerial: row.wallet_serial,
-        walletUrl: row.wallet_url,
-        checkedInAt: row.checked_in_at
-      };
+      return rows.map(presentTicket);
     },
 
     /**
@@ -504,14 +576,17 @@ export function createAttendees({ db, now = () => new Date() }) {
       if (!code || String(code).length < 16) return null;
       const { rows } = await db.query(
         `select t.*, c.label as category_label, c.colour, c.number_to,
+                e.name as event_name, e.when_label, e.status as event_status,
                 coalesce(array_agg(x.area) filter (where x.area is not null), '{}') as areas,
                 a.id as a_id, a.email, a.first_name, a.last_name, a.company, a.category
            from tickets t
            join attendees a on a.id = t.attendee_id
            join badge_categories c on c.slug = t.category
+           join events e on e.slug = t.event_slug
            left join ticket_access x on x.ticket_id = t.id
           where t.code = $1 and t.revoked_at is null
-          group by t.id, a.id, c.label, c.colour, c.number_to`,
+          group by t.id, a.id, c.label, c.colour, c.number_to,
+                   e.name, e.when_label, e.status`,
         [String(code)]
       );
       const row = rows[0];
@@ -532,7 +607,14 @@ export function createAttendees({ db, now = () => new Date() }) {
           colour: row.colour,
           label: row.number === null ? row.category_label : `${row.number}/${row.number_to}`,
           areas: row.areas,
-          checkedInAt: row.checked_in_at
+          checkedInAt: row.checked_in_at,
+          // Which door this opens. A badge scanned at the wrong event is a
+          // valid badge and still the wrong answer, so the event is on the
+          // scan result rather than assumed from where the scanner is.
+          eventSlug: row.event_slug,
+          eventName: row.event_name,
+          eventWhen: row.when_label,
+          eventStatus: row.event_status
         }
       };
     },
@@ -626,14 +708,23 @@ export function createAttendees({ db, now = () => new Date() }) {
       return this.revokeTicket(ticketId, { release: true });
     },
 
-    /** How full the event is, per badge category. */
-    async capacity() {
+    /**
+     * How full one event is, per badge category.
+     *
+     * Per event, because the ranges start again at each: thirty-three VIP
+     * seats at Palma and thirty-three at Davos are sixty-six seats, not a
+     * range that has been used twice.
+     */
+    async capacity(eventSlug = null) {
+      const event = await scope(eventSlug);
       const { rows } = await db.query(
         `select c.slug, c.label, c.number_from, c.number_to, c.colour, c.sort,
                 (select count(*)::int from tickets t
-                  where t.category = c.slug and t.revoked_at is null) as issued
+                  where t.category = c.slug and t.event_slug = $1
+                    and t.revoked_at is null) as issued
            from badge_categories c
-          order by c.sort, c.label`
+          order by c.sort, c.label`,
+        [event]
       );
       return rows.map((r) => ({
         category: r.slug,

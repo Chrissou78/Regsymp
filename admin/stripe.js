@@ -12,6 +12,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * against a dependency that would have to be kept current in a container that
  * also builds the site.
  *
+ * Seats can be sold into a connected account rather than into this platform's
+ * own. See `createStripe` for the two ways that can be arranged and why the
+ * choice matters.
+ *
  * Without a key none of this is reachable and nothing about the site changes.
  */
 
@@ -76,9 +80,45 @@ export function verifySignature({ payload, header, secret, now = Date.now, toler
   return matched ? { ok: true } : { ok: false, why: "no signature matched" };
 }
 
+/**
+ * Selling into somebody else's Stripe account.
+ *
+ * Two arrangements, and they are not interchangeable:
+ *
+ * - **direct** (the default when an account is set). Every request carries a
+ *   `Stripe-Account` header, so the connected account is the merchant of
+ *   record: its name on the statement, its balance the money lands in, its
+ *   liability for a dispute. Events for these payments are delivered to a
+ *   Connect endpoint and carry an `account` field.
+ *
+ * - **destination**. This platform is the merchant of record and the money is
+ *   transferred on to the connected account. Events arrive on this platform's
+ *   own endpoint with no `account` field.
+ *
+ * Which one is right is a question about who the buyer is contracting with,
+ * not a technical preference, so it is configuration rather than a decision
+ * made here.
+ */
+const MODES = new Set(["direct", "destination"]);
+
 export function createStripe({ env, fetchImpl = globalThis.fetch } = {}) {
   const key = () => env("STRIPE_SECRET_KEY");
   const webhookSecret = () => env("STRIPE_WEBHOOK_SECRET");
+
+  /** The connected account seats are sold into, if there is one. */
+  const account = () => String(env("STRIPE_ACCOUNT") ?? "").trim() || null;
+
+  const mode = () => {
+    const asked = String(env("STRIPE_CONNECT_MODE") ?? "").trim().toLowerCase();
+    return MODES.has(asked) ? asked : "direct";
+  };
+
+  /**
+   * The account a request is made *as*, which is only set for direct charges.
+   * In destination mode the request is this platform's own and the connected
+   * account appears inside the body instead.
+   */
+  const actingAs = () => (account() && mode() === "direct" ? account() : null);
 
   const configured = () => Boolean(key());
 
@@ -91,7 +131,10 @@ export function createStripe({ env, fetchImpl = globalThis.fetch } = {}) {
         // Basic auth with the secret key as the username and no password,
         // which is what `-u "sk_...:"` means in Stripe's own examples.
         Authorization: `Basic ${Buffer.from(`${key()}:`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Content-Type": "application/x-www-form-urlencoded",
+        // Acting as the connected account, rather than acting on its behalf.
+        // Absent, and this is an ordinary request from the platform.
+        ...(actingAs() ? { "Stripe-Account": actingAs() } : {})
       },
       body: encode(params)
     });
@@ -114,6 +157,8 @@ export function createStripe({ env, fetchImpl = globalThis.fetch } = {}) {
   return {
     configured,
     webhookConfigured: () => Boolean(webhookSecret()),
+    /** The connected account, and how it is being charged. For the admin. */
+    connected: () => (account() ? { account: account(), mode: mode() } : null),
 
     /**
      * A page to send somebody to in order to pay.
@@ -130,6 +175,18 @@ export function createStripe({ env, fetchImpl = globalThis.fetch } = {}) {
         cancel_url: cancelUrl,
         client_reference_id: reference,
         ...(email ? { customer_email: email } : {}),
+        // Destination charges: this platform is the merchant of record and
+        // the money is transferred on. `on_behalf_of` puts the connected
+        // account on the statement and makes it the settlement merchant,
+        // which is what stops the buyer seeing a name they do not recognise.
+        ...(account() && mode() === "destination"
+          ? {
+              payment_intent_data: {
+                transfer_data: { destination: account() },
+                on_behalf_of: account()
+              }
+            }
+          : {}),
         // Read back on the way in, so a tampered-with return cannot claim a
         // seat that was not paid for.
         metadata: { event, category },
@@ -148,15 +205,37 @@ export function createStripe({ env, fetchImpl = globalThis.fetch } = {}) {
       return { id: session.id, url: session.url };
     },
 
-    /** The event, if the signature holds. */
+    /**
+     * The event, if the signature holds and it came from the right account.
+     *
+     * The account check matters as much as the signature. With direct charges
+     * the endpoint is a Connect endpoint, so it receives events for *every*
+     * account connected to this platform -- and this one issues badges. A
+     * signature proves Stripe sent it; only the account proves it is ours.
+     */
     readWebhook({ payload, header, now }) {
       const check = verifySignature({ payload, header, secret: webhookSecret(), now });
       if (!check.ok) return check;
+
+      let event;
       try {
-        return { ok: true, event: JSON.parse(payload.toString("utf8")) };
+        event = JSON.parse(payload.toString("utf8"));
       } catch {
         return { ok: false, why: "the body is not JSON" };
       }
+
+      const from = event.account ?? null;
+      const expected = actingAs();
+      if (from !== expected) {
+        return {
+          ok: false,
+          why: expected
+            ? `it came from ${from ?? "this platform"}, not ${expected}`
+            : `it came from connected account ${from}, and none is configured`
+        };
+      }
+
+      return { ok: true, event, account: from };
     }
   };
 }

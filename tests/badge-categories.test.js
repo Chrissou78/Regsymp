@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createDb, migrate } from "../admin/db.js";
 import { createBadgeCategories } from "../admin/badge-categories.js";
 import { createAttendees } from "../admin/attendees.js";
+import { SLUG, ensureLiveEvent } from "./helpers/an-event.js";
 import { attendeesPage, EXAMPLE_CSV } from "../admin/attendees-page.js";
 import { parseAttendees } from "../admin/import-attendees.js";
 
@@ -37,7 +38,9 @@ before(async () => {
   db = createDb({ url: URL });
   await migrate(db);
   categories = createBadgeCategories({ db });
-  attendees = createAttendees({ db });
+  // Badges belong to an event. These tests are about numbering and capacity
+  // rather than about which event, so they all use the same one.
+  attendees = createAttendees({ db, liveEvent: () => ensureLiveEvent(db) });
 });
 
 after(async () => {
@@ -47,6 +50,7 @@ after(async () => {
 /** The three built-in categories, at their original ranges, and no guests. */
 async function reset() {
   await db.query("truncate attendees cascade");
+  await ensureLiveEvent(db);
   await db.query("delete from badge_categories where not protected");
   await db.query(
     "update badge_categories set number_from = 1, number_to = 33, label = 'VIP' where slug = 'vip'"
@@ -389,12 +393,11 @@ test("the database refuses a number outside its category", opts, async () => {
   await reset();
   const who = await guest("t@example.com");
   const put = (number, category) =>
-    db.query("insert into tickets (attendee_id, number, category, code) values ($1,$2,$3,$4)", [
-      who.id,
-      number,
-      category,
-      `code-${number}-${category}`
-    ]);
+    db.query(
+      `insert into tickets (attendee_id, number, category, code, event_slug)
+       values ($1, $2, $3, $4, $5)`,
+      [who.id, number, category, `code-${number}-${category}`, SLUG]
+    );
 
   await assert.rejects(() => put(34, "vip"), /outside the vip range/);
   await assert.rejects(() => put(33, "visitor"), /outside the visitor range/);

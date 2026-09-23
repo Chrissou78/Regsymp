@@ -32,7 +32,9 @@ export const MANAGED = Object.freeze([
   "IPFS_ENCRYPTION_KEY",
   "WALLETWALLET_API_KEY",
   "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET"
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_ACCOUNT",
+  "STRIPE_CONNECT_MODE"
 ]);
 
 /**
@@ -58,7 +60,11 @@ export const DESCRIPTIONS = Object.freeze({
   STRIPE_SECRET_KEY:
     "From the Stripe dashboard. Starts with sk_live_ or sk_test_. Without it no seats can be sold and /tickets says so.",
   STRIPE_WEBHOOK_SECRET:
-    "Starts with whsec_. From the endpoint you add in Stripe pointing at /api/stripe/webhook. Payments are taken without it, but no badge is issued."
+    "Starts with whsec_. From the endpoint you add in Stripe pointing at /api/stripe/webhook. Payments are taken without it, but no badge is issued.",
+  STRIPE_ACCOUNT:
+    "A connected account (acct_…) to sell into, if the money should not land in this platform's own balance. Leave empty otherwise.",
+  STRIPE_CONNECT_MODE:
+    "direct (default) or destination. Direct makes the connected account the merchant of record — its name on the statement, its liability. Destination keeps this platform as merchant and transfers the money on."
 });
 
 export function isManaged(name) {

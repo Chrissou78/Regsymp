@@ -189,7 +189,11 @@ const userStore = db
  * would put an attendee one bug away from editor privileges, and the two
  * populations have no reason to meet.
  */
-const attendees = db ? createAttendees({ db }) : null;
+// `liveEvent` is read lazily rather than captured: badges belong to an event
+// now, and which event is live changes while the process runs.
+const attendees = db
+  ? createAttendees({ db, liveEvent: () => events?.live() ?? null })
+  : null;
 const badgeCategories = db ? createBadgeCategories({ db }) : null;
 const mailer = createMailer();
 
@@ -449,15 +453,20 @@ const admin = createAdmin({
     : null,
   guests: attendees
     ? {
-        list: (opts) => attendees.list(opts),
-        capacity: () => attendees.capacity(),
-        create: (fields, by) => attendees.create(fields, by),
-        issueTicket: (args) => attendees.issueTicket(args),
-        // The options matter: whether the number goes back into the pool is the
-        // whole difference between a cancellation and a withdrawal, and this
-        // adapter dropped them, so every cancellation quietly kept the number.
+        // Rest arguments throughout, deliberately. This seam has swallowed an
+        // argument three times now -- the options that decide whether a badge
+        // number goes back in the pool, a category, an event -- and each time
+        // the symptom was a silent wrong answer rather than an error. Naming
+        // the parameters here buys nothing and costs that.
+        list: (...args) => attendees.list(...args),
+        capacity: (...args) => attendees.capacity(...args),
+        create: (...args) => attendees.create(...args),
+        issueTicket: (...args) => attendees.issueTicket(...args),
         revoke: async (id, options = {}) => {
-          const ticket = await attendees.ticketFor(id);
+          // Which event's badge is being withdrawn. Somebody may hold one at
+          // each of several, and cancelling the wrong one is not something
+          // they would notice until the door.
+          const ticket = await attendees.ticketFor(id, options.eventSlug ?? null);
           if (!ticket) return null;
           return attendees.revokeTicket(ticket.id, options);
         },
@@ -470,10 +479,11 @@ const admin = createAdmin({
         addCategory: (fields) => badgeCategories.create(fields),
         editCategory: (slug, fields) => badgeCategories.update(slug, fields),
         removeCategory: (slug) => badgeCategories.remove(slug),
-        ticketFor: (id) => attendees.ticketFor(id),
-        byId: (id) => attendees.byId(id),
-        setEmail: (id, email) => attendees.setEmail(id, email),
-        count: (opts) => attendees.count(opts),
+        ticketFor: (...args) => attendees.ticketFor(...args),
+        ticketsFor: (...args) => attendees.ticketsFor(...args),
+        byId: (...args) => attendees.byId(...args),
+        setEmail: (...args) => attendees.setEmail(...args),
+        count: (...args) => attendees.count(...args),
 
         /** The published speaker entries, for linking an account to one. */
         speakerSlugs: async () => {
@@ -850,7 +860,9 @@ const server = createServer(async (req, res) => {
       payments: {
         mounted: Boolean(tickets),
         checkout: stripe.configured(),
-        webhook: stripe.webhookConfigured()
+        webhook: stripe.webhookConfigured(),
+        // Whose balance the money lands in, and how. Names only.
+        connected: stripe.connected()
       },
       ipfs: db
         ? { configured: pinner.configured(), ...(await safely(() => pinStatus(db))) }

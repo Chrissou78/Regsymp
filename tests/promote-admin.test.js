@@ -2,6 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createDb, migrate } from "../admin/db.js";
 import { createAttendees } from "../admin/attendees.js";
+import { ensureLiveEvent } from "./helpers/an-event.js";
 import { createPgUserStore } from "../admin/users-store-pg.js";
 
 /**
@@ -32,7 +33,7 @@ before(async () => {
   if (!URL || unsafe) return;
   db = createDb({ url: URL });
   await migrate(db);
-  attendees = createAttendees({ db });
+  attendees = createAttendees({ db, liveEvent: () => ensureLiveEvent(db) });
   users = createPgUserStore({ db });
 });
 
@@ -42,6 +43,7 @@ after(async () => {
 
 async function reset() {
   await db.query("truncate attendees cascade");
+  await ensureLiveEvent(db);
   await db.query("delete from admin_users where not is_owner");
   await db.query("delete from admin_users where email like '%@example.com'");
 }

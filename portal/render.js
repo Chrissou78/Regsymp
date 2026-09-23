@@ -25,6 +25,9 @@ export function layout({
   // most people arrive before theirs is assigned, and a link that bounces
   // straight back to the profile reads as something being broken.
   ticket = null,
+  // All of them, when the page knows. A badge belongs to an event and
+  // somebody may hold several.
+  tickets = null,
   // Whether this person also administers the site. Some do: a speaker who
   // runs it has both, and without a way across, being both is invisible from
   // here.
@@ -57,7 +60,13 @@ export function layout({
     guest
       ? `<nav class="p-nav">
            <a href="/portal">Profile</a>
-           ${ticket ? '<a href="/portal/ticket">Ticket</a>' : ""}
+           ${
+             (tickets ?? (ticket ? [ticket] : [])).length
+               ? `<a href="/portal/ticket">${
+                   (tickets ?? []).length > 1 ? "Badges" : "Ticket"
+                 }</a>`
+               : ""
+           }
            ${admin ? '<a class="p-nav-admin" href="/admin">Admin</a>' : ""}
            <form method="post" action="/portal/signout" class="p-inline">
              <input type="hidden" name="csrf" value="${escape(token)}">
@@ -74,7 +83,16 @@ export function layout({
 </main>
 
 <footer class="p-footer">
-  <p>Palma de Mallorca · 14–15 September 2026 · Chatham House Rule</p>
+  <p>${
+    // The event being looked at, rather than a constant. Somebody reading
+    // their Davos badge under a line about Palma has been told something
+    // false by the furniture.
+    ticket?.eventName
+      ? escape(
+          [ticket.eventWhere, ticket.eventWhen].filter(Boolean).join(" · ") || ticket.eventName
+        ) + " · Chatham House Rule"
+      : "Chatham House Rule"
+  }</p>
 </footer>
 </body>
 </html>`;
@@ -222,7 +240,44 @@ export function forgotPage({ sent = false, error = null } = {}) {
 
 const COUNTRIES_NOTE = "Two-letter code or country name — whichever you prefer.";
 
-export function profilePage({ guest, admin = false, ticket, token, saved = false, error = null }) {
+/**
+ * One badge, on the profile.
+ *
+ * A strip each rather than a single one, because a badge belongs to an event:
+ * somebody may hold a seat at Palma and a seat bought for Davos, and each is
+ * claimed and redeemed when its own event comes round. Saying which event a
+ * badge is for is the whole point of showing more than one.
+ */
+function ticketStrip(badge) {
+  return `<a class="p-ticketstrip${badge.claimedAt ? "" : " p-ticketstrip--unclaimed"}"
+     href="/portal/ticket?event=${encodeURIComponent(badge.eventSlug)}"
+     style="--seat:${escape(badge.colour ?? "#1C2B4A")}">
+  <span class="p-ticketstrip-label">
+    ${escape(badge.categoryLabel)} badge
+    <span class="p-ticketstrip-event">${escape(badge.eventName ?? badge.eventSlug)}${
+      badge.eventWhen ? ` &middot; ${escape(badge.eventWhen)}` : ""
+    }</span>
+  </span>
+  <span class="p-ticketstrip-number">${escape(badge.label)}</span>
+  <span class="p-quiet">${
+    badge.claimedAt ? "View and add to your phone &rarr;" : "Not claimed yet &mdash; claim it &rarr;"
+  }</span>
+</a>`;
+}
+
+export function profilePage({
+  guest,
+  admin = false,
+  ticket,
+  tickets = null,
+  token,
+  saved = false,
+  error = null
+}) {
+  // `tickets` is the full set; `ticket` is whichever one a page was about.
+  // Older callers pass only the latter, and one badge is still one badge.
+  const badges = tickets ?? (ticket ? [ticket] : []);
+
   const socials = guest.socials ?? {};
   const speaker = guest.category === "speaker";
 
@@ -230,6 +285,7 @@ export function profilePage({ guest, admin = false, ticket, token, saved = false
     title: "Your profile",
     guest,
     ticket,
+    tickets: badges,
     admin,
     token,
     flash: error
@@ -256,17 +312,8 @@ export function profilePage({ guest, admin = false, ticket, token, saved = false
           : ""
       }
       ${
-        ticket
-          ? `<a class="p-ticketstrip${ticket.claimedAt ? "" : " p-ticketstrip--unclaimed"}"
-                href="/portal/ticket">
-               <span class="p-ticketstrip-label">${escape(ticket.categoryLabel)} badge</span>
-               <span class="p-ticketstrip-number">${escape(ticket.label)}</span>
-               <span class="p-quiet">${
-                 ticket.claimedAt
-                   ? "View and add to your phone &rarr;"
-                   : "Not claimed yet &mdash; claim it &rarr;"
-               }</span>
-             </a>`
+        badges.length
+          ? badges.map(ticketStrip).join("")
           : // Nothing. Not every account is going to be given a badge, and
             // "the organisers will assign one before the event" told people
             // who will never get one to wait for it. Somebody who has one
@@ -321,7 +368,18 @@ export function profilePage({ guest, admin = false, ticket, token, saved = false
   });
 }
 
-export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = false, error = null }) {
+export function ticketPage({
+  guest,
+  admin = false,
+  ticket,
+  tickets = null,
+  qr,
+  token,
+  wallet = false,
+  error = null
+}) {
+  const badges = tickets ?? [ticket];
+
   // A coloured band on a white card. The whole card in the category colour
   // was tried and set aside: gold is a poor ground for a page of text, and
   // the band alone already says which badge this is.
@@ -331,14 +389,39 @@ export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = f
   const card = ticket.colour ?? "#1C2B4A";
   const ink = inkOn(card);
 
+  /**
+   * The other events this person holds a badge for.
+   *
+   * Only when there is more than one. A switcher above a single badge is
+   * furniture that says "there might be others" when there are not.
+   */
+  const others = badges.filter((b) => b.eventSlug !== ticket.eventSlug);
+
   return layout({
     title: "Your ticket",
     guest,
     ticket,
+    tickets: badges,
     admin,
     token,
     flash: error ? { kind: "error", message: error } : null,
-    body: `<div class="p-ticket">
+    body: `${
+      others.length
+        ? `<nav class="p-ticketswitch" aria-label="Your badges">
+             <span class="p-quiet">Your badges:</span>
+             ${badges
+               .map((b) =>
+                 b.eventSlug === ticket.eventSlug
+                   ? `<span class="p-ticketswitch-on">${escape(b.eventName ?? b.eventSlug)}</span>`
+                   : `<a href="/portal/ticket?event=${encodeURIComponent(b.eventSlug)}">${escape(
+                       b.eventName ?? b.eventSlug
+                     )}</a>`
+               )
+               .join("")}
+           </nav>`
+        : ""
+    }
+    <div class="p-ticket">
       <div class="p-ticket-head" style="background:${escape(card)};color:${ink}">
         <span class="p-ticket-kind">${escape(ticket.categoryLabel)}</span>
         <span class="p-ticket-number">${escape(ticket.label)}</span>
@@ -349,8 +432,9 @@ export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = f
         <dl class="p-ticket-meta">
           <dt>Name</dt><dd>${escape(guest.name ?? guest.email)}</dd>
           ${guest.company ? `<dt>Company</dt><dd>${escape(guest.company)}</dd>` : ""}
-          <dt>Event</dt><dd>RegSymp Palma de Mallorca</dd>
-          <dt>Dates</dt><dd>14–15 September 2026</dd>
+          <dt>Event</dt><dd>${escape(ticket.eventName ?? "—")}</dd>
+          ${ticket.eventWhere ? `<dt>Where</dt><dd>${escape(ticket.eventWhere)}</dd>` : ""}
+          ${ticket.eventWhen ? `<dt>When</dt><dd>${escape(ticket.eventWhen)}</dd>` : ""}
           ${
             ticket.areas?.length
               ? `<dt>Access</dt><dd>${ticket.areas.map((a) => escape(a.replace(/^side:/, ""))).join(", ")}</dd>`
@@ -370,6 +454,7 @@ export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = f
                  wallet
                    ? `<form method="post" action="/portal/wallet" class="p-inline">
                         <input type="hidden" name="csrf" value="${escape(token)}">
+                        <input type="hidden" name="event" value="${escape(ticket.eventSlug)}">
                         <button class="p-btn p-btn--wallet" type="submit">
                           Add to my wallet
                         </button>
@@ -382,6 +467,7 @@ export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = f
              </div>`
           : `<form method="post" action="/portal/badge" class="p-ticket-claim">
                <input type="hidden" name="csrf" value="${escape(token)}">
+               <input type="hidden" name="event" value="${escape(ticket.eventSlug)}">
                <input type="hidden" name="action" value="claim">
                <p class="p-note">This badge is being held for you. Claiming it
                confirms you are coming and fixes ${
@@ -400,11 +486,20 @@ export function ticketPage({ guest, admin = false, ticket, qr, token, wallet = f
   });
 }
 
-export function changePasswordPage({ guest, admin = false, ticket = null, token, error = null, saved = false }) {
+export function changePasswordPage({
+  guest,
+  admin = false,
+  ticket = null,
+  tickets = null,
+  token,
+  error = null,
+  saved = false
+}) {
   return layout({
     title: "Change password",
     guest,
     ticket,
+    tickets,
     admin,
     token,
     flash: error

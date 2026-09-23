@@ -193,6 +193,20 @@ export function createAdmin(config) {
   // Postgres or a document in the content store.
   const storeFor = () => userStore;
 
+  /**
+   * Which event a badge page is about.
+   *
+   * The same convention as the per-event collections: ?event=<slug>, and the
+   * live one when nothing is asked. A guest list that does not say which
+   * event it is showing is a page you can act on wrongly without noticing.
+   */
+  async function badgeScope(url) {
+    if (!events) return { editing: null, allEvents: [] };
+    const asked = url.searchParams.get("event");
+    const editing = (asked ? await events.bySlug(asked) : null) ?? (await events.live());
+    return { editing, allEvents: await events.list() };
+  }
+
   /** Is there anywhere to save to? */
   function writable() {
     return Boolean(store);
@@ -518,7 +532,10 @@ export function createAdmin(config) {
 
       const one = path.startsWith("/admin/badges/") ? path.slice("/admin/badges/".length) : null;
       const wanted = url.searchParams.get("category");
-      const everyone = await guests.list({ limit: 1000 });
+      // One event's badges. Printing Palma's and Davos's on the same sheet
+      // would put two people's VIP 7 in the same box of card.
+      const { editing: forEvent } = await badgeScope(url);
+      const everyone = await guests.list({ limit: 1000, eventSlug: forEvent?.slug ?? null });
 
       const holders = everyone.filter(
         (g) => g.ticket && (!wanted || g.ticket.category === wanted) && (!one || g.ticket.code === one)
@@ -529,7 +546,7 @@ export function createAdmin(config) {
       const origin = originFor(req);
       const badges = [];
       for (const guest of holders) {
-        const ticket = await guests.ticketFor(guest.id);
+        const ticket = await guests.ticketFor(guest.id, forEvent?.slug ?? null);
         if (!ticket) continue;
         badges.push({
           guest,
@@ -765,6 +782,7 @@ export function createAdmin(config) {
           status,
           stripeReady: Boolean(stripe?.configured()),
           webhookReady: Boolean(stripe?.webhookConfigured()),
+          connected: stripe?.connected?.() ?? null,
           session
         })
       );
@@ -874,6 +892,8 @@ export function createAdmin(config) {
 
       const PER = [10, 20, 50];
 
+      const { editing: forEvent, allEvents } = await badgeScope(url);
+
       const render = async (flash = null, q = "", query = null) => {
         const per = PER.includes(Number(query?.get("per"))) ? Number(query.get("per")) : 20;
         const total = await guests.count({ q: q || null });
@@ -882,7 +902,12 @@ export function createAdmin(config) {
         // not an empty one that looks like the list has been lost.
         const page = Math.min(Math.max(1, Number(query?.get("page")) || 1), pages);
 
-        const people = await guests.list({ q: q || null, limit: per, offset: (page - 1) * per });
+        const people = await guests.list({
+          q: q || null,
+          limit: per,
+          offset: (page - 1) * per,
+          eventSlug: forEvent?.slug ?? null
+        });
 
         // Administering the site is not a badge category, so it travels
         // separately: one lookup for the page rather than one per row.
@@ -890,7 +915,7 @@ export function createAdmin(config) {
 
         return attendeesPage({
           guests: people.map((g) => ({ ...g, isAdmin: administrators.has(g.email) })),
-          capacity: await guests.capacity(),
+          capacity: await guests.capacity(forEvent?.slug ?? null),
           categories: await guests.categories(),
           speakerSlugs: await guests.speakerSlugs(),
           session,
@@ -899,7 +924,8 @@ export function createAdmin(config) {
           q,
           total,
           page,
-          per
+          per,
+          eventBar: eventBar({ editing: forEvent, allEvents, collection: "attendees" })
         });
       };
 
@@ -940,6 +966,7 @@ export function createAdmin(config) {
                 ? await guests.issueTicket({
                     attendeeId: created.id,
                     category: created.category,
+                    eventSlug: forEvent?.slug ?? null,
                     issuedBy: by
                   })
                 : null;
@@ -1012,7 +1039,12 @@ export function createAdmin(config) {
                 // difference matters.
                 if (form.fields.badge === "yes") {
                   try {
-                    await guests.issueTicket({ attendeeId: created.id, category, issuedBy: by });
+                    await guests.issueTicket({
+                      attendeeId: created.id,
+                      category,
+                      eventSlug: forEvent?.slug ?? null,
+                      issuedBy: by
+                    });
                     badges += 1;
                   } catch (err) {
                     failures.push(`${record.email}: account made but no badge (${err.message})`);
@@ -1080,7 +1112,12 @@ export function createAdmin(config) {
                 );
                 added += 1;
                 try {
-                  await guests.issueTicket({ attendeeId: made.id, category: "speaker", issuedBy: by });
+                  await guests.issueTicket({
+                    attendeeId: made.id,
+                    category: "speaker",
+                    eventSlug: forEvent?.slug ?? null,
+                    issuedBy: by
+                  });
                   badges += 1;
                 } catch (err) {
                   failures.push(`${name}: account made but no badge (${err.message})`);
@@ -1113,6 +1150,7 @@ export function createAdmin(config) {
             const ticket = await guests.issueTicket({
               attendeeId: id,
               category: who.category,
+              eventSlug: forEvent?.slug ?? null,
               issuedBy: by
             });
             message =
@@ -1123,7 +1161,13 @@ export function createAdmin(config) {
           }
           case "revoke": {
             const release = form.fields.release === "yes";
-            const gone = await guests.revoke(id, { release });
+            // The event matters: somebody may hold a badge at each of
+            // several, and cancelling the wrong one is not a mistake they
+            // would notice before the door.
+            const gone = await guests.revoke(id, {
+              release,
+              eventSlug: forEvent?.slug ?? null
+            });
 
             if (!gone) {
               // Said rather than passed over: the alternative is a page that

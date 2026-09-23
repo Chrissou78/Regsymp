@@ -15,6 +15,9 @@ import { createStripe, encode, verifySignature } from "../admin/stripe.js";
 const SECRET = "whsec_test_0123456789abcdef";
 const KEY = "sk_test_notreal";
 
+/** Only the names actually set, so a stub cannot answer for a variable by accident. */
+const envOf = (values) => (name) => values[name] ?? "";
+
 const signed = (body, secret = SECRET, at = Math.floor(Date.now() / 1000)) => {
   const mac = createHmac("sha256", secret).update(`${at}.${body}`).digest("hex");
   return `t=${at},v1=${mac}`;
@@ -118,7 +121,7 @@ test("the signature is over the exact bytes, not over reparsed JSON", () => {
 // ------------------------------------------------------------------ checkout
 
 test("without a key nothing can be sold, and saying so is the whole behaviour", async () => {
-  const stripe = createStripe({ env: () => "", fetchImpl: () => assert.fail("called Stripe") });
+  const stripe = createStripe({ env: envOf({}), fetchImpl: () => assert.fail("called Stripe") });
   assert.equal(stripe.configured(), false);
   await assert.rejects(() => stripe.checkout({ amount: 1, currency: "eur" }), /not configured/);
 });
@@ -126,7 +129,7 @@ test("without a key nothing can be sold, and saying so is the whole behaviour", 
 test("a checkout session is created with the price this site holds", async () => {
   let sent;
   const stripe = createStripe({
-    env: (name) => (name === "STRIPE_SECRET_KEY" ? KEY : ""),
+    env: envOf({ STRIPE_SECRET_KEY: KEY }),
     fetchImpl: async (url, init) => {
       sent = { url, init };
       return {
@@ -175,7 +178,7 @@ test("a checkout session is created with the price this site holds", async () =>
 test("no email means no customer_email, rather than an empty one", async () => {
   let body;
   const stripe = createStripe({
-    env: () => KEY,
+    env: envOf({ STRIPE_SECRET_KEY: KEY }),
     fetchImpl: async (_url, init) => {
       body = init.body;
       return { ok: true, status: 200, text: async () => '{"id":"cs_1","url":"https://x"}' };
@@ -187,7 +190,7 @@ test("no email means no customer_email, rather than an empty one", async () => {
 
 test("Stripe's own complaint is passed on, because it names the field", async () => {
   const stripe = createStripe({
-    env: () => KEY,
+    env: envOf({ STRIPE_SECRET_KEY: KEY }),
     fetchImpl: async () => ({
       ok: false,
       status: 400,
@@ -202,7 +205,7 @@ test("Stripe's own complaint is passed on, because it names the field", async ()
 
 test("a webhook is only read once its signature holds", () => {
   const stripe = createStripe({
-    env: (name) => (name === "STRIPE_WEBHOOK_SECRET" ? SECRET : KEY)
+    env: envOf({ STRIPE_SECRET_KEY: KEY, STRIPE_WEBHOOK_SECRET: SECRET })
   });
 
   const body = Buffer.from('{"id":"evt_9","type":"checkout.session.completed"}');
@@ -216,8 +219,117 @@ test("a webhook is only read once its signature holds", () => {
 test("without a webhook secret every webhook is refused", () => {
   // Better than accepting them: the webhook is what issues a badge, and an
   // unverified one is an open door.
-  const stripe = createStripe({ env: (name) => (name === "STRIPE_SECRET_KEY" ? KEY : "") });
+  const stripe = createStripe({ env: envOf({ STRIPE_SECRET_KEY: KEY }) });
   assert.equal(stripe.webhookConfigured(), false);
   const body = Buffer.from("{}");
   assert.equal(stripe.readWebhook({ payload: body, header: signed("{}") }).ok, false);
+});
+
+// ------------------------------------------------------- connected accounts
+
+const ACCOUNT = "acct_test_1234";
+
+/** A checkout request, with whatever configuration is given. */
+async function checkoutWith(values) {
+  let sent;
+  const stripe = createStripe({
+    env: envOf({ STRIPE_SECRET_KEY: KEY, ...values }),
+    fetchImpl: async (url, init) => {
+      sent = init;
+      return { ok: true, status: 200, text: async () => '{"id":"cs_1","url":"https://x"}' };
+    }
+  });
+  await stripe.checkout({ label: "Seat", amount: 50000, currency: "eur" });
+  return { sent, fields: new URLSearchParams(sent.body), stripe };
+}
+
+test("with no connected account the charge is this platform's own", async () => {
+  const { sent, fields } = await checkoutWith({});
+  assert.equal(sent.headers["Stripe-Account"], undefined);
+  assert.equal(fields.has("payment_intent_data[transfer_data][destination]"), false);
+});
+
+test("a direct charge is made as the connected account", async () => {
+  // The connected account is the merchant of record: its name on the
+  // statement, its balance, its liability. That is a header, not a field.
+  const { sent, fields } = await checkoutWith({ STRIPE_ACCOUNT: ACCOUNT });
+  assert.equal(sent.headers["Stripe-Account"], ACCOUNT);
+  assert.equal(fields.has("payment_intent_data[transfer_data][destination]"), false);
+});
+
+test("a destination charge stays this platform's, and transfers the money on", async () => {
+  const { sent, fields } = await checkoutWith({
+    STRIPE_ACCOUNT: ACCOUNT,
+    STRIPE_CONNECT_MODE: "destination"
+  });
+  assert.equal(sent.headers["Stripe-Account"], undefined, "destination is not acting as them");
+  assert.equal(fields.get("payment_intent_data[transfer_data][destination]"), ACCOUNT);
+  // Without on_behalf_of the buyer sees a name they do not recognise.
+  assert.equal(fields.get("payment_intent_data[on_behalf_of]"), ACCOUNT);
+});
+
+test("an unknown mode falls back to direct rather than to nothing", async () => {
+  // A typo in configuration must not quietly become "charge the platform".
+  const { sent } = await checkoutWith({ STRIPE_ACCOUNT: ACCOUNT, STRIPE_CONNECT_MODE: "sideways" });
+  assert.equal(sent.headers["Stripe-Account"], ACCOUNT);
+});
+
+test("what is configured is reportable without revealing a key", async () => {
+  const { stripe } = await checkoutWith({ STRIPE_ACCOUNT: ACCOUNT });
+  assert.deepEqual(stripe.connected(), { account: ACCOUNT, mode: "direct" });
+  const { stripe: plain } = await checkoutWith({});
+  assert.equal(plain.connected(), null);
+});
+
+/** A webhook body signed the way Stripe signs one. */
+const hook = (event) => {
+  const body = JSON.stringify(event);
+  return { payload: Buffer.from(body), header: signed(body) };
+};
+
+test("a webhook from the wrong connected account is refused", () => {
+  // A Connect endpoint receives events for every account connected to the
+  // platform, and this endpoint issues badges. The signature proves Stripe
+  // sent it; only the account proves it is ours.
+  const stripe = createStripe({
+    env: envOf({
+      STRIPE_SECRET_KEY: KEY,
+      STRIPE_WEBHOOK_SECRET: SECRET,
+      STRIPE_ACCOUNT: ACCOUNT
+    })
+  });
+
+  const mine = stripe.readWebhook(hook({ id: "evt_1", account: ACCOUNT }));
+  assert.equal(mine.ok, true);
+  assert.equal(mine.account, ACCOUNT);
+
+  const theirs = stripe.readWebhook(hook({ id: "evt_2", account: "acct_somebody_else" }));
+  assert.equal(theirs.ok, false);
+  assert.match(theirs.why, /acct_somebody_else/);
+
+  // And a platform event on a Connect endpoint is not ours either.
+  assert.equal(stripe.readWebhook(hook({ id: "evt_3" })).ok, false);
+});
+
+test("without a connected account, an event carrying one is refused", () => {
+  const stripe = createStripe({
+    env: envOf({ STRIPE_SECRET_KEY: KEY, STRIPE_WEBHOOK_SECRET: SECRET })
+  });
+  assert.equal(stripe.readWebhook(hook({ id: "evt_1" })).ok, true);
+  assert.equal(stripe.readWebhook(hook({ id: "evt_2", account: ACCOUNT })).ok, false);
+});
+
+test("in destination mode the events are the platform's own", () => {
+  // The charge is this platform's, so its events arrive on the platform
+  // endpoint with no account on them.
+  const stripe = createStripe({
+    env: envOf({
+      STRIPE_SECRET_KEY: KEY,
+      STRIPE_WEBHOOK_SECRET: SECRET,
+      STRIPE_ACCOUNT: ACCOUNT,
+      STRIPE_CONNECT_MODE: "destination"
+    })
+  });
+  assert.equal(stripe.readWebhook(hook({ id: "evt_1" })).ok, true);
+  assert.equal(stripe.readWebhook(hook({ id: "evt_2", account: ACCOUNT })).ok, false);
 });

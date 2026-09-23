@@ -93,11 +93,19 @@ function presentPayment(row) {
     currency: row.currency,
     display: formatAmount(row.amount, row.currency),
     status: row.status,
+    // What a refund and a dispute are issued against, and what Stripe's own
+    // dashboard shows. Worth having without a network call.
+    paymentIntent: row.payment_intent ?? null,
+    chargeId: row.charge_id ?? null,
+    // The connected account the money went into, or nothing for this
+    // platform's own.
+    stripeAccount: row.stripe_account ?? null,
     attendeeId: row.attendee_id ? Number(row.attendee_id) : null,
     ticketId: row.ticket_id ? Number(row.ticket_id) : null,
     ticketNumber: row.ticket_number ?? null,
     createdAt: row.created_at,
-    paidAt: row.paid_at
+    paidAt: row.paid_at,
+    refundedAt: row.refunded_at ?? null
   };
 }
 
@@ -245,17 +253,61 @@ export function createPrices({ db }) {
      * already happen?" has to be answered by the database rather than by the
      * caller's memory.
      */
-    async markPaid({ sessionId, stripeEvent, email, name }) {
+    async markPaid({ sessionId, stripeEvent, email, name, paymentIntent, stripeAccount }) {
       const { rows } = await db.query(
         `update payments
             set status = 'paid',
                 paid_at = now(),
                 stripe_event = coalesce($2, stripe_event),
                 email = coalesce(nullif(lower($3), ''), email),
-                name = coalesce(nullif($4, ''), name)
+                name = coalesce(nullif($4, ''), name),
+                payment_intent = coalesce(nullif($5, ''), payment_intent),
+                stripe_account = coalesce(nullif($6, ''), stripe_account)
           where session_id = $1 and status = 'pending'
          returning *`,
-        [String(sessionId), stripeEvent ?? null, String(email ?? ""), String(name ?? "")]
+        [
+          String(sessionId),
+          stripeEvent ?? null,
+          String(email ?? ""),
+          String(name ?? ""),
+          String(paymentIntent ?? ""),
+          String(stripeAccount ?? "")
+        ]
+      );
+      return presentPayment(rows[0]);
+    },
+
+    /**
+     * Money given back.
+     *
+     * A refund arrives as a charge event carrying its payment intent, not its
+     * session, so that is the way back to the row. The badge is deliberately
+     * left alone: whether a refunded seat should be withdrawn is a decision
+     * about a person, not a state transition, and the payments page shows the
+     * pair so somebody can make it.
+     */
+    async markRefunded({ paymentIntent, chargeId, stripeEvent }) {
+      const { rows } = await db.query(
+        `update payments
+            set status = 'refunded',
+                refunded_at = now(),
+                charge_id = coalesce(nullif($2, ''), charge_id),
+                stripe_event = coalesce($3, stripe_event)
+          where payment_intent = $1 and status = 'paid'
+         returning *`,
+        [String(paymentIntent ?? ""), String(chargeId ?? ""), stripeEvent ?? null]
+      );
+      return presentPayment(rows[0]);
+    },
+
+    async byPaymentIntent(paymentIntent) {
+      const { rows } = await db.query(
+        `select p.*, c.label as category_label, t.number as ticket_number
+           from payments p
+           left join badge_categories c on c.slug = p.category
+           left join tickets t on t.id = p.ticket_id
+          where p.payment_intent = $1`,
+        [String(paymentIntent ?? "")]
       );
       return presentPayment(rows[0]);
     },

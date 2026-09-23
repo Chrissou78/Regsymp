@@ -2,6 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createDb, migrate } from "../admin/db.js";
 import { createAttendees } from "../admin/attendees.js";
+import { ensureLiveEvent } from "./helpers/an-event.js";
 import { createPortal } from "../portal/routes.js";
 import { createSessions } from "../admin/auth.js";
 
@@ -44,7 +45,7 @@ before(async () => {
   if (!URL || unsafe) return;
   db = createDb({ url: URL });
   await migrate(db);
-  attendees = createAttendees({ db });
+  attendees = createAttendees({ db, liveEvent: () => ensureLiveEvent(db) });
 
   const portal = createPortal({
     attendees,
@@ -96,6 +97,7 @@ const sent = [];
 
 async function reset() {
   await db.query("truncate attendees cascade");
+  await ensureLiveEvent(db);
   sent.length = 0;
   admins.clear();
 }
@@ -341,7 +343,9 @@ test("a badge is claimed by its holder, and then it is fixed", opts, async () =>
 
   const res = await post("/portal/badge", { csrf, action: "claim" }, cookie);
   assert.equal(res.status, 302);
-  assert.equal(res.headers.get("location"), "/portal/ticket");
+  // Named by its event: somebody may hold a badge at each of several, and
+  // /portal/ticket on its own would always show whichever is nearest.
+  assert.match(res.headers.get("location"), /^\/portal\/ticket\?event=/);
 
   page = await (await get("/portal/ticket", { headers: { cookie } })).text();
   assert.match(page, /Claimed on \d{4}-\d{2}-\d{2}/);
@@ -524,7 +528,7 @@ test("an unclaimed badge is not offered a pass, nor given one", opts, async () =
   const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
 
   const res = await post("/portal/wallet", { csrf }, cookie);
-  assert.equal(res.headers.get("location"), "/portal/ticket");
+  assert.match(res.headers.get("location"), /^\/portal\/ticket\?event=/);
   assert.equal(passes.length, 0, "a pass was made for an unclaimed badge");
 });
 
@@ -742,4 +746,119 @@ test("a verified guest is not nagged", opts, async () => {
   const { cookie } = await claimedGuest();
   const profile = await (await get("/portal", { headers: { cookie } })).text();
   assert.doesNotMatch(profile, /has not been confirmed/);
+});
+
+// -------------------------------------------------- a badge for each event
+
+/**
+ * A second event to hold a badge at.
+ *
+ * Deliberately not made live: somebody holding a badge for a future event
+ * should see it and be able to claim it before that event is the one the site
+ * is about, which is the whole point of buying a seat in advance.
+ */
+async function anotherEvent(slug = "davos-2027", name = "The 33 · Davos") {
+  await db.query(
+    `insert into events (slug, name, when_label, city, status)
+     values ($1, $2, 'January 2027', 'Davos', 'draft')
+     on conflict (slug) do nothing`,
+    [slug, name]
+  );
+  return slug;
+}
+
+test("somebody can hold a badge at more than one event", opts, async () => {
+  await reset();
+  const { guest, cookie } = await claimedGuest({ category: "vip" });
+  const davos = await anotherEvent();
+  await attendees.issueTicket({
+    attendeeId: guest.id,
+    category: "vip",
+    eventSlug: davos,
+    issuedBy: "chris"
+  });
+
+  const held = await attendees.ticketsFor(guest.id);
+  assert.equal(held.length, 2, "the second badge replaced the first");
+
+  // Both are on the profile, each saying which event it is for -- a page
+  // showing two badges and not saying which is which is worse than one.
+  const profile = await (await get("/portal", { headers: { cookie } })).text();
+  assert.match(profile, /A Test Event/);
+  assert.match(profile, /Davos/);
+});
+
+test("each badge has its own page, and the page says which event", opts, async () => {
+  await reset();
+  const { guest, cookie } = await claimedGuest({ category: "vip" });
+  const davos = await anotherEvent();
+  await attendees.issueTicket({
+    attendeeId: guest.id,
+    category: "vip",
+    eventSlug: davos,
+    issuedBy: "chris"
+  });
+
+  const page = await (await get(`/portal/ticket?event=${davos}`, { headers: { cookie } })).text();
+  assert.match(page, /<dt>Event<\/dt><dd>The 33 · Davos<\/dd>/, "the wrong event's details");
+  assert.match(page, /<dt>When<\/dt><dd>January 2027<\/dd>/);
+
+  // The other one is still reachable, and marked as the other one. A switcher
+  // that does not say which you are looking at is worse than none.
+  assert.match(page, /href="\/portal\/ticket\?event=a-test-event"/);
+  assert.match(page, /p-ticketswitch-on">The 33 · Davos/);
+});
+
+test("claiming one badge does not claim the others", opts, async () => {
+  await reset();
+  const { guest, cookie } = await claimedGuest({ category: "vip" });
+  const davos = await anotherEvent();
+  await attendees.issueTicket({
+    attendeeId: guest.id,
+    category: "vip",
+    eventSlug: davos,
+    issuedBy: "chris"
+  });
+
+  const page = await (await get(`/portal/ticket?event=${davos}`, { headers: { cookie } })).text();
+  const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+  await post("/portal/badge", { csrf, event: davos }, cookie);
+
+  const held = await attendees.ticketsFor(guest.id);
+  const byEvent = Object.fromEntries(held.map((t) => [t.eventSlug, t]));
+  assert.ok(byEvent[davos].claimedAt, "the badge that was claimed was not");
+  assert.equal(byEvent["a-test-event"].claimedAt, null, "claiming one claimed the other too");
+});
+
+test("a badge for an event somebody does not hold one at is not invented", opts, async () => {
+  await reset();
+  const { cookie } = await claimedGuest({ category: "vip" });
+  await anotherEvent();
+
+  // Falls back to a badge they do hold rather than showing an empty one or
+  // erroring: the parameter is a hint from the browser, not an instruction.
+  const page = await (await get("/portal/ticket?event=davos-2027", { headers: { cookie } })).text();
+  assert.match(page, /A Test Event/);
+});
+
+test("a wallet pass is made for the badge the form names", opts, async () => {
+  await reset();
+  passes.length = 0;
+  walletOn = true;
+  const { guest, cookie } = await claimedGuest({ category: "vip" });
+  const davos = await anotherEvent();
+  const second = await attendees.issueTicket({
+    attendeeId: guest.id,
+    category: "vip",
+    eventSlug: davos,
+    issuedBy: "chris"
+  });
+  await attendees.claimTicket(second.id);
+
+  const page = await (await get(`/portal/ticket?event=${davos}`, { headers: { cookie } })).text();
+  const csrf = page.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+  await post("/portal/wallet", { csrf, event: davos }, cookie);
+
+  assert.equal(passes.length, 1);
+  assert.equal(passes[0].ticket.eventSlug, davos, "the pass was made for the wrong event's badge");
 });

@@ -209,7 +209,12 @@ export function attendeesPage({
   q = "",
   total = null,
   page = 1,
-  per = 20
+  per = 20,
+  // Which event's badges these are. A badge belongs to an event now, so a
+  // guest list without one shown is a page that cannot be read safely:
+  // attributing a Davos badge while believing you are looking at Palma is a
+  // mistake nobody notices until the door.
+  eventBar = ""
 }) {
   // The store returns them in category order, so grouping is a matter of
   // noticing where one category ends.
@@ -264,10 +269,13 @@ export function attendeesPage({
     user: session.user,
     flash,
     body: `<h1>Guest list</h1>
+      ${eventBar}
       <p class="a-lede">Anyone can create an account. Adding somebody here puts
       them in a category, which attributes their badge at the same time — a
       numbered category takes the next number in its range. They claim it in
       their own profile, and once claimed it is fixed.</p>
+      <p class="a-note">Badges belong to an event. The same person can hold one
+      at each of several, and redeems each when its event comes round.</p>
 
       <ul class="a-list">${meters}</ul>
       <p class="a-note"><a href="/admin/badges">Print badges</a> &nbsp;·&nbsp;

@@ -602,3 +602,48 @@
 .p-btn--quiet:hover {
   background: var(--paper, #f6f3ec);
 }
+
+/* ------------------------------------------------- a badge for each event
+
+   Somebody may hold a seat at Palma and a seat bought for Davos. The profile
+   lists them; the ticket page shows one and offers the others. Both have to
+   say which event, or two badges are worse than one. */
+
+/* Stacked rather than one strip with 30px under it: several in a row want a
+   gap between them, not a margin under the last. */
+.p-ticketstrip + .p-ticketstrip {
+  margin-top: -18px;
+}
+
+.p-ticketstrip {
+  border-left: 3px solid var(--seat, #e8dfc6);
+}
+
+.p-ticketstrip-event {
+  display: block;
+  margin-top: 3px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 13px;
+  color: var(--navy);
+}
+
+.p-ticketswitch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin: 0 0 18px;
+  font-size: 13px;
+}
+
+.p-ticketswitch a {
+  color: var(--navy);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.p-ticketswitch-on {
+  font-weight: 600;
+  color: var(--navy);
+}

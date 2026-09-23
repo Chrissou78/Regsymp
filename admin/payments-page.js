@@ -12,7 +12,8 @@ const STATE = {
   paid: { label: "paid", tone: "live" },
   pending: { label: "pending", tone: "draft" },
   failed: { label: "failed", tone: "past" },
-  expired: { label: "expired", tone: "past" }
+  expired: { label: "expired", tone: "past" },
+  refunded: { label: "refunded", tone: "past" }
 };
 
 const when = (value) =>
@@ -29,11 +30,13 @@ const when = (value) =>
 function row(payment) {
   const state = STATE[payment.status] ?? STATE.pending;
 
-  // A payment taken with no badge behind it is the one thing on this page
-  // that needs somebody to do something about it.
+  // Two rows want somebody's attention: money taken with no badge behind it,
+  // and money given back with the badge still standing. Neither is decided
+  // here -- withdrawing a refunded seat is a decision about a person.
   const orphaned = payment.status === "paid" && !payment.ticketId;
+  const refundedButHolding = payment.status === "refunded" && Boolean(payment.ticketId);
 
-  return `<li class="a-guest${orphaned ? " a-guest--warn" : ""}">
+  return `<li class="a-guest${orphaned || refundedButHolding ? " a-guest--warn" : ""}">
     <div class="a-guest-who">
       <span class="a-guest-name">
         ${escape(payment.name || payment.email || "—")}
@@ -58,10 +61,20 @@ function row(payment) {
             ? '<span class="a-state a-state--event-past">no badge issued</span>'
             : ""
       }
+      ${
+        refundedButHolding
+          ? '<span class="a-state a-state--event-past">refunded, badge still valid</span>'
+          : ""
+      }
     </div>
 
     <div class="a-guest-more">
-      <code class="a-note">${escape(payment.sessionId)}</code>
+      <code class="a-note">${escape(payment.paymentIntent ?? payment.sessionId)}</code>
+      ${
+        payment.stripeAccount
+          ? `<span class="a-note">into ${escape(payment.stripeAccount)}</span>`
+          : ""
+      }
     </div>
   </li>`;
 }
@@ -74,6 +87,7 @@ export function paymentsPage({
   status = null,
   stripeReady = false,
   webhookReady = false,
+  connected = null,
   session,
   flash = null
 }) {
@@ -83,7 +97,18 @@ export function paymentsPage({
     flash,
     body: `<h1>Payments</h1>
       <p class="a-lede">Seats bought through the site. Stripe holds the money;
-      this holds the badges they bought.</p>
+      this holds the badges they bought. A badge belongs to the event it was
+      bought for, so the same person may appear here once per event.</p>
+      ${
+        connected
+          ? `<p class="a-note">Money goes to connected account
+             <code>${escape(connected.account)}</code>, ${
+               connected.mode === "direct"
+                 ? "which is the merchant of record: its name on the statement, its balance, its liability."
+                 : "as a transfer. This platform is the merchant of record."
+             }</p>`
+          : ""
+      }
 
       ${
         stripeReady
@@ -130,7 +155,7 @@ export function paymentsPage({
         <div class="a-field">
           <label for="f-status">Status</label>
           <select id="f-status" name="status">
-            ${["", "paid", "pending", "failed", "expired"]
+            ${["", "paid", "pending", "refunded", "failed", "expired"]
               .map(
                 (s) =>
                   `<option value="${escape(s)}"${s === (status ?? "") ? " selected" : ""}>${escape(

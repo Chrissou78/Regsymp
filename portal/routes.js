@@ -138,6 +138,13 @@ export function createPortal({
       .split(",")[0]
       .trim();
 
+  /**
+   * Where a badge lives. Named by its event, because somebody may hold
+   * several and /portal/ticket on its own would always show the nearest.
+   */
+  const ticketLink = (badge) =>
+    badge ? `/portal/ticket?event=${encodeURIComponent(badge.eventSlug)}` : "/portal/ticket";
+
   function originOf(req) {
     const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "")
       .split(",")[0]
@@ -459,9 +466,21 @@ export function createPortal({
       return true;
     }
 
-    // Resolved here rather than per page so that the navigation and the page
-    // body can never disagree about whether there is a badge to look at.
-    const ticket = await attendees.ticketFor(guest.id);
+    // Every badge this person holds, resolved here rather than per page so
+    // that the navigation and the page body can never disagree about whether
+    // there is one to look at.
+    //
+    // Several, because a badge belongs to an event: a seat at Palma and a
+    // seat bought for Davos are two badges, each redeemed when its own event
+    // comes round. The nearest comes first, and that is the one a page means
+    // when nothing says otherwise.
+    const tickets = await attendees.ticketsFor(guest.id);
+
+    /** The badge a request is about: the one asked for, or the nearest. */
+    const badgeFor = (slug) =>
+      (slug ? tickets.find((t) => t.eventSlug === slug) : null) ?? tickets[0] ?? null;
+
+    const ticket = badgeFor(url.searchParams.get("event"));
 
     // Somebody who is both needs a way across. Read per request rather than
     // trusted from the cookie: the readable hint decides what a static page
@@ -509,45 +528,50 @@ export function createPortal({
       const form = await readForm(req);
       requireCsrf(session.id, form.csrf);
 
-      if (!ticket || !ticket.claimedAt || !wallet?.configured()) {
-        redirect(res, ticket ? "/portal/ticket" : "/portal");
+      // Which badge, resolved against the ones this person actually holds
+      // rather than taken from the form. A form is the visitor's to write.
+      const chosen = badgeFor(form.event);
+
+      if (!chosen || !chosen.claimedAt || !wallet?.configured()) {
+        redirect(res, chosen ? ticketLink(chosen) : "/portal");
         return true;
       }
 
-      if (ticket.walletUrl) {
+      if (chosen.walletUrl) {
         // Push the current details to the pass before sending them to it, so
         // a name, a company or a colour changed since it was made reaches
         // every device that installed it. Not awaited for its result: the
         // pass already exists and is worth having even if the refresh fails.
-        if (ticket.walletSerial) {
+        if (chosen.walletSerial) {
           wallet
             .updatePass({
-              serial: ticket.walletSerial,
+              serial: chosen.walletSerial,
               guest,
-              ticket,
-              checkinUrl: `${originOf(req)}${CHECKIN_PREFIX}${ticket.code}`
+              ticket: chosen,
+              checkinUrl: `${originOf(req)}${CHECKIN_PREFIX}${chosen.code}`
             })
             .catch((err) => console.error("wallet pass refresh failed:", err.message));
         }
-        redirect(res, ticket.walletUrl);
+        redirect(res, chosen.walletUrl);
         return true;
       }
 
       try {
         const pass = await wallet.createPass({
           guest,
-          ticket,
-          checkinUrl: `${originOf(req)}${CHECKIN_PREFIX}${ticket.code}`
+          ticket: chosen,
+          checkinUrl: `${originOf(req)}${CHECKIN_PREFIX}${chosen.code}`
         });
-        await attendees.recordWalletPass(ticket.id, pass);
+        await attendees.recordWalletPass(chosen.id, pass);
         redirect(res, pass.url);
       } catch (err) {
         console.error("wallet pass failed:", err.message);
         html(res, 502, ticketPage({
           guest,
-          ticket,
+          ticket: chosen,
+          tickets,
           admin: administers,
-          qr: await QRCode.toString(`${originOf(req)}${CHECKIN_PREFIX}${ticket.code}`, {
+          qr: await QRCode.toString(`${originOf(req)}${CHECKIN_PREFIX}${chosen.code}`, {
             type: "svg",
             errorCorrectionLevel: "M",
             margin: 1,
@@ -569,18 +593,25 @@ export function createPortal({
       const form = await readForm(req);
       requireCsrf(session.id, form.csrf);
 
-      if (!ticket) {
+      // Which badge is being accepted. Somebody holding one at each of three
+      // events accepts them one at a time, as each comes round.
+      const chosen = badgeFor(form.event);
+      if (!chosen) {
         redirect(res, "/portal");
         return true;
       }
 
       try {
-        await attendees.claimTicket(ticket.id);
+        await attendees.claimTicket(chosen.id);
       } catch (err) {
-        html(res, 400, profilePage({ guest, ticket, token, admin: administers, error: err.message }));
+        html(
+          res,
+          400,
+          profilePage({ guest, ticket, tickets, token, admin: administers, error: err.message })
+        );
         return true;
       }
-      redirect(res, "/portal/ticket");
+      redirect(res, ticketLink(chosen));
       return true;
     }
 
@@ -601,6 +632,7 @@ export function createPortal({
       html(res, 200, ticketPage({
         guest,
         ticket,
+        tickets,
         qr,
         token,
         admin: administers,
@@ -611,7 +643,7 @@ export function createPortal({
 
     if (path === "/portal/password") {
       if (req.method === "GET") {
-        html(res, 200, changePasswordPage({ guest, ticket, token, admin: administers }));
+        html(res, 200, changePasswordPage({ guest, ticket, tickets, token, admin: administers }));
         return true;
       }
 
@@ -619,31 +651,31 @@ export function createPortal({
       requireCsrf(session.id, form.csrf);
 
       if (!(await attendees.verify(guest.email, String(form.current ?? "")))) {
-        html(res, 400, changePasswordPage({ guest, ticket, token, admin: administers, error: "Your current password is not correct." }));
+        html(res, 400, changePasswordPage({ guest, ticket, tickets, token, admin: administers, error: "Your current password is not correct." }));
         return true;
       }
       if (form.password !== form.confirm) {
-        html(res, 400, changePasswordPage({ guest, ticket, token, admin: administers, error: "Those passwords do not match." }));
+        html(res, 400, changePasswordPage({ guest, ticket, tickets, token, admin: administers, error: "Those passwords do not match." }));
         return true;
       }
 
       try {
         await attendees.setPassword(guest.id, String(form.password ?? ""));
       } catch (err) {
-        html(res, 400, changePasswordPage({ guest, ticket, token, admin: administers, error: err.message }));
+        html(res, 400, changePasswordPage({ guest, ticket, tickets, token, admin: administers, error: err.message }));
         return true;
       }
 
       // Every other session for this account goes, in case the password was
       // changed because it leaked.
       await sessions.destroyOthersFor(guest.email, session.id);
-      html(res, 200, changePasswordPage({ guest, ticket, token, admin: administers, saved: true }));
+      html(res, 200, changePasswordPage({ guest, ticket, tickets, token, admin: administers, saved: true }));
       return true;
     }
 
     if (path === "/portal") {
       if (req.method === "GET") {
-        html(res, 200, profilePage({ guest, ticket, token, admin: administers }));
+        html(res, 200, profilePage({ guest, ticket, tickets, token, admin: administers }));
         return true;
       }
 
@@ -685,13 +717,14 @@ export function createPortal({
           );
         }
       } catch (err) {
-        html(res, 400, profilePage({ guest, ticket, token, admin: administers, error: err.message }));
+        html(res, 400, profilePage({ guest, ticket, tickets, token, admin: administers, error: err.message }));
         return true;
       }
 
       html(res, 200, profilePage({
         guest: await attendees.byId(guest.id),
         ticket,
+        tickets,
         token,
         admin: administers,
         saved: true
@@ -703,6 +736,7 @@ export function createPortal({
       title: "Not found",
       guest,
       ticket,
+      tickets,
       admin: administers,
       token,
       body: `<div class="p-card p-card--narrow"><h1>Not found</h1>

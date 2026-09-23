@@ -195,8 +195,23 @@ export function createPaymentPages({
    * is `markPaid` that decides: it only returns a row the first time, so a
    * redelivered webhook stops at the door rather than issuing a second badge.
    */
-  async function issueFor({ sessionId, stripeEvent, email, name, origin = "" }) {
-    const payment = await prices.markPaid({ sessionId, stripeEvent, email, name });
+  async function issueFor({
+    sessionId,
+    stripeEvent,
+    email,
+    name,
+    paymentIntent = null,
+    stripeAccount = null,
+    origin = ""
+  }) {
+    const payment = await prices.markPaid({
+      sessionId,
+      stripeEvent,
+      email,
+      name,
+      paymentIntent,
+      stripeAccount
+    });
     if (!payment) return { already: true };
 
     const address = String(payment.email ?? "").trim().toLowerCase();
@@ -222,10 +237,15 @@ export function createPaymentPages({
 
     await prices.attach(sessionId, { attendeeId: guest.id });
 
-    // A badge they already hold is not a failure. Somebody who was invited and
-    // then paid anyway has one seat and two reasons for it; refunding is a
-    // decision for a person, and the payments list is where they will see it.
-    const held = await attendees.ticketFor(guest.id);
+    // A badge they already hold *for this event* is not a failure. Somebody
+    // who was invited and then paid anyway has one seat and two reasons for
+    // it; refunding is a decision for a person, and the payments list is
+    // where they will see it.
+    //
+    // A badge for a different event is not this at all. The same person
+    // buying a VIP seat at Palma and another at Davos is the ordinary case,
+    // and each is redeemed when its own event comes round.
+    const held = await attendees.ticketFor(guest.id, payment.eventSlug);
     if (held) {
       await prices.attach(sessionId, { ticketId: held.id });
       return { payment, guest, issued: held, already: true };
@@ -234,6 +254,7 @@ export function createPaymentPages({
     const ticket = await attendees.issueTicket({
       attendeeId: guest.id,
       category: payment.category,
+      eventSlug: payment.eventSlug,
       issuedBy: `paid ${payment.display}`
     });
     await prices.attach(sessionId, { ticketId: ticket.id });
@@ -298,6 +319,14 @@ export function createPaymentPages({
               stripeEvent: event.id,
               email: session.customer_details?.email ?? session.customer_email,
               name: session.customer_details?.name,
+              // The intent is what a refund and a dispute quote, and the
+              // account is whose balance the money reached. Both are worth
+              // keeping without a second call to Stripe.
+              paymentIntent:
+                typeof session.payment_intent === "string"
+                  ? session.payment_intent
+                  : (session.payment_intent?.id ?? null),
+              stripeAccount: read.account ?? null,
               origin: originOf(req)
             });
             if (outcome.issued) {
@@ -308,6 +337,23 @@ export function createPaymentPages({
           await prices.markFailed(event.data?.object?.id, "expired");
         } else if (event.type === "checkout.session.async_payment_failed") {
           await prices.markFailed(event.data?.object?.id, "failed");
+        } else if (event.type === "charge.refunded") {
+          // The badge is left alone on purpose. Whether a refunded seat
+          // should be withdrawn is a decision about a person -- they may
+          // have been refunded a difference, or comped -- and the payments
+          // page shows the pair so somebody can make it.
+          const charge = event.data?.object ?? {};
+          const refunded = await prices.markRefunded({
+            paymentIntent: charge.payment_intent,
+            chargeId: charge.id,
+            stripeEvent: event.id
+          });
+          if (refunded) {
+            log.log(
+              `payment ${refunded.sessionId} refunded; ` +
+                `badge ${refunded.ticketId ?? "none"} left in place for somebody to decide`
+            );
+          }
         }
       } catch (err) {
         // 500 on purpose: Stripe will retry, and a badge that failed to issue
@@ -389,17 +435,20 @@ export function createPaymentPages({
         return again("Those seats are not on sale."), true;
       }
 
-      // Somebody who already holds a badge should not be sold another. They
-      // are far more likely to have forgotten than to want two.
+      // Somebody who already holds a badge for *this* event should not be
+      // sold another. They are far more likely to have forgotten than to want
+      // two. Holding one for another event is no reason to refuse: buying a
+      // seat at each of several is the point of a series.
       //
-      // This does tell the asker that the address holds a badge, which for a
-      // Chatham House guest list is not nothing -- it is an oracle for "is
-      // this person attending". The alternative is taking money for a seat
-      // somebody already has, which is worse and harder to undo, so the answer
-      // is to make asking slow rather than to stop answering: the attempt is
-      // counted against the per-source allowance, the same as a bad address.
+      // This does tell the asker that the address holds a badge for this
+      // event, which for a Chatham House guest list is not nothing -- it is
+      // an oracle for "is this person attending". The alternative is taking
+      // money for a seat somebody already has, which is worse and harder to
+      // undo, so the answer is to make asking slow rather than to stop
+      // answering: the attempt is counted against the per-source allowance,
+      // the same as a bad address.
       const existing = await attendees.byEmail(email);
-      if (existing && (await attendees.ticketFor(existing.id))) {
+      if (existing && (await attendees.ticketFor(existing.id, event.slug))) {
         attempts.fail(key);
         return (
           html(
@@ -409,7 +458,8 @@ export function createPaymentPages({
               title: "You already have a badge",
               body: `<section class="p-card">
               <h1>You already have a badge</h1>
-              <p class="p-lede">There is a badge for ${escape(email)} waiting already.</p>
+              <p class="p-lede">There is a badge for ${escape(email)} at
+              ${escape(event.name)} waiting already.</p>
               <p>Sign in to <a href="/portal">your profile</a> to claim it. If that is
               not you, write to us and we will sort it out.</p>
             </section>`
