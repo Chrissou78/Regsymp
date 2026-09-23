@@ -519,3 +519,86 @@
   height: 1px;
   overflow: hidden;
 }
+
+/* --------------------------------------------------------------- buying one
+
+   The seats on sale, side by side. A card per badge category, in the
+   category's own colour, so the thing being bought is recognisable as the
+   badge it becomes. */
+
+.p-buys {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  margin: 24px 0 0;
+}
+
+.p-buy {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--seat, var(--navy));
+  border-radius: 4px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.p-buy-head {
+  margin: 0 0 4px;
+}
+
+.p-buy h2 {
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 400;
+  margin: 0;
+  color: var(--navy);
+}
+
+.p-buy-price {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--navy);
+  margin: 6px 0 0;
+}
+
+.p-buy-note {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 10px 0 0;
+}
+
+/* The button sits at the bottom of every card whatever the note above it
+   says, so three cards of different lengths still line up. */
+.p-buy-form {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.p-buy-form .p-btn {
+  margin-top: auto;
+  width: 100%;
+}
+
+.p-fineprint {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 24px 0 0;
+  text-align: center;
+}
+
+.p-btn--quiet {
+  display: inline-block;
+  text-decoration: none;
+  background: transparent;
+  color: var(--navy);
+  border: 1px solid var(--border);
+}
+
+.p-btn--quiet:hover {
+  background: var(--paper, #f6f3ec);
+}

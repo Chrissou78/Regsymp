@@ -30,7 +30,9 @@ export const MANAGED = Object.freeze([
   "PINATA_API_SECRET",
   "PINATA_GATEWAY",
   "IPFS_ENCRYPTION_KEY",
-  "WALLETWALLET_API_KEY"
+  "WALLETWALLET_API_KEY",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET"
 ]);
 
 /**
@@ -52,7 +54,11 @@ export const DESCRIPTIONS = Object.freeze({
   IPFS_ENCRYPTION_KEY:
     "Encrypts every image before it is pinned. Generated automatically. Keep a copy somewhere else: lose it and the pinned copies are unreadable.",
   WALLETWALLET_API_KEY:
-    "Issues Apple and Google Wallet passes for tickets. Without it, tickets still work — the QR code is served from this site either way."
+    "Issues Apple and Google Wallet passes for tickets. Without it, tickets still work — the QR code is served from this site either way.",
+  STRIPE_SECRET_KEY:
+    "From the Stripe dashboard. Starts with sk_live_ or sk_test_. Without it no seats can be sold and /tickets says so.",
+  STRIPE_WEBHOOK_SECRET:
+    "Starts with whsec_. From the endpoint you add in Stripe pointing at /api/stripe/webhook. Payments are taken without it, but no badge is issued."
 });
 
 export function isManaged(name) {

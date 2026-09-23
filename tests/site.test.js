@@ -177,13 +177,15 @@ test("no internal link points at a missing page", async () => {
       const href = m[1];
       // Some destinations are served by the server rather than built by
       // Eleventy, so they are not among the output files: the admin, the
-      // attendee portal, and the check-in URL a badge's QR points at.
+      // attendee portal, the ticket shop, and the check-in URL a badge's QR
+      // points at.
       if (
         href.startsWith("/assets/") ||
         href.startsWith("/img/") ||
         href.startsWith("/api/") ||
         href.startsWith("/admin") ||
         href.startsWith("/portal") ||
+        href.startsWith("/tickets") ||
         href.startsWith("/t/")
       ) {
         continue;

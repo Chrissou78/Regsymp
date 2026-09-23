@@ -35,7 +35,10 @@ after(async () => {
   if (db) await db.end();
 });
 
-const reset = () => db.query("truncate events");
+// Cascade, because prices and payments reference an event. A plain truncate
+// stopped working the day seats could be bought, and the message names the
+// constraint rather than the cause.
+const reset = () => db.query("truncate events cascade");
 
 const draft = (slug, fields = {}) =>
   events.create({ slug, name: slug, whenLabel: "Spring 2027", ...fields }, "a test");

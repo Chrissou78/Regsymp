@@ -721,3 +721,65 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   .b-sheet { gap: 3mm; margin: 0; justify-content: start; }
   .b-badge { border-color: #bbb; }
 }
+
+/* ------------------------------------------------------------- what it costs
+
+   Prices per badge category on the event page, and the payments they produced.
+   The forms sit inside the badge cell, so a whole row of them reads as one
+   table rather than a stack of separate forms. */
+
+.a-badgecell input[type="text"],
+.a-badgecell select {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--a-line);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.a-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* A label the page needs and the reader does not. */
+.a-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Taken so far, per category. Figures, not a table: there are three of them. */
+.a-stats {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 0 0 24px;
+  padding: 0;
+}
+
+.a-stats strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A payment taken with no badge behind it. The one row on the page that
+   needs somebody to do something. */
+.a-guest--warn {
+  border-left: 3px solid #A8432F;
+  padding-left: 13px;
+}
+
+.a-note--warn {
+  border-left: 3px solid #A8432F;
+  background: #FBF1EE;
+  padding: 10px 14px;
+}

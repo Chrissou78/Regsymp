@@ -9,6 +9,12 @@
       <a href="/#agenda">Agenda</a>
       <a href="/speakers/">Speakers</a>
       <a href="/partners/">Partners</a>
+      {# Only when there is something to buy. The flag is written with the
+         events before every build, so taking the seats off sale takes the
+         link away too. #}
+      {% if events and events.tickets and events.tickets.onSale %}
+      <a href="/tickets/">Tickets</a>
+      {% endif %}
     </nav>
     <div class="nav-cta">
       <a href="/admin" class="nav-admin-link" data-admin-link hidden>Admin</a>

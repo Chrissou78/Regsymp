@@ -10,6 +10,9 @@
     <a href="/partners/">Partners</a>
     <a href="/pillars/">The Pillars</a>
     <a href="/faq/">FAQ</a>
+    {% if events and events.tickets and events.tickets.onSale %}
+    <a href="/tickets/">Tickets</a>
+    {% endif %}
     <a href="/admin" data-admin-link hidden>Admin</a>
       <a href="/portal/signin" class="drawer-intro-link" data-account-link>Profile</a>
   </nav>

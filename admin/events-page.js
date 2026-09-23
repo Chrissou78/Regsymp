@@ -1,4 +1,5 @@
 import { escape, layout } from "./render.js";
+import { plainAmount } from "./prices.js";
 
 /**
  * The events the site can be about.
@@ -119,7 +120,75 @@ export function eventsPage({ events, session, token, flash = null }) {
   });
 }
 
-export function eventPage({ event, session, token, flash = null }) {
+const CURRENCIES = ["eur", "gbp", "usd", "chf"];
+
+/**
+ * What a seat at this event costs.
+ *
+ * One row per badge category, priced or not. A category with no price is not
+ * for sale, and that is the default: the alternative -- everything on sale at
+ * zero until somebody says otherwise -- has an obvious failure mode.
+ *
+ * Priced and on sale are separate on purpose. Prices are agreed weeks before
+ * the seats open, and "decide the number" and "start taking money" are not the
+ * same decision.
+ */
+function seatRow({ seat, event, token }) {
+  const money = seat.priced ? plainAmount(seat.amount, seat.currency) : "";
+
+  return `<li class="a-guest">
+    <div class="a-guest-who">
+      <span class="a-guest-name">
+        ${escape(seat.label)}
+        ${
+          seat.priced && seat.onSale
+            ? '<span class="a-state a-state--event-live">on sale</span>'
+            : seat.priced
+              ? '<span class="a-state">priced, not on sale</span>'
+              : '<span class="a-state">not for sale</span>'
+        }
+      </span>
+      <span class="a-note">${
+        seat.priced
+          ? escape(`${seat.display} — buyers get a ${seat.label} badge automatically once they have paid.`)
+          : "No price, so these seats cannot be bought."
+      }</span>
+    </div>
+
+    <form method="post" action="/admin/events/${escape(event.slug)}" class="a-badgecell a-inline">
+      <input type="hidden" name="csrf" value="${escape(token)}">
+      <input type="hidden" name="action" value="price">
+      <input type="hidden" name="category" value="${escape(seat.category)}">
+
+      <label class="a-sr" for="p-${escape(seat.category)}">Price</label>
+      <input id="p-${escape(seat.category)}" name="amount" type="text" inputmode="decimal"
+             value="${escape(money)}" placeholder="500" size="8">
+
+      <label class="a-sr" for="c-${escape(seat.category)}">Currency</label>
+      <select id="c-${escape(seat.category)}" name="currency">
+        ${CURRENCIES.map(
+          (code) =>
+            `<option value="${code}"${seat.currency === code ? " selected" : ""}>${code.toUpperCase()}</option>`
+        ).join("")}
+      </select>
+
+      <label class="a-check">
+        <input type="checkbox" name="onSale" value="yes"${seat.onSale ? " checked" : ""}>
+        <span>On sale</span>
+      </label>
+
+      <button class="a-btn" type="submit">Save</button>
+      ${
+        seat.priced
+          ? `<button class="a-danger" type="submit" name="action" value="unprice"
+                     onclick="return confirm('Take ${escape(seat.label)} off sale and forget the price?')">Clear</button>`
+          : ""
+      }
+    </form>
+  </li>`;
+}
+
+export function eventPage({ event, seats = [], stripeReady = false, session, token, flash = null }) {
   return layout({
     title: event.name,
     user: session.user,
@@ -167,6 +236,19 @@ export function eventPage({ event, session, token, flash = null }) {
           <button class="a-btn" type="submit">Save</button>
           <a class="a-count" href="/admin/events">Back to events</a>
         </div>
-      </form>`
+      </form>
+
+      <h2 class="a-subhead">Seats and prices</h2>
+      <p class="a-note">
+        A seat is on sale when it has a price and the box is ticked. Paying for
+        one issues that badge automatically, in the category paid for.
+        ${
+          stripeReady
+            ? `Payments are taken by Stripe, on Stripe’s own page — no card details reach this site. The public page is <a href="/tickets">/tickets</a>.`
+            : 'Nothing can be bought yet: <strong>STRIPE_SECRET_KEY</strong> has not been set in <a href="/admin/credentials">service credentials</a>. Prices can be agreed here in the meantime.'
+        }
+      </p>
+      <ul class="a-guests">${seats.map((seat) => seatRow({ seat, event, token })).join("")}</ul>
+      <p class="a-note"><a href="/admin/payments?event=${escape(event.slug)}">Payments for this event</a></p>`
   });
 }

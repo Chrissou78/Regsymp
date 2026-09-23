@@ -302,6 +302,87 @@ table, so a trigger on `tickets` enforces it -- which means a caller that
 forgets the rule, or a category edited later, still cannot issue a number
 outside its range. There is a test that inserts straight SQL to prove it.
 
+### Selling a seat
+
+Seats are sold through **Stripe Checkout**. The card details are entered on
+Stripe's own page and never reach this site, which is the whole reason for the
+redirect and worth the redirect.
+
+**Prices live here, not at Stripe.** A price belongs to an event *and* a badge
+category together -- a VIP seat at Davos is not a VIP seat at Mallorca -- and
+is set on the event's own page at **/admin/events/&lt;slug&gt;**. Two things are
+separate on purpose:
+
+- **Priced** is a number somebody has agreed.
+- **On sale** is whether it can be bought today.
+
+Prices are usually agreed weeks before the seats open, and a category with no
+price at all is not for sale. That is the default, and the alternative --
+everything buyable at zero until somebody notices -- has an obvious failure
+mode.
+
+Paying issues the badge automatically, in the category paid for. The buyer gets
+an account if they do not have one, a claim link by email, and their badge is
+waiting in their profile.
+
+#### Turning it on
+
+1. Set `STRIPE_SECRET_KEY` at **/admin/credentials**. Until then /tickets says
+   the seats are not on sale, which is true, and nothing else changes.
+2. In the Stripe dashboard add a webhook endpoint pointing at
+   `https://<host>/api/stripe/webhook`, subscribed to
+   `checkout.session.completed`, `checkout.session.expired` and
+   `checkout.session.async_payment_failed`.
+3. Set `STRIPE_WEBHOOK_SECRET` (it starts with `whsec_`) at
+   **/admin/credentials**.
+
+   Point the endpoint at the **origin host**, not at a proxy in front of it.
+   The signature covers the raw bytes, and anything that re-encodes a body on
+   the way through turns every webhook into a 400 for a reason that looks
+   nothing like the cause. On Vercel that means the server's own hostname, not
+   `regsymp.vercel.app`.
+4. Price the categories on the event's page and tick **On sale**.
+
+Step 3 is the one that gets forgotten, and forgetting it means money taken and
+no badge issued. **/admin/payments** says so in red when the secret is missing,
+and `/api/health` reports `payments.checkout` and `payments.webhook` separately
+for exactly this reason.
+
+#### Why the webhook issues the badge, and not the page after paying
+
+Because that page is optional. People close the tab, lose signal in a taxi, pay
+on a phone that goes flat. The webhook is the only event Stripe guarantees to
+deliver, so it is the only place a seat may be granted.
+
+Which brings the two rules the schema enforces:
+
+- **`payments.session_id` is unique.** Stripe retries a webhook for three days
+  and says plainly that an endpoint may see the same event more than once. The
+  "mark as paid" update is conditional on the row still being pending and
+  returns nothing if it is not, so a redelivered webhook stops at the door
+  rather than issuing a second badge.
+- **The signature is checked against the raw bytes.** Verified by hand rather
+  than by the SDK: split the `Stripe-Signature` header, rebuild
+  `timestamp + "." + body`, HMAC-SHA256 it with the `whsec_` secret and compare
+  in constant time, rejecting anything older than five minutes. A body that has
+  been parsed and re-serialised will not verify, which is why the route reads
+  the body before anything else touches it.
+
+A bad signature gets a 400 -- Stripe gives up on a 4xx, and an unverifiable
+body will not become verifiable on the tenth try. A database failure gets a
+500, so Stripe retries and the badge is issued on the retry rather than quietly
+forgotten.
+
+#### Testing it without real money
+
+Stripe's test keys (`sk_test_...`) work everywhere the live ones do. For the
+webhook, `stripe listen --forward-to localhost:3000/api/stripe/webhook` prints
+a `whsec_` of its own -- use that one while testing, and remember to put the
+real one back.
+
+The seats are never sold while the site is asleep. The webhook is exempt: money
+already taken has to become a badge whatever the front door says.
+
 ### Keeping tests away from live data
 
 The Postgres tests truncate tables, so two guards stand between `npm test` and

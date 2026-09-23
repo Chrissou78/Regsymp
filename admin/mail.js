@@ -88,6 +88,35 @@ export function createMailer({ sendImpl = null } = {}) {
       });
     },
 
+    /**
+     * Somebody has paid, and their badge exists.
+     *
+     * Sent after the badge is issued rather than instead of it: Stripe already
+     * sends a receipt for the money, so this is the one that says what the
+     * money bought and how to get at it.
+     */
+    sendSeatConfirmation({ to, url, name = null, seat, event, amount }) {
+      return send({
+        to,
+        subject: `Your ${seat} seat at ${event}`,
+        html: template({
+          heading: "Your seat is confirmed",
+          lines: [
+            name ? `${name},` : "Hello,",
+            `Thank you — your ${seat} seat at ${event} is booked, and ${amount} has been taken.`,
+            "Your badge is waiting in your profile. Set a password to claim it, and you can add it to your phone's wallet from there.",
+            "This link is valid for 30 days and can be used once."
+          ],
+          action: { href: url, label: "Claim your badge" }
+        }),
+        text: `Your ${seat} seat at ${event} is confirmed (${amount}).
+
+Claim your badge: ${url}
+
+Valid for 30 days, single use.`
+      });
+    },
+
     /** Proves the address belongs to whoever typed it. */
     sendVerificationLink({ to, url }) {
       return send({

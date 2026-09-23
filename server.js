@@ -16,6 +16,9 @@ import { createMailer } from "./admin/mail.js";
 import { createWallet } from "./admin/wallet.js";
 import { createSettings } from "./admin/site-settings.js";
 import { createEvents } from "./admin/events.js";
+import { createPrices } from "./admin/prices.js";
+import { createStripe } from "./admin/stripe.js";
+import { createPaymentPages } from "./payments/routes.js";
 import {
   enterPreview,
   leavePreview,
@@ -209,6 +212,16 @@ const settings = db ? createSettings({ db }) : null;
  */
 const events = db ? createEvents({ db }) : null;
 
+/**
+ * Seats that can be bought, and the payments that bought them.
+ *
+ * The key is read the way every other credential is: the environment first,
+ * then whatever was saved at /admin/credentials. Without one, /tickets says
+ * the seats are not on sale -- which is true -- and nothing else changes.
+ */
+const prices = db ? createPrices({ db }) : null;
+const stripe = createStripe({ env: (name) => configValue(name) });
+
 /** Per-event lists, and where each one lands when its event is the live one. */
 const PER_EVENT = ["speakers.json", "partners.json"];
 
@@ -286,7 +299,19 @@ if (events) {
     // A build is not the place to find that out.
     try {
       const data = await Promise.race([
-        events.toData(),
+        // Whether anything is on sale travels with the events, so a template
+        // can offer a Tickets link without knowing that prices exist. It is a
+        // boolean rather than the prices themselves: the amount is read again
+        // at the moment of purchase, and a built page is the wrong place to
+        // keep a number somebody might change while it is cached.
+        events.toData().then(async (data) => ({
+          ...data,
+          tickets: {
+            onSale: Boolean(
+              data.live && prices && (await prices.onSaleFor(data.live.slug)).length
+            )
+          }
+        })),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error("the database did not answer in time")), 2000).unref()
         )
@@ -367,6 +392,42 @@ const portal = attendees
       }
     })
   : null;
+
+/**
+ * The public side of paying: /tickets, and the webhook that issues the badge.
+ *
+ * Mounted whether or not Stripe has a key, because the page that says the
+ * seats are not on sale is part of the feature rather than a fallback for it.
+ */
+const tickets =
+  attendees && prices && events
+    ? createPaymentPages({
+        stripe,
+        prices,
+        events,
+        attendees,
+        // Asleep means closed, including to buyers. The webhook is exempt:
+        // money already taken has to become a badge whatever the front door
+        // says.
+        open: async () => !(await settings.sleep().catch(() => ({ on: false }))).on,
+        // A badge that exists but was not announced is recoverable; a payment
+        // taken with no badge is not. So this runs last and its failure is
+        // logged rather than raised.
+        onIssued: async ({ payment, guest, origin }) => {
+          if (!mailer.configured() || !guest.email) return;
+          const token = await attendees.createToken(guest.id, "claim");
+          const event = payment.eventSlug ? await events.bySlug(payment.eventSlug) : null;
+          await mailer.sendSeatConfirmation({
+            to: guest.email,
+            url: `${origin}/portal/claim/${token}`,
+            name: guest.name,
+            seat: payment.label ?? payment.category,
+            event: event?.name ?? "RegSymp",
+            amount: payment.display
+          });
+        }
+      })
+    : null;
 
 const admin = createAdmin({
   sessions: db ? createPgSessions({ db, kind: "admin" }) : createSessions(),
@@ -526,6 +587,8 @@ const admin = createAdmin({
   signInPath: attendees ? "/portal/signin" : "/admin/signin",
   settings,
   events,
+  prices,
+  stripe,
   rebuildSite: () => rebuild(),
   // Say so in the interface when content is not actually persistent. Saving
   // to an unmounted volume looks entirely normal right up until a deploy
@@ -781,6 +844,14 @@ const server = createServer(async (req, res) => {
       // Names and booleans only.
       credentials: db ? await safely(() => secretStatus(db)) : null,
       portal: { mounted: Boolean(portal), mail: mailer.configured() },
+      // Whether seats can be sold, and whether a sale would produce a badge.
+      // The two are separate credentials and the second is the one that gets
+      // forgotten, which is exactly the failure worth being able to see.
+      payments: {
+        mounted: Boolean(tickets),
+        checkout: stripe.configured(),
+        webhook: stripe.webhookConfigured()
+      },
       ipfs: db
         ? { configured: pinner.configured(), ...(await safely(() => pinStatus(db))) }
         : { configured: pinner.configured() },
@@ -806,6 +877,13 @@ const server = createServer(async (req, res) => {
 
   // ---- attendee portal ----------------------------------------------------
   if (portal && (await portal.handle(req, res, url))) return;
+
+  // ---- buying a seat ------------------------------------------------------
+  //
+  // Before the /api catch-all, because the Stripe webhook lives under /api,
+  // and before anything is served from _site, because /tickets is rendered
+  // per request rather than built.
+  if (tickets && (await tickets.handle(req, res, url))) return;
 
   if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });
 

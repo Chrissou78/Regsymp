@@ -9,6 +9,7 @@ import { attendeesPage, EXAMPLE_CSV, importPreviewPage } from "./attendees-page.
 import { badgeSheetPage, categoriesPage } from "./badges-page.js";
 import { sleepSettingsPage } from "./sleep-page.js";
 import { eventPage, eventsPage } from "./events-page.js";
+import { paymentsPage } from "./payments-page.js";
 import QRCode from "qrcode";
 import { parseAttendees } from "./import-attendees.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
@@ -172,6 +173,10 @@ export function createAdmin(config) {
     // on the pages. Present only when there is a database.
     events = null,
     rebuildSite = null,
+    // Seat prices and the payments that bought them. Present only when there
+    // is a database; the pages say so plainly when Stripe has no key.
+    prices = null,
+    stripe = null,
     // Why the store cannot be reached, if it cannot. Reported rather than
     // left to surface as an opaque failure on whatever page is opened first.
     unavailable = () => null,
@@ -585,13 +590,67 @@ export function createAdmin(config) {
           return true;
         }
 
+        // The seat prices, and whether Stripe could take money for them.
+        // Read on every render rather than cached: a price is the sort of
+        // thing two people edit in the same five minutes.
+        const seatsFor = async (slug) => (prices ? await prices.forEvent(slug) : []);
+        const stripeReady = Boolean(stripe?.configured());
+
         if (req.method === "GET") {
-          html(res, 200, eventPage({ event: found, session, token }));
+          html(
+            res,
+            200,
+            eventPage({ event: found, seats: await seatsFor(one), stripeReady, session, token })
+          );
           return true;
         }
 
         const form = await readForm(req, readBody);
         requireCsrf(session.id, form.fields.csrf, secret$());
+
+        // ---- a price rather than the event's own fields
+        //
+        // The same page, so the same form action. Which of the two was
+        // submitted is said by the form rather than guessed from which fields
+        // happen to be present -- guessing is how a blank price field once
+        // meant "leave it alone" and once meant "take it off sale".
+        if (form.fields.action === "price" || form.fields.action === "unprice") {
+          const show = async (flash) =>
+            eventPage({
+              event: found,
+              seats: await seatsFor(one),
+              stripeReady,
+              session,
+              token,
+              flash
+            });
+          try {
+            const category = String(form.fields.category ?? "");
+            if (form.fields.action === "unprice" || !String(form.fields.amount ?? "").trim()) {
+              await prices.clear(one, category);
+              html(res, 200, await show({ kind: "ok", message: "Those seats are no longer for sale." }));
+            } else {
+              const saved = await prices.set(one, category, {
+                amount: form.fields.amount,
+                currency: form.fields.currency,
+                onSale: form.fields.onSale === "yes"
+              });
+              html(
+                res,
+                200,
+                await show({
+                  kind: "ok",
+                  message: saved.onSale
+                    ? `${saved.label} seats are on sale at ${saved.display}.`
+                    : `${saved.label} priced at ${saved.display}, not yet on sale.`
+                })
+              );
+            }
+          } catch (err) {
+            html(res, 400, await show({ kind: "error", message: err.message }));
+          }
+          return true;
+        }
 
         try {
           const saved = await events.update(one, {
@@ -613,6 +672,8 @@ export function createAdmin(config) {
           if (rebuildSite) await rebuildSite().catch(() => {});
           html(res, 200, eventPage({
             event: saved,
+            seats: await seatsFor(one),
+            stripeReady,
             session,
             token,
             flash: { kind: "ok", message: "Saved." }
@@ -620,6 +681,8 @@ export function createAdmin(config) {
         } catch (err) {
           html(res, 400, eventPage({
             event: found,
+            seats: await seatsFor(one),
+            stripeReady,
             session,
             token,
             flash: { kind: "error", message: err.message }
@@ -674,6 +737,37 @@ export function createAdmin(config) {
       } catch (err) {
         html(res, 400, await show({ kind: "error", message: err.message }));
       }
+      return true;
+    }
+
+    // -------------------------------------------------------- payments
+    if (path === "/admin/payments") {
+      if (!prices) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: session.user,
+          body: "<p>Payments need a database.</p>"
+        }));
+        return true;
+      }
+
+      const eventSlug = url.searchParams.get("event") || null;
+      const status = url.searchParams.get("status") || null;
+
+      html(
+        res,
+        200,
+        paymentsPage({
+          payments: await prices.list({ eventSlug, status }),
+          takings: await prices.takings(eventSlug),
+          events: events ? await events.list() : [],
+          eventSlug,
+          status,
+          stripeReady: Boolean(stripe?.configured()),
+          webhookReady: Boolean(stripe?.webhookConfigured()),
+          session
+        })
+      );
       return true;
     }
 
@@ -1308,7 +1402,7 @@ export function createAdmin(config) {
             <ul class="a-list">${events ? `<li><a href="/admin/events">Events</a></li>` : ""}${
               guests ? `<li><a href="/admin/attendees">Users</a></li>` : ""
             }${rows}</ul>
-            <p class="a-admins">${settings ? '<a href="/admin/sleep">Sleep mode</a> &nbsp;·&nbsp; ' : ""}${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <p class="a-admins">${settings ? '<a href="/admin/sleep">Sleep mode</a> &nbsp;·&nbsp; ' : ""}${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${prices ? '<a href="/admin/payments">Payments</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;
