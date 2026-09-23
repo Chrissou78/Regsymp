@@ -1,0 +1,55 @@
+---
+layout: layouts/base.njk
+permalink: /next/
+title: "What is coming next — RegSymp"
+description: "The 33: thirty-three people, one table, in places worth travelling to. London, Davos, Lapland, Napa Valley, Barcelona and Mallorca."
+---
+{#
+  Coming next.
+
+  The homepage carries a summary; this is the same events with room to breathe.
+  Both are built from the events table, so announcing one is adding a row.
+#}
+<main id="main-content">
+
+<section class="section dark-deep next-hero" aria-labelledby="next-heading">
+  <div class="container">
+    <span class="eyebrow">{{ upcomingCopy.eyebrow }}</span>
+    <h1 class="h-display" id="next-heading">{{ upcomingCopy.heading }}</h1>
+    {% if upcomingCopy.footnote %}
+    <p class="next-lede">{{ upcomingCopy.footnote }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section light next-list-section">
+  <div class="container">
+    {% if events and events.upcoming and events.upcoming.length %}
+    <ol class="next-list">
+      {% for event in events.upcoming %}
+      <li class="next-item reveal">
+        <div class="next-when">
+          <span class="next-date">{{ event.whenLabel }}</span>
+          {% if event.series %}<span class="next-series">{{ event.series }}</span>{% endif %}
+        </div>
+        <div class="next-what">
+          <h2 class="next-place">{{ event.city or event.name }}{% if event.country %}<span class="next-country">, {{ event.country }}</span>{% endif %}</h2>
+          {% if event.tagline %}<p class="next-tagline">{{ event.tagline }}</p>{% endif %}
+          {% if event.summary %}<p class="next-summary">{{ event.summary }}</p>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    {# Nothing announced yet. Saying so is better than an empty page that looks
+       like a fault. #}
+    <p class="next-none">Nothing is announced just yet. The next dates will appear here first.</p>
+    {% endif %}
+
+    <p class="next-back">
+      <a class="hero-link" href="/">The current edition <span class="arrow">&rarr;</span></a>
+    </p>
+  </div>
+</section>
+
+</main>

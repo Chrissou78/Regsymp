@@ -2694,3 +2694,90 @@ body { background: var(--off-white); }
   letter-spacing: 0.02em;
   color: var(--gold);
 }
+
+/* ------- Coming next -------
+   The homepage carries the summary; this page is the same events with room to
+   breathe. A two-column row rather than cards: the date is the thing people
+   scan for, so it gets its own column and stays put. */
+.next-hero { padding-bottom: clamp(48px, 8vh, 80px); }
+.next-lede {
+  margin: 20px 0 0;
+  font-family: var(--serif);
+  font-size: clamp(17px, 2.2vw, 22px);
+  color: var(--gold);
+}
+
+.next-list-section { background: var(--white); }
+
+.next-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 900px;
+}
+
+.next-item {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(0, 1fr);
+  gap: 8px 40px;
+  padding: clamp(24px, 4vh, 40px) 0;
+  border-top: 1px solid var(--border);
+}
+
+.next-item:last-child { border-bottom: 1px solid var(--border); }
+
+.next-when { display: flex; flex-direction: column; gap: 6px; }
+
+.next-date {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold-text, #7A5E22);
+}
+
+.next-series {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.next-place {
+  margin: 0 0 10px;
+  font-family: var(--display, var(--serif));
+  font-size: clamp(26px, 3.4vw, 38px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--navy);
+}
+
+.next-country { color: var(--text-muted); font-size: 0.6em; }
+
+.next-tagline {
+  margin: 0;
+  font-size: clamp(16px, 1.5vw, 18px);
+  line-height: 1.65;
+  color: var(--ink, #2C2E3A);
+  max-width: 58ch;
+}
+
+.next-summary {
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.next-none { color: var(--text-muted); font-size: 17px; }
+.next-back { margin: clamp(40px, 6vh, 64px) 0 0; }
+
+@media (max-width: 680px) {
+  /* Stacked: at this width the date column squeezes the place name to two or
+     three characters a line. */
+  .next-item { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+.upcoming-more { margin: 26px 0 0; }
