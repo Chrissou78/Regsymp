@@ -20,6 +20,7 @@ const FIELDS = [
   "series",
   "tagline",
   "summary",
+  "image_path",
   "upcoming",
   "sort"
 ];
@@ -27,7 +28,8 @@ const FIELDS = [
 const FROM_JS = {
   whenLabel: "when_label",
   startsOn: "starts_on",
-  endsOn: "ends_on"
+  endsOn: "ends_on",
+  imagePath: "image_path"
 };
 
 function present(row) {
@@ -45,6 +47,8 @@ function present(row) {
     series: row.series,
     tagline: row.tagline,
     summary: row.summary,
+    // The square photograph on the edition card, under /assets/images/.
+    imagePath: row.image_path,
     status: row.status,
     upcoming: row.upcoming,
     sort: row.sort,

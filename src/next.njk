@@ -1,55 +1,182 @@
 ---
 layout: layouts/base.njk
 permalink: /next/
-title: "What is coming next — RegSymp"
-description: "The 33: thirty-three people, one table, in places worth travelling to. London, Davos, Lapland, Napa Valley, Barcelona and Mallorca."
+title: "The Thirty-Three — upcoming editions"
+description: "The 33: a privately convened dinner for thirty-three guests, under Chatham House Rule. London, Davos, Lapland, Napa Valley, Barcelona and Mallorca."
 ---
 {#
-  Coming next.
+  The 33.
 
-  The homepage carries a summary; this is the same events with room to breathe.
-  Both are built from the events table, so announcing one is adding a row.
+  Six squares, one per edition, built from the events table -- so announcing
+  one is adding a row and swapping a photograph is editing a field, neither of
+  which is a change to this template.
+
+  A card is a button rather than a link: the editions have no pages of their
+  own yet, and there is nowhere honest for a link to go. What it opens is the
+  register-interest form with that edition already ticked, which is the one
+  thing somebody looking at a photograph of Lapland wants to do next.
 #}
 <main id="main-content">
 
-<section class="section dark-deep next-hero" aria-labelledby="next-heading">
+{# Where a form post lands when the script did not run. Shown by :target
+   alone, so the one person who needs it -- the one with no JavaScript -- is
+   the one it works for. #}
+<div class="the33-thanks" id="registered" role="status">
   <div class="container">
-    <span class="eyebrow">{{ upcomingCopy.eyebrow }}</span>
-    <h1 class="h-display" id="next-heading">{{ upcomingCopy.heading }}</h1>
-    {% if upcomingCopy.footnote %}
-    <p class="next-lede">{{ upcomingCopy.footnote }}</p>
+    <p>Thank you &mdash; your interest has been registered. The programme chairs
+    will be in touch.</p>
+  </div>
+</div>
+
+<section class="section the33-hero" aria-labelledby="next-heading">
+  <div class="container">
+    <p class="eyebrow eyebrow--rule">{{ upcomingCopy.eyebrow }}</p>
+    <h1 class="the33-display" id="next-heading">
+      {%- for line in upcomingCopy.heroLines -%}
+        {%- if upcomingCopy.heroItalicLast and loop.last -%}
+          <span><em>{{ line }}</em></span>
+        {%- else -%}
+          <span>{{ line }}</span>
+        {%- endif -%}
+      {%- else -%}
+        <span>{{ upcomingCopy.heading }}</span>
+      {%- endfor -%}
+    </h1>
+    {% if upcomingCopy.heroLede %}
+    <p class="the33-lede">{{ upcomingCopy.heroLede }}</p>
     {% endif %}
   </div>
 </section>
 
-<section class="section light next-list-section">
-  <div class="container">
+<section class="section the33-editions" aria-labelledby="editions-heading">
+  <div class="container container--wide">
+    <h2 class="the33-h2" id="editions-heading">{{ upcomingCopy.editionsHeading or "Upcoming Highlights" }}</h2>
+    {% if upcomingCopy.standfirst %}
+    <p class="the33-standfirst">{{ upcomingCopy.standfirst }}</p>
+    {% endif %}
+
     {% if events and events.upcoming and events.upcoming.length %}
-    <ol class="next-list">
+    <div class="the33-cards">
       {% for event in events.upcoming %}
-      <li class="next-item reveal">
-        <div class="next-when">
-          <span class="next-date">{{ event.whenLabel }}</span>
-          {% if event.series %}<span class="next-series">{{ event.series }}</span>{% endif %}
+      {% set place = event.city or event.name %}
+      <article class="the33-card reveal" data-edition="{{ event.slug }}"
+               data-label="{{ place }} — {{ event.whenLabel }}"
+               role="button" tabindex="0" aria-haspopup="dialog">
+        {% if event.imagePath %}
+        <img src="/assets/images/{{ event.imagePath }}" alt="{{ place }}"
+             width="800" height="800" loading="lazy" decoding="async">
+        {% endif %}
+        <span class="the33-cue">{{ upcomingCopy.cue or "Register interest" }}</span>
+        <span class="the33-scrim" aria-hidden="true"></span>
+        <div class="the33-body">
+          <span class="the33-when">{{ event.whenLabel }}</span>
+          <p class="the33-place">{{ place }}</p>
+          {% if event.tagline %}<p class="the33-blurb">{{ event.tagline }}</p>{% endif %}
         </div>
-        <div class="next-what">
-          <h2 class="next-place">{{ event.city or event.name }}{% if event.country %}<span class="next-country">, {{ event.country }}</span>{% endif %}</h2>
-          {% if event.tagline %}<p class="next-tagline">{{ event.tagline }}</p>{% endif %}
-          {% if event.summary %}<p class="next-summary">{{ event.summary }}</p>{% endif %}
-        </div>
-      </li>
+      </article>
       {% endfor %}
-    </ol>
+    </div>
     {% else %}
-    {# Nothing announced yet. Saying so is better than an empty page that looks
+    {# Nothing announced yet. Saying so is better than an empty grid that looks
        like a fault. #}
-    <p class="next-none">Nothing is announced just yet. The next dates will appear here first.</p>
+    <p class="the33-none">Nothing is announced just yet. The next dates will appear here first.</p>
     {% endif %}
 
-    <p class="next-back">
-      <a class="hero-link" href="/">The current edition <span class="arrow">&rarr;</span></a>
-    </p>
+    {% if upcomingCopy.footnote %}
+    <p class="the33-closer">{{ upcomingCopy.footnote }}</p>
+    {% endif %}
+
+    {% if upcomingCopy.credits %}
+    <p class="the33-credits">{{ upcomingCopy.credits }}</p>
+    {% endif %}
   </div>
 </section>
+
+{#
+  The form.
+
+  One dialog for all six, with the card you clicked ticked on the way in.
+  Rendered here rather than built by script so that it is in the page for
+  anybody whose JavaScript did not run: the noscript block above unhides it as
+  an ordinary section, and it posts the same fields to the same endpoint.
+#}
+{# Without script the overlay is a hidden element and the form is unreachable,
+   which would make the fallback endpoint pointless. This turns it into an
+   ordinary section at the foot of the page instead. #}
+<noscript>
+  <style>
+    .the33-overlay[hidden] { display: block; }
+    .the33-overlay { position: static; padding: 0 0 64px; background: #111829; }
+    .the33-dialog { margin: 0 auto; border: 0; }
+    .the33-card { cursor: default; }
+    .the33-cue { display: none; }
+    /* The real checkbox does the work when nothing is drawing the square. */
+    .the33-chip input { position: static; width: auto; height: auto; opacity: 1; }
+    .the33-box { display: none; }
+    .the33-close { display: none; }
+  </style>
+</noscript>
+
+<div class="the33-overlay" id="the33-overlay" hidden>
+  <div class="the33-dialog" role="dialog" aria-modal="true" aria-labelledby="the33-dlg-title">
+    <button class="the33-close" id="the33-close" type="button" aria-label="Close">&times;</button>
+
+    <form id="the33-form" method="post" action="/api/the-33" novalidate>
+      <h3 id="the33-dlg-title">{{ upcomingCopy.formHeading or "Register your interest" }}</h3>
+      {% if upcomingCopy.formLede %}
+      <p class="the33-dialog-lede">{{ upcomingCopy.formLede }}</p>
+      {% endif %}
+
+      <div class="the33-field">
+        <label for="the33-name">Full name</label>
+        <input id="the33-name" name="name" type="text" autocomplete="name" required>
+      </div>
+      <div class="the33-field">
+        <label for="the33-email">Email</label>
+        <input id="the33-email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <div class="the33-field">
+        <label for="the33-company">Company</label>
+        <input id="the33-company" name="company" type="text" autocomplete="organization" required>
+      </div>
+
+      <fieldset class="the33-picker">
+        <legend class="the33-prompt">{{ upcomingCopy.pickerPrompt or "Please select the event you want to participate in" }}</legend>
+        {% if upcomingCopy.pickerHint %}
+        <p class="the33-hint">{{ upcomingCopy.pickerHint }}</p>
+        {% endif %}
+        <div class="the33-chips">
+          {% for event in events.upcoming %}
+          {% set place = event.city or event.name %}
+          <label class="the33-chip" data-key="{{ event.slug }}">
+            <input type="checkbox" name="editions" value="{{ place }} — {{ event.whenLabel }}">
+            <span class="the33-box" aria-hidden="true"></span>
+            <span class="the33-chip-text">{{ place }}<span class="the33-chip-when">{{ event.whenLabel }}</span></span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      {# The honeypot and the clock, the same two the invitation form uses. #}
+      <div class="the33-trap" aria-hidden="true">
+        <label for="the33-website">Website</label>
+        <input id="the33-website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+      <input type="hidden" name="startedAt" id="the33-started" value="">
+      <input type="hidden" name="source" value="the-33">
+
+      <p class="the33-err" id="the33-err" role="alert" hidden></p>
+      <button class="the33-submit" id="the33-submit" type="submit">Submit</button>
+      {% if upcomingCopy.smallprint %}
+      <p class="the33-smallprint">{{ upcomingCopy.smallprint }}</p>
+      {% endif %}
+    </form>
+
+    <div class="the33-done" id="the33-done" hidden>
+      <h3>Thank you</h3>
+      <p id="the33-done-msg"></p>
+    </div>
+  </div>
+</div>
 
 </main>

@@ -17,6 +17,7 @@ import { createWallet } from "./admin/wallet.js";
 import { createSettings } from "./admin/site-settings.js";
 import { createEvents } from "./admin/events.js";
 import { createPrices } from "./admin/prices.js";
+import { createInterest, validateInterest } from "./admin/the-33.js";
 import { createStripe } from "./admin/stripe.js";
 import { createPaymentPages } from "./payments/routes.js";
 import {
@@ -224,6 +225,15 @@ const events = db ? createEvents({ db }) : null;
  * the seats are not on sale -- which is true -- and nothing else changes.
  */
 const prices = db ? createPrices({ db }) : null;
+
+/**
+ * People who asked to be considered for The 33.
+ *
+ * Deliberately not attendees and deliberately not payments. An invitation is
+ * a decision by the programme chairs, and keeping this in its own table is
+ * what stops it quietly becoming an admission.
+ */
+const interest = db ? createInterest({ db }) : null;
 const stripe = createStripe({ env: (name) => configValue(name) });
 
 /** Per-event lists, and where each one lands when its event is the live one. */
@@ -599,6 +609,7 @@ const admin = createAdmin({
   events,
   prices,
   stripe,
+  interest,
   rebuildSite: () => rebuild(),
   // Say so in the interface when content is not actually persistent. Saving
   // to an unmounted volume looks entirely normal right up until a deploy
@@ -798,6 +809,70 @@ const server = createServer(async (req, res) => {
   const pathname = url.pathname;
 
   // ---- API ----------------------------------------------------------------
+
+  // Registering interest in The 33.
+  //
+  // Takes JSON from the page's own script, and a form post from the same form
+  // when that script did not run -- so the page works either way, which is
+  // the reason the form is rendered rather than built.
+  if (pathname === "/api/the-33") {
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST");
+      return sendJson(res, 405, { error: "Method not allowed." });
+    }
+    if (!interest) {
+      return sendJson(res, 503, { error: "Registrations are not available just now." });
+    }
+
+    const raw = await readBody(req);
+    const asForm = !String(req.headers["content-type"] ?? "").includes("json");
+
+    let submitted;
+    try {
+      submitted = asForm
+        ? (() => {
+            const fields = new URLSearchParams(raw);
+            return { ...Object.fromEntries(fields), editions: fields.getAll("editions") };
+          })()
+        : JSON.parse(raw || "{}");
+    } catch {
+      return sendJson(res, 400, { error: "Could not read that submission." });
+    }
+
+    // Only editions the site is actually announcing. What arrives has been
+    // through a browser, and this list is about to be read by a person.
+    const announced = events ? await events.upcoming().catch(() => []) : [];
+    const offered = announced.map((e) => `${e.city || e.name} \u2014 ${e.whenLabel}`);
+
+    const checked = validateInterest(submitted, { editions: offered.length ? offered : null });
+    if (!checked.ok) return sendJson(res, 400, { error: checked.error });
+
+    let saved;
+    try {
+      saved = await interest.record(checked.data);
+    } catch (err) {
+      console.error("the-33 interest could not be saved:", err.message);
+      return sendJson(res, 500, { error: "That did not go through. Please try again." });
+    }
+
+    // The chairs are told, and a send that fails must not lose the row --
+    // it is already saved and visible at /admin/interest.
+    const inbox = env("INVITATION_RECIPIENT");
+    if (mailer.configured() && inbox) {
+      mailer
+        .sendInterest({ to: inbox, ...checked.data })
+        .catch((err) => console.error("the-33 notification failed:", err.message));
+    }
+
+    // A form post has nowhere to put JSON, so it goes back to the page. The
+    // fragment is what makes it say thank you: :target, so the acknowledgement
+    // works for exactly the person who needs it -- one with no JavaScript.
+    if (asForm) {
+      return send(res, 303, "", { Location: "/next/#registered" });
+    }
+    return sendJson(res, 200, { ok: true, editions: saved.editions });
+  }
+
   if (pathname === "/api/request-invitation") {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");

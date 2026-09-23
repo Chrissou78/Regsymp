@@ -10,6 +10,7 @@ import { badgeSheetPage, categoriesPage } from "./badges-page.js";
 import { sleepSettingsPage } from "./sleep-page.js";
 import { eventPage, eventsPage } from "./events-page.js";
 import { paymentsPage } from "./payments-page.js";
+import { interestCsv, interestPage } from "./interest-page.js";
 import QRCode from "qrcode";
 import { parseAttendees } from "./import-attendees.js";
 import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
@@ -177,6 +178,9 @@ export function createAdmin(config) {
     // is a database; the pages say so plainly when Stripe has no key.
     prices = null,
     stripe = null,
+    // People who asked to be considered for The 33. Registrations, not
+    // bookings: the chairs invite.
+    interest = null,
     // Why the store cannot be reached, if it cannot. Reported rather than
     // left to surface as an opaque failure on whatever page is opened first.
     unavailable = () => null,
@@ -675,6 +679,7 @@ export function createAdmin(config) {
             series: form.fields.series,
             tagline: form.fields.tagline,
             summary: form.fields.summary,
+            imagePath: form.fields.imagePath,
             city: form.fields.city,
             country: form.fields.country,
             venue: form.fields.venue,
@@ -751,6 +756,73 @@ export function createAdmin(config) {
 
         if (rebuildSite) await rebuildSite().catch(() => {});
         html(res, 200, await show({ kind: "ok", message }));
+      } catch (err) {
+        html(res, 400, await show({ kind: "error", message: err.message }));
+      }
+      return true;
+    }
+
+    // ------------------------------------------------------- the 33
+    if (path === "/admin/interest" || path === "/admin/interest.csv") {
+      if (!interest) {
+        html(res, 404, layout({
+          title: "Not found",
+          user: session.user,
+          body: "<p>The 33 needs a database.</p>"
+        }));
+        return true;
+      }
+
+      const asked = {
+        status: url.searchParams.get("status") || null,
+        edition: url.searchParams.get("edition") || null
+      };
+
+      // Everything, when it is a file: a download filtered to whatever the
+      // page happened to be showing is a download somebody will trust.
+      if (path === "/admin/interest.csv") {
+        res.writeHead(200, {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="the-33-interest.csv"',
+          "Cache-Control": "no-store"
+        });
+        res.end(interestCsv(await interest.list({ limit: 5000 })));
+        return true;
+      }
+
+      const show = async (flash = null) => {
+        const announced = events ? await events.upcoming() : [];
+        return interestPage({
+          people: await interest.list(asked),
+          demand: await interest.demand(),
+          editions: announced.map((e) => `${e.city || e.name} \u2014 ${e.whenLabel}`),
+          status: asked.status,
+          edition: asked.edition,
+          total: await interest.count(),
+          session,
+          token,
+          flash
+        });
+      };
+
+      if (req.method === "GET") {
+        html(res, 200, await show());
+        return true;
+      }
+
+      const form = await readForm(req, readBody);
+      requireCsrf(session.id, form.fields.csrf, secret$());
+
+      try {
+        const changed = await interest.setStatus(
+          form.fields.id,
+          form.fields.status,
+          session.user.email
+        );
+        html(res, 200, await show({
+          kind: "ok",
+          message: `${changed.name} marked ${changed.status}.`
+        }));
       } catch (err) {
         html(res, 400, await show({ kind: "error", message: err.message }));
       }
@@ -1446,7 +1518,7 @@ export function createAdmin(config) {
             <ul class="a-list">${events ? `<li><a href="/admin/events">Events</a></li>` : ""}${
               guests ? `<li><a href="/admin/attendees">Users</a></li>` : ""
             }${rows}</ul>
-            <p class="a-admins">${settings ? '<a href="/admin/sleep">Sleep mode</a> &nbsp;·&nbsp; ' : ""}${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${prices ? '<a href="/admin/payments">Payments</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
+            <p class="a-admins">${settings ? '<a href="/admin/sleep">Sleep mode</a> &nbsp;·&nbsp; ' : ""}${owner ? '<a href="/admin/users">Manage admin accounts</a> &nbsp;·&nbsp; ' : ""}${owner && credentials ? '<a href="/admin/credentials">Service credentials</a> &nbsp;·&nbsp; ' : ""}${guests ? '<a href="/admin/badges">Badges</a> &nbsp;·&nbsp; ' : ""}${prices ? '<a href="/admin/payments">Payments</a> &nbsp;·&nbsp; ' : ""}${interest ? '<a href="/admin/interest">The 33</a> &nbsp;·&nbsp; ' : ""}${ipfs ? '<a href="/admin/ipfs">IPFS</a> &nbsp;·&nbsp; ' : ""}<a href="/admin/account">Change your password</a></p>`
         })
       );
       return true;

@@ -440,6 +440,41 @@ to a wallet separately. A scan at the door reports which event the badge
 admits to, because a badge from the wrong event is a valid badge and still the
 wrong answer.
 
+### The 33
+
+**/next/** is six square photographs, one per upcoming edition, built from the
+`events` table — so announcing an edition is adding a row and swapping a
+photograph is editing `image_path` on the event's page in the admin. Neither
+is a change to a template.
+
+A card is a button rather than a link. The editions have no pages of their own
+and there is nowhere honest for a link to go; what it opens is the
+register-interest form with that edition already ticked.
+
+**Registering interest is not a booking.** The 33 is convened by invitation, so
+the form records a name, an address, a company and which editions somebody
+asked about, and nothing else happens: no account, no badge, no charge. That is
+why it has its own table (`the33_interest`) rather than being a pending
+attendee or an unpaid payment — both of those are things somebody would later
+be tempted to turn into an admission automatically. There is a test that
+asserts a submission creates no attendee and no ticket.
+
+- **`POST /api/the-33`** takes the page's JSON and, for a browser with no
+  JavaScript, the same form's ordinary post. The editions are checked against
+  the ones the site is actually announcing, so the list a chair reads in an
+  email cannot be written by whoever submitted the form.
+- **/admin/interest** is the list, with how many people want each edition at
+  the top and a CSV download. Marking somebody invited records that a chair
+  decided to; it sends nothing. An invitation to a private dinner is a letter
+  from a person.
+- The chairs are notified at `INVITATION_RECIPIENT`, with `Reply-To` set to the
+  person. A failed send does not lose the row — it is already saved.
+
+**Photography.** The six shipped images are placeholders from Wikimedia
+Commons, graded to one treatment, and carry an attribution requirement. The
+page says so in a credits line, which is editable at **/admin/upcomingCopy** and should
+be emptied once real photography replaces them.
+
 ### Keeping tests away from live data
 
 The Postgres tests truncate tables, so two guards stand between `npm test` and

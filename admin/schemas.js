@@ -106,7 +106,22 @@ export const SCHEMAS = {
       F("heading", "text", { required: true, max: 120 }),
       F("footnote", "text", {
         max: 160,
-        help: "The line under the list. Leave empty to show none."
+        help: "The closing line. Leave empty to show none."
+      }),
+      // The /next page. Each edition brings its own picture, date and blurb
+      // from the events table; everything around them is here.
+      F("heroLede", "textarea", { max: 400, help: "The paragraph under the heading on /next." }),
+      F("editionsHeading", "text", { max: 80 }),
+      F("standfirst", "text", { max: 200 }),
+      F("cue", "text", { max: 40, help: "What a card says when you hover it." }),
+      F("formHeading", "text", { max: 80 }),
+      F("formLede", "textarea", { max: 400 }),
+      F("pickerPrompt", "text", { max: 120 }),
+      F("pickerHint", "text", { max: 120 }),
+      F("smallprint", "text", { max: 200 }),
+      F("credits", "textarea", {
+        max: 400,
+        help: "Photography credits. Empty once the placeholders are replaced."
       })
     ]
   },

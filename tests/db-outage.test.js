@@ -2,8 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { readFile, writeFile } from "node:fs/promises";
-import { rebuild } from "../admin/rebuild.js";
+import { keepingGenerated } from "./helpers/generated.js";
 
 /**
  * A database that cannot be reached must never take the site down.
@@ -17,39 +16,6 @@ import { rebuild } from "../admin/rebuild.js";
  */
 
 const PORT = 8100 + Math.floor(Math.random() * 300);
-
-/**
- * The server writes what it builds from, so a test that boots it leaves the
- * checkout holding the test database's idea of the world.
- *
- * These are tracked files. A run against an empty test database used to leave
- * `events.json` full of whatever the last test created, and that once reached
- * a commit. Worse, the server rebuilds _site as it boots, so the site tests
- * that run afterwards were reading a site built from an empty database and
- * failing for reasons that had nothing to do with them.
- *
- * So: put the sources back, and build again from them.
- */
-const GENERATED = ["src/_data/events.json", "src/_data/speakers.json", "src/_data/partners.json"];
-
-async function keeping(fn) {
-  const before = await Promise.all(
-    GENERATED.map((f) => readFile(f, "utf8").then((c) => [f, c], () => null))
-  );
-  try {
-    return await fn();
-  } finally {
-    let changed = false;
-    for (const kept of before) {
-      if (!kept) continue;
-      const now = await readFile(kept[0], "utf8").catch(() => null);
-      if (now === kept[1]) continue;
-      await writeFile(kept[0], kept[1], "utf8").catch(() => {});
-      changed = true;
-    }
-    if (changed) await rebuild({ quiet: true }).catch(() => {});
-  }
-}
 
 /** Start the server with a deliberately broken database, and wait for it. */
 async function startWith(databaseUrl) {
@@ -180,7 +146,7 @@ const dbOpts = WORKING_DB
 test("booting with a working database builds the site", dbOpts, async () => {
   // The one test here that reaches a real database, and so the one that
   // rewrites what the site is built from. Put it back afterwards.
-  await keeping(async () => {
+  await keepingGenerated(async () => {
     const { child, output } = await startWith(WORKING_DB);
 
     try {

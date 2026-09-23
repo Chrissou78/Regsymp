@@ -1,5 +1,21 @@
 {
-  "eyebrow": "The 33 — Upcoming highlights",
+  "eyebrow": "XXXIII — The Thirty-Three",
   "heading": "Where we are going next.",
-  "footnote": "33 people. One table. Extraordinary places."
+  "footnote": "33 people. One table. Extraordinary places.",
+  "heroLines": [
+    "A privately convened dinner.",
+    "Thirty-three guests.",
+    "Chatham House Rule."
+  ],
+  "heroItalicLast": true,
+  "heroLede": "A seated dinner for thirty-three guests on the Sunday ahead of day one. Invitations are extended by the programme chairs. Chatham House Rule applies.",
+  "editionsHeading": "Upcoming Highlights",
+  "standfirst": "Six private editions, each convened around a single table.",
+  "credits": "Placeholder photography from Wikimedia Commons, graded to one treatment — attribution required if used as-is. Replace before launch.",
+  "cue": "Register interest",
+  "formHeading": "Register your interest",
+  "formLede": "The 33 is convened by invitation. Share your details and the programme chairs will be in touch about the editions you select.",
+  "pickerPrompt": "Please select the event you want to participate in",
+  "pickerHint": "Select as many as you wish.",
+  "smallprint": "Submitting registers interest only. Invitations are extended by the programme chairs."
 }

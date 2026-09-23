@@ -213,6 +213,20 @@ export function eventPage({ event, seats = [], stripeReady = false, session, tok
           <textarea id="f-summary" name="summary" rows="4">${escape(event.summary ?? "")}</textarea>
         </div>
 
+        ${field({
+          name: "imagePath",
+          label: "Photograph",
+          value: event.imagePath,
+          help: "Square, under /assets/images/ — e.g. the33/london-2026.jpg. This is the card on The 33."
+        })}
+        ${
+          event.imagePath
+            ? `<p class="a-note"><img src="/assets/images/${escape(event.imagePath)}"
+                 alt="" width="160" height="160"
+                 style="width:160px;height:160px;object-fit:cover;border-radius:2px"></p>`
+            : ""
+        }
+
         <h2 class="a-subhead">Where and when</h2>
         <div class="a-form--inline">
           ${field({ name: "city", label: "City", value: event.city })}

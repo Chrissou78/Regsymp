@@ -1,4 +1,5 @@
 import { trapFocus } from "./focus-trap.js";
+import { theThirtyThree } from "./the-33.js";
 
 (function () {
   // ---------------------------------------------------------------- nav state
@@ -159,4 +160,10 @@ import { trapFocus } from "./focus-trap.js";
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && drawer?.classList.contains("open")) setDrawer(false);
   });
+
+  // ------------------------------------------------------------------ The 33
+  // Does nothing on a page without the editions grid, which is every page but
+  // one. Kept in its own file because it is the only thing here that talks to
+  // an endpoint.
+  theThirtyThree();
 })();

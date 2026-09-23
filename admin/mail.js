@@ -43,7 +43,7 @@ export function template({ heading, lines, action = null }) {
 export function createMailer({ sendImpl = null } = {}) {
   const configured = () => Boolean(env("RESEND_API_KEY") && normaliseFrom(env("RESEND_FROM")));
 
-  async function send({ to, subject, html, text }) {
+  async function send({ to, subject, html, text, replyTo = null }) {
     if (!configured()) {
       throw new Error("Email is not configured: RESEND_API_KEY or RESEND_FROM is missing.");
     }
@@ -53,7 +53,10 @@ export function createMailer({ sendImpl = null } = {}) {
       to,
       subject,
       html,
-      ...(text ? { text } : {})
+      ...(text ? { text } : {}),
+      // Resend's own field name. Used where the recipient is us and the
+      // interesting address is somebody else's.
+      ...(replyTo ? { reply_to: replyTo } : {})
     };
 
     if (sendImpl) return sendImpl(payload);
@@ -114,6 +117,42 @@ export function createMailer({ sendImpl = null } = {}) {
 Claim your badge: ${url}
 
 Valid for 30 days, single use.`
+      });
+    },
+
+    /**
+     * Somebody has asked to be considered for The 33.
+     *
+     * To the organisers, not to the person: The 33 is convened by invitation
+     * and the chairs decide, so an automatic reply that reads like a
+     * confirmation would be telling them something untrue.
+     */
+    sendInterest({ to, name, email, company, editions, note = null }) {
+      const list = editions.join(", ");
+      return send({
+        to,
+        subject: `The 33 — ${name}, ${company}`,
+        // `template` escapes each line, so these are plain text.
+        html: template({
+          heading: "Interest in The 33",
+          lines: [
+            `${name} — ${company}`,
+            email,
+            `Asked about: ${list}`,
+            ...(note ? [note] : [])
+          ]
+        }),
+        text:
+          `${name} (${company}, ${email}) asked about The 33.
+
+` +
+          `Editions: ${list}
+` +
+          (note ? `
+Note: ${note}
+` : ""),
+        // So that hitting reply reaches them rather than the sending domain.
+        replyTo: email
       });
     },
 

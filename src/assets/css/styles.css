@@ -2695,89 +2695,513 @@ body { background: var(--off-white); }
   color: var(--gold);
 }
 
-/* ------- Coming next -------
-   The homepage carries the summary; this page is the same events with room to
-   breathe. A two-column row rather than cards: the date is the thing people
-   scan for, so it gets its own column and stays put. */
-.next-hero { padding-bottom: clamp(48px, 8vh, 80px); }
-.next-lede {
-  margin: 20px 0 0;
-  font-family: var(--serif);
-  font-size: clamp(17px, 2.2vw, 22px);
+/* ------- The 33, in full -------
+   Six squares. The homepage carries a list because one line each is all it
+   has; this page has a photograph of each place, and a photograph is the
+   argument. A card is a button: the editions have no pages of their own, and
+   what somebody looking at Lapland wants next is to put their name down. */
+
+.the33-hero {
+  background: var(--navy-deep);
+  color: var(--white);
+  text-align: center;
+  padding-top: clamp(96px, 14vh, 150px);
+  padding-bottom: clamp(88px, 13vh, 140px);
+  overflow: hidden;
+  position: relative;
+}
+
+/* A light off to one side rather than a flat ground, so the squares below
+   read as the brightest thing on the page. */
+.the33-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(70% 55% at 62% 38%, rgba(196, 164, 108, 0.16), transparent 62%),
+    linear-gradient(160deg, #1c2334 0%, #141b2b 45%, var(--navy-deep) 100%);
+}
+
+.the33-hero > * { position: relative; z-index: 1; }
+
+/* Rules either side of the eyebrow. Only here: on a centred page they close
+   the line, and everywhere else the eyebrow sits against a left margin. */
+.eyebrow--rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  white-space: nowrap;
   color: var(--gold);
+  margin: 0 0 26px;
 }
 
-.next-list-section { background: var(--white); }
+.eyebrow--rule::before,
+.eyebrow--rule::after {
+  content: "";
+  width: 52px;
+  height: 1px;
+  background: rgba(184, 150, 58, 0.45);
+}
 
-.next-list {
-  list-style: none;
+.the33-display {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(28px, 4.4vw, 49px);
+  line-height: 1.2;
+  letter-spacing: -0.005em;
   margin: 0;
-  padding: 0;
-  max-width: 900px;
+  color: var(--white);
 }
 
-.next-item {
+/* One line per clause. The three of them are the proposition. */
+.the33-display span { display: block; }
+.the33-display em { font-style: italic; }
+
+.the33-lede {
+  margin: 22px auto 0;
+  max-width: 58ch;
+  font-size: clamp(15px, 1.2vw, 17px);
+  line-height: 1.7;
+  color: rgba(246, 242, 235, 0.66);
+}
+
+.the33-editions {
+  background: #111829;
+  color: var(--white);
+  border-top: 1px solid rgba(246, 242, 235, 0.1);
+}
+
+.the33-h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(30px, 3.7vw, 47px);
+  letter-spacing: -0.005em;
+  text-align: center;
+  margin: 0 0 18px;
+  color: var(--white);
+}
+
+.the33-standfirst {
+  text-align: center;
+  margin: 0 auto;
+  font-size: clamp(16px, 1.3vw, 18px);
+  line-height: 1.7;
+  color: rgba(246, 242, 235, 0.58);
+}
+
+.the33-cards {
   display: grid;
-  grid-template-columns: minmax(150px, 210px) minmax(0, 1fr);
-  gap: 8px 40px;
-  padding: clamp(24px, 4vh, 40px) 0;
-  border-top: 1px solid var(--border);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 26px;
+  margin-top: clamp(44px, 7vh, 70px);
 }
 
-.next-item:last-child { border-bottom: 1px solid var(--border); }
+.the33-card {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #0a0f1a;
+  /* So the scrim cannot escape the rounded corner of a neighbour. */
+  isolation: isolate;
+  cursor: pointer;
+}
 
-.next-when { display: flex; flex-direction: column; gap: 6px; }
+.the33-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+  transition: transform 0.8s ease;
+}
 
-.next-date {
+.the33-card:hover img,
+.the33-card:focus-visible img { transform: scale(1.06); }
+
+.the33-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* Dark at the foot so the words hold against whatever the photograph does,
+   and a touch at the head so the cue does the same. */
+.the33-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(13, 19, 34, 0.3) 0%,
+    rgba(13, 19, 34, 0) 16%,
+    rgba(13, 19, 34, 0.58) 52%,
+    rgba(13, 19, 34, 0.96) 100%
+  );
+}
+
+.the33-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 30px 30px;
+}
+
+.the33-when {
+  display: block;
+  margin-bottom: 10px;
   font-family: var(--sans);
   font-size: 12px;
-  font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--gold-text, #7A5E22);
+  color: var(--gold);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
 }
 
-.next-series {
+.the33-place {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 400;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+}
+
+.the33-blurb {
+  margin: 14px 0 0;
+  max-width: 30ch;
+  font-size: 16px;
+  line-height: 1.68;
+  color: rgba(246, 242, 235, 0.86);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.7);
+}
+
+/* What the card does, said only on hover: on every card at rest it would be
+   six identical labels competing with six place names. */
+.the33-cue {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  padding: 7px 13px;
   font-family: var(--sans);
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--navy-deep);
+  background: var(--gold);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
-.next-place {
+.the33-card:hover .the33-cue,
+.the33-card:focus-visible .the33-cue {
+  opacity: 1;
+  transform: none;
+}
+
+.the33-closer {
+  margin: clamp(44px, 7vh, 70px) auto 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(19px, 2vw, 22px);
+  color: var(--white);
+  opacity: 0.92;
+}
+
+.the33-credits {
+  margin: 52px auto 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(246, 242, 235, 0.32);
+}
+
+.the33-none {
+  text-align: center;
+  margin: 48px 0 0;
+  color: rgba(246, 242, 235, 0.58);
+}
+
+/* Only after a form post lands on #registered. No script involved, which is
+   the point: this is the acknowledgement for somebody who has none. */
+.the33-thanks { display: none; }
+
+.the33-thanks:target {
+  display: block;
+  background: var(--gold);
+  color: var(--navy-deep);
+  padding: 16px 0;
+  font-family: var(--sans);
+  font-size: 15px;
+  text-align: center;
+}
+
+.the33-thanks p { margin: 0; }
+
+/* ------- The 33: registering interest -------
+   One dialog for all six editions, with the one you clicked already ticked.
+   The form is in the page and posts on its own, so this is a dialog on top of
+   something that already works rather than the only way in. */
+
+.the33-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: rgba(7, 11, 20, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+/* `hidden` on a flex container does nothing without this. */
+.the33-overlay[hidden] { display: none; }
+
+.the33-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin: auto;
+  padding: clamp(28px, 4vw, 44px);
+  background: #141b2b;
+  color: var(--white);
+  border: 1px solid rgba(246, 242, 235, 0.12);
+}
+
+.the33-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  padding: 6px 10px;
+  font-size: 26px;
+  line-height: 1;
+  color: rgba(246, 242, 235, 0.6);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.the33-close:hover { color: var(--white); }
+
+.the33-dialog h3 {
   margin: 0 0 10px;
-  font-family: var(--display, var(--serif));
-  font-size: clamp(26px, 3.4vw, 38px);
+  font-family: var(--serif);
   font-weight: 400;
-  line-height: 1.1;
-  color: var(--navy);
+  font-size: clamp(22px, 2.4vw, 28px);
+  color: var(--white);
 }
 
-.next-country { color: var(--text-muted); font-size: 0.6em; }
-
-.next-tagline {
-  margin: 0;
-  font-size: clamp(16px, 1.5vw, 18px);
-  line-height: 1.65;
-  color: var(--ink, #2C2E3A);
-  max-width: 58ch;
-}
-
-.next-summary {
-  margin: 12px 0 0;
+.the33-dialog-lede {
+  margin: 0 0 26px;
   font-size: 15px;
   line-height: 1.7;
-  color: var(--text-muted);
-  max-width: 62ch;
+  color: rgba(246, 242, 235, 0.62);
 }
 
-.next-none { color: var(--text-muted); font-size: 17px; }
-.next-back { margin: clamp(40px, 6vh, 64px) 0 0; }
+.the33-field { margin: 0 0 16px; }
 
-@media (max-width: 680px) {
-  /* Stacked: at this width the date column squeezes the place name to two or
-     three characters a line. */
-  .next-item { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.the33-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(246, 242, 235, 0.55);
+}
+
+.the33-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--white);
+  background: rgba(246, 242, 235, 0.05);
+  border: 1px solid rgba(246, 242, 235, 0.16);
+  border-radius: 2px;
+}
+
+.the33-field input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: rgba(246, 242, 235, 0.08);
+}
+
+.the33-picker {
+  margin: 26px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.the33-prompt {
+  padding: 0;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--white);
+}
+
+.the33-hint {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  color: rgba(246, 242, 235, 0.45);
+}
+
+.the33-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.the33-chip {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  cursor: pointer;
+  border: 1px solid rgba(246, 242, 235, 0.16);
+  border-radius: 2px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.the33-chip:hover { border-color: rgba(246, 242, 235, 0.32); }
+
+.the33-chip.is-on {
+  border-color: var(--gold);
+  background: rgba(184, 150, 58, 0.12);
+}
+
+/* The real checkbox stays in the page for the no-script form and for anybody
+   tabbing through; the square beside it is what is drawn. */
+.the33-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.the33-box {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  border: 1px solid rgba(246, 242, 235, 0.4);
+  border-radius: 1px;
+  position: relative;
+}
+
+.the33-chip.is-on .the33-box {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+
+.the33-chip.is-on .the33-box::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 5px;
+  height: 10px;
+  border: solid var(--navy-deep);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.the33-chip input:focus-visible ~ .the33-box {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.the33-chip-text {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--white);
+}
+
+.the33-chip-when {
+  display: block;
+  font-size: 12px;
+  color: rgba(246, 242, 235, 0.45);
+}
+
+.the33-submit {
+  width: 100%;
+  margin-top: 26px;
+  padding: 14px 20px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--navy-deep);
+  background: var(--gold);
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.the33-submit:hover { background: #c9ac74; }
+.the33-submit:disabled { opacity: 0.6; cursor: default; }
+
+.the33-err {
+  margin: 16px 0 0;
+  padding: 10px 13px;
+  font-size: 14px;
+  color: #ffb4a2;
+  border-left: 2px solid #a8432f;
+  background: rgba(168, 67, 47, 0.12);
+}
+
+.the33-err[hidden] { display: none; }
+
+.the33-smallprint {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(246, 242, 235, 0.38);
+}
+
+.the33-done[hidden] { display: none; }
+
+.the33-done p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: rgba(246, 242, 235, 0.72);
+}
+
+/* Off-screen rather than display:none: some bots skip hidden fields but
+   happily fill one they can compute a position for. */
+.the33-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+@media (max-width: 980px) {
+  .the33-cards { grid-template-columns: 1fr 1fr; gap: 20px; }
+}
+
+@media (max-width: 640px) {
+  /* One column, and the squares stop being squares: a full-width square on a
+     phone is most of the screen and pushes the words below the fold. */
+  .the33-cards { grid-template-columns: 1fr; gap: 18px; }
+  .the33-card { aspect-ratio: 4 / 3; }
+  .the33-body { padding: 0 22px 22px; }
+  .the33-blurb { font-size: 15px; }
+  .the33-chips { grid-template-columns: 1fr; }
+  /* Always visible on a touch screen, where there is no hover to reveal it. */
+  .the33-cue { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .the33-card img,
+  .the33-cue { transition: none; }
+  .the33-card:hover img { transform: scale(1.02); }
 }
 .upcoming-more { margin: 26px 0 0; }
