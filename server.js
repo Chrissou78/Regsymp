@@ -16,6 +16,12 @@ import { createMailer } from "./admin/mail.js";
 import { createWallet } from "./admin/wallet.js";
 import { createSettings } from "./admin/site-settings.js";
 import { createEvents } from "./admin/events.js";
+import {
+  enterPreview,
+  leavePreview,
+  previewBanner,
+  previewFrom
+} from "./admin/preview.js";
 import { sleepBanner, sleepPage } from "./admin/sleep-page.js";
 import { isEntryPoint } from "./admin/entry-point.js";
 import { createPortal } from "./portal/routes.js";
@@ -37,7 +43,7 @@ import { backfill, documentByDigest, listPins, pinDocument, pinStatus } from "./
 import { decrypt, isEncrypted } from "./admin/crypto.js";
 import { configValue, setRuntimeConfig } from "./admin/runtime-config.js";
 import { createFsStore } from "./admin/store-fs.js";
-import { beforeEachBuild, rebuild, lastBuild } from "./admin/rebuild.js";
+import { beforeEachBuild, buildInto, rebuild, lastBuild } from "./admin/rebuild.js";
 import {
   durability,
   ensureContentDir,
@@ -238,6 +244,25 @@ async function adoptExistingContent(slug) {
     });
     console.log(`events: ${name} is now ${slug}'s`);
   }
+}
+
+const PREVIEW_ROOT = path.join(PROJECT_ROOT, "_preview");
+
+/**
+ * Build the site as it would be if this event were live.
+ *
+ * The draft's lists go into src/_data for the length of the build and the live
+ * event's go back afterwards, whether it worked or not. Both halves happen
+ * inside the build chain, so no ordinary build can read the draft's data by
+ * accident -- which would put an unannounced event on the public site.
+ */
+async function buildPreview(slug) {
+  const live = await events.live();
+  return buildInto({
+    outDir: path.join(PREVIEW_ROOT, slug),
+    swapIn: () => materialiseEvent(slug),
+    restore: () => (live ? materialiseEvent(live.slug) : Promise.resolve())
+  });
 }
 
 async function materialiseEvent(slug) {
@@ -638,19 +663,20 @@ function sendJson(res, status, obj) {
   send(res, status, JSON.stringify(obj), { "Content-Type": "application/json; charset=utf-8" });
 }
 
-async function resolveFile(urlPath) {
+async function resolveFile(urlPath, root = ROOT) {
   // Reject traversal before touching the filesystem.
   const decoded = decodeURIComponent(urlPath);
   if (decoded.includes("\0")) return null;
-  const target = path.normalize(path.join(ROOT, decoded));
-  if (target !== ROOT && !target.startsWith(ROOT + path.sep)) return null;
+  const target = path.normalize(path.join(root, decoded));
+  if (target !== root && !target.startsWith(root + path.sep)) return null;
 
   const candidates = decoded.endsWith("/")
     ? [path.join(target, "index.html")]
     : [target, target + ".html", path.join(target, "index.html")];
+  void 0;
 
   for (const candidate of candidates) {
-    if (candidate !== ROOT && !candidate.startsWith(ROOT + path.sep)) continue;
+    if (candidate !== root && !candidate.startsWith(root + path.sep)) continue;
     try {
       const info = await stat(candidate);
       if (info.isFile()) return { file: candidate, size: info.size, mtime: info.mtime };
@@ -783,6 +809,45 @@ const server = createServer(async (req, res) => {
 
   if (pathname.startsWith("/api/")) return sendJson(res, 404, { error: "Not found." });
 
+  // ---- previewing an event -------------------------------------------------
+  //
+  // Only for a signed-in administrator, checked on every request: the cookie
+  // says which event, it does not grant the right to see one.
+  const previewer = events ? await admin.sessionFor(req).catch(() => null) : null;
+
+  if (pathname === "/preview/exit") {
+    return send(res, 302, "", { Location: "/", "Set-Cookie": leavePreview() });
+  }
+
+  const asked = url.searchParams.get("preview");
+  if (asked && previewer) {
+    const wanted = await events.bySlug(asked).catch(() => null);
+    if (!wanted) return serveNotFound(res);
+
+    // Built on the way in rather than kept warm: entering a preview is rare
+    // and deliberate, and a stale preview is worse than a slow one.
+    try {
+      await buildPreview(wanted.slug);
+    } catch (err) {
+      console.error(`preview of ${wanted.slug} failed to build:`, err.message);
+      return send(res, 500, "That event could not be previewed. The reason is in the log.", {
+        "Content-Type": MIME[".txt"]
+      });
+    }
+
+    // Straight back to the same page without the parameter, so that every link
+    // from here on is an ordinary link and the preview simply follows.
+    url.searchParams.delete("preview");
+    const rest = url.searchParams.toString();
+    return send(res, 302, "", {
+      Location: pathname + (rest ? `?${rest}` : ""),
+      "Set-Cookie": enterPreview(wanted.slug)
+    });
+  }
+
+  const previewing = previewer ? previewFrom(req) : null;
+  const previewEvent = previewing ? await events.bySlug(previewing).catch(() => null) : null;
+
   // ---- closed for a while --------------------------------------------------
   //
   // After the admin and the portal, so that both stay reachable while the site
@@ -827,7 +892,12 @@ const server = createServer(async (req, res) => {
   }
 
   // ---- static -------------------------------------------------------------
-  const found = await resolveFile(pathname);
+  //
+  // A preview's own pages first, the real ones behind them: assets are shared,
+  // so anything the preview build did not write still resolves.
+  const found =
+    (previewEvent ? await resolveFile(pathname, path.join(PREVIEW_ROOT, previewEvent.slug)) : null) ??
+    (await resolveFile(pathname));
   if (!found) return serveNotFound(res);
 
   const ext = path.extname(found.file).toLowerCase();
@@ -849,6 +919,17 @@ const server = createServer(async (req, res) => {
   // Normally streamed. A page carrying the sleep banner is read instead,
   // because the body is being changed on the way out -- and it goes without an
   // ETag and uncached, since it is no longer the file on disk.
+  if (previewEvent && ext === ".html") {
+    const page = await readFile(found.file, "utf8");
+    const bar = previewBanner(previewEvent);
+    return send(
+      res,
+      200,
+      page.includes("</body>") ? page.replace("</body>", `${bar}</body>`) : page + bar,
+      { "Content-Type": headers["Content-Type"], "Cache-Control": "no-store" }
+    );
+  }
+
   if (bypassingSleep && ext === ".html") {
     const page = await readFile(found.file, "utf8");
     return send(

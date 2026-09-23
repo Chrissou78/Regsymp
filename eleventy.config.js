@@ -36,7 +36,17 @@ export default function (eleventyConfig) {
   });
 
   return {
-    dir: { input: "src", output: "_site", includes: "_includes", data: "_data" },
+    // The output directory is overridable because a preview build has to go
+    // somewhere else. `dir` here wins over the directory passed to the Eleventy
+    // constructor, so setting it there is not enough -- a preview asked to
+    // build into _preview/<slug> went into _site instead and replaced the live
+    // site with an unannounced draft.
+    dir: {
+      input: "src",
+      output: process.env.ELEVENTY_OUTPUT_DIR || "_site",
+      includes: "_includes",
+      data: "_data"
+    },
     markdownTemplateEngine: "njk",
     htmlTemplateEngine: "njk"
   };

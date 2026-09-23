@@ -42,22 +42,71 @@ export function rebuild({ quiet = true } = {}) {
   return run;
 }
 
-async function build(quiet) {
+/**
+ * Build the site somewhere else, from data somebody else supplies.
+ *
+ * Used to preview a draft event. It joins the same chain as an ordinary build
+ * rather than running beside one, because both read src/_data and the preview
+ * has to put a draft's speakers there for the length of its build. Two builds
+ * at once would mean one of them reading the other's data -- and the one that
+ * lost would be the live site.
+ *
+ * `restore` runs whether the build worked or not. Leaving a draft's content in
+ * src/_data would put it on the live site at the next save.
+ */
+export function buildInto({ outDir, swapIn, restore, quiet = true }) {
+  const run = chain.then(async () => {
+    try {
+      await swapIn();
+      return await build(quiet, outDir, { prepared: true });
+    } finally {
+      await restore();
+    }
+  });
+  chain = run.then(
+    () => {},
+    () => {}
+  );
+  return run;
+}
+
+async function build(quiet, outDir = path.join(ROOT, "_site"), { prepared = false } = {}) {
   const started = Date.now();
-  if (prepare) await prepare();
+  if (prepare && !prepared) await prepare();
   const { default: Eleventy } = await import("@11ty/eleventy");
-  const eleventy = new Eleventy(path.join(ROOT, "src"), path.join(ROOT, "_site"), {
+
+  // Through the environment, not the constructor: eleventy.config.js sets
+  // dir.output and that wins. Safe to set here because builds are chained, so
+  // only one is ever running -- and restored in the finally below, or the next
+  // ordinary build would write wherever the last preview did.
+  const previousOut = process.env.ELEVENTY_OUTPUT_DIR;
+  process.env.ELEVENTY_OUTPUT_DIR = outDir;
+
+  const eleventy = new Eleventy(path.join(ROOT, "src"), outDir, {
     quietMode: quiet,
     configPath: path.join(ROOT, "eleventy.config.js")
   });
 
+  const live = outDir === path.join(ROOT, "_site");
+
+  const restoreOut = () => {
+    if (previousOut === undefined) delete process.env.ELEVENTY_OUTPUT_DIR;
+    else process.env.ELEVENTY_OUTPUT_DIR = previousOut;
+  };
+
   try {
     await eleventy.write();
-    last = { ok: true, ms: Date.now() - started, at: new Date().toISOString() };
-    return last;
+    const record = { ok: true, ms: Date.now() - started, at: new Date().toISOString() };
+    // Only the live build is the site's last build. A preview reporting itself
+    // as one would make /api/health describe a page nobody is being served.
+    if (live) last = record;
+    return record;
   } catch (err) {
-    last = { ok: false, error: err.message, ms: Date.now() - started, at: new Date().toISOString() };
+    const record = { ok: false, error: err.message, ms: Date.now() - started, at: new Date().toISOString() };
+    if (live) last = record;
     throw err;
+  } finally {
+    restoreOut();
   }
 }
 

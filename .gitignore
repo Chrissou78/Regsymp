@@ -7,3 +7,4 @@ _site/
 .env
 admin/users.json
 .content/
+_preview/
