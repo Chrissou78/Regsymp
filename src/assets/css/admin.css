@@ -783,3 +783,15 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   background: #FBF1EE;
   padding: 10px 14px;
 }
+
+/* A picture already chosen, above the box for choosing another. Small: it is
+   there to confirm which one it is, not to be looked at. */
+.a-thumb {
+  display: block;
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 2px;
+  margin: 0 0 10px;
+  background: var(--a-line);
+}

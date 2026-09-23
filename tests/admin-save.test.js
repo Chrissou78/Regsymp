@@ -1,6 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { rebuild } from "../admin/rebuild.js";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -58,9 +59,13 @@ before(async () => {
   assert.ok(cookie.startsWith("regsymp_admin="), "sign-in did not issue a session");
 });
 
-// Saving writes through to the working tree by design, so put it back.
+// Saving writes through to the working tree by design, so put it back -- and
+// build again from it. Restoring the source alone leaves _site holding the
+// extra entry, and the next test to read a built page fails for a reason that
+// has nothing to do with it.
 after(async () => {
   await writeFile(FAQ_SOURCE, original);
+  await rebuild({ quiet: true }).catch(() => {});
   await new Promise((resolve) => server.close(resolve));
 });
 

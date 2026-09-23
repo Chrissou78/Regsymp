@@ -200,7 +200,8 @@ export function eventPage({ event, seats = [], stripeReady = false, session, tok
         &middot; <a href="/?preview=${escape(event.slug)}" target="_blank" rel="noopener">Preview the site with this event</a>
       </p>
 
-      <form method="post" action="/admin/events/${escape(event.slug)}" class="a-form">
+      <form method="post" action="/admin/events/${escape(event.slug)}"
+            enctype="multipart/form-data" class="a-form">
         <input type="hidden" name="csrf" value="${escape(token)}">
 
         <h2 class="a-subhead">What it is</h2>
@@ -213,19 +214,28 @@ export function eventPage({ event, seats = [], stripeReady = false, session, tok
           <textarea id="f-summary" name="summary" rows="4">${escape(event.summary ?? "")}</textarea>
         </div>
 
+        <div class="a-field">
+          <label for="f-photo">Photograph</label>
+          ${
+            event.imagePath
+              ? `<img class="a-thumb" src="/assets/images/${escape(event.imagePath)}"
+                   alt="" width="160" height="160">`
+              : ""
+          }
+          <input id="f-photo" name="photo" type="file"
+                 accept="image/jpeg,image/png,image/webp">
+          <span class="a-help">The square on The 33. Upload one and it replaces
+          what is there; leave it empty and nothing changes.</span>
+        </div>
+
+        <!-- Kept so a save with no upload does not clear the picture, and so
+             a path can still be typed when the file is already on the site. -->
         ${field({
           name: "imagePath",
-          label: "Photograph",
+          label: "…or its path",
           value: event.imagePath,
-          help: "Square, under /assets/images/ — e.g. the33/london-2026.jpg. This is the card on The 33."
+          help: "Under /assets/images/ — e.g. the33/london-2026.jpg"
         })}
-        ${
-          event.imagePath
-            ? `<p class="a-note"><img src="/assets/images/${escape(event.imagePath)}"
-                 alt="" width="160" height="160"
-                 style="width:160px;height:160px;object-fit:cover;border-radius:2px"></p>`
-            : ""
-        }
 
         <h2 class="a-subhead">Where and when</h2>
         <div class="a-form--inline">

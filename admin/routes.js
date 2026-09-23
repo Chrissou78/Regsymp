@@ -17,6 +17,17 @@ import { boundaryFrom, detectImageType, parseMultipart } from "./multipart.js";
 import { slugifyFilename } from "./sanitise.js";
 
 const COOKIE = "regsymp_admin";
+
+/**
+ * Where an edition's square photograph is kept, and what the page calls it.
+ *
+ * Two constants rather than one and a `replace`: the path on disk and the path
+ * in the markup are different strings that have to agree, and deriving one
+ * from the other by trimming a prefix is how they stop agreeing.
+ */
+const IMAGE_ROOT = "src/assets/images";
+export const THE_33_DIR = `${IMAGE_ROOT}/the33`;
+export const the33Path = (name) => `the33/${name}`;
 const MAX_BODY = 12 * 1024 * 1024;
 const MAX_IMAGE = 8 * 1024 * 1024;
 
@@ -674,12 +685,28 @@ export function createAdmin(config) {
         }
 
         try {
+          // A photograph, when one was chosen. The placeholders that shipped
+          // with the design are meant to be replaced, and asking somebody to
+          // put a file on the server and then type its path is not replacing
+          // it -- it is two chances to get it wrong.
+          let imagePath = form.fields.imagePath;
+          const photo = form.files?.find((f) => f.name === "photo" && f.data?.length);
+          if (photo) {
+            const name = await storeImage({
+              gh: store,
+              upload: photo,
+              dir: THE_33_DIR,
+              session
+            });
+            imagePath = the33Path(name);
+          }
+
           const saved = await events.update(one, {
             name: form.fields.name,
             series: form.fields.series,
             tagline: form.fields.tagline,
             summary: form.fields.summary,
-            imagePath: form.fields.imagePath,
+            imagePath,
             city: form.fields.city,
             country: form.fields.country,
             venue: form.fields.venue,

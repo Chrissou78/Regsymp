@@ -472,8 +472,14 @@ asserts a submission creates no attendee and no ticket.
 
 **Photography.** The six shipped images are placeholders from Wikimedia
 Commons, graded to one treatment, and carry an attribution requirement. The
-page says so in a credits line, which is editable at **/admin/upcomingCopy** and should
-be emptied once real photography replaces them.
+page says so in a credits line, editable at **/admin/upcomingCopy**, which
+should be emptied once real photography replaces them.
+
+Replacing one is an upload on the event's own page: choose a file and it lands
+in `src/assets/images/the33/`, the event's `image_path` is pointed at it and
+the site rebuilds. Square, and large enough to stand being displayed at 800px
+— the build makes the responsive derivatives. Leaving the file box empty
+changes nothing, so saving an event does not require re-uploading its picture.
 
 ### Keeping tests away from live data
 

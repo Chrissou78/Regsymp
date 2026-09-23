@@ -258,3 +258,51 @@ test("the editions offered are the ones the site announces", opts, async () => {
   assert.ok(offered.every((o) => o.includes(" — ")));
   assert.equal(validateInterest({ ...good, editions: [offered[0]] }, { editions: offered }).ok, true);
 });
+
+// -------------------------------------------------- swapping a photograph
+
+test("where a photograph is stored and what the page calls it agree", async () => {
+  // These are two different strings that have to line up: one is a path on
+  // disk, the other is what goes in the markup under /assets/images/. Derived
+  // separately on purpose, so this is the test that keeps them together.
+  const { THE_33_DIR, the33Path } = await import("../admin/routes.js");
+  assert.equal(THE_33_DIR, `src/assets/images/${the33Path("x").replace("/x", "")}`);
+  assert.equal(the33Path("london-2026.jpg"), "the33/london-2026.jpg");
+});
+
+test("the event form offers an upload, and shows what is already there", async () => {
+  const { eventPage } = await import("../admin/events-page.js");
+  const html = eventPage({
+    event: {
+      slug: "london-2026",
+      name: "The 33 · London",
+      status: "draft",
+      whenLabel: "November 2026",
+      upcoming: true,
+      sort: 0,
+      imagePath: "the33/london-2026.jpg"
+    },
+    seats: [],
+    stripeReady: true,
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "tok"
+  });
+
+  // Without the enctype the file never leaves the browser and the save looks
+  // like it worked.
+  assert.match(html, /enctype="multipart\/form-data"/);
+  assert.match(html, /name="photo" type="file"/);
+  assert.match(html, /src="\/assets\/images\/the33\/london-2026\.jpg"/);
+});
+
+test("an event with no photograph yet is still editable", async () => {
+  const { eventPage } = await import("../admin/events-page.js");
+  const html = eventPage({
+    event: { slug: "new-2028", name: "Somewhere", status: "draft", whenLabel: "One day", sort: 0 },
+    seats: [],
+    session: { user: { email: "chris@onchainlabs.ch" } },
+    token: "tok"
+  });
+  assert.match(html, /name="photo" type="file"/);
+  assert.doesNotMatch(html, /a-thumb/, "a thumbnail of nothing is a broken image");
+});
