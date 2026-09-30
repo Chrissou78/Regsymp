@@ -49,65 +49,46 @@ description: "The 33: a privately convened dinner for thirty-three guests, under
 </section>
 
 <section class="section the33-editions" aria-labelledby="editions-heading">
-  <div class="the33-spread">
-    <header class="the33-head">
-      <p class="the33-mark" aria-hidden="true"><span>The</span><b>33</b></p>
-      <h2 class="the33-h2" id="editions-heading">{{ upcomingCopy.editionsHeading or "Upcoming Highlights" }}</h2>
-      {% if upcomingCopy.standfirst %}
-      <p class="the33-standfirst">{{ upcomingCopy.standfirst }}</p>
-      {% endif %}
-    </header>
+  <div class="container container--wide">
+    <h2 class="the33-h2" id="editions-heading">{{ upcomingCopy.editionsHeading or "Upcoming Highlights" }}</h2>
+    {% if upcomingCopy.standfirst %}
+    <p class="the33-standfirst">{{ upcomingCopy.standfirst }}</p>
+    {% endif %}
 
     {% if events and events.upcoming and events.upcoming.length %}
-    {#
-      One row per edition: the words on the left, the place on the right.
-
-      The photographs stack flush against each other and feather into the navy
-      along a diagonal left edge, so the right-hand side reads as one
-      continuous strip rather than six cards. Which is the point -- a grid of
-      six squares says "six products"; this says "one series, six places".
-    #}
-    <ol class="the33-strip">
+    <div class="the33-cards">
       {% for event in events.upcoming %}
       {% set place = event.city or event.name %}
-      <li>
-        <article class="the33-card reveal" data-edition="{{ event.slug }}"
-                 data-label="{{ place }} — {{ event.whenLabel }}"
-                 role="button" tabindex="0" aria-haspopup="dialog">
-          <div class="the33-entry">
-            <p class="the33-when">
-              <span class="the33-place">{{ place }}</span>
-              <span class="the33-dot" aria-hidden="true">·</span>
-              <span class="the33-date">{{ event.whenLabel }}</span>
-            </p>
-            {% if event.tagline %}<p class="the33-blurb">{{ event.tagline }}</p>{% endif %}
-            <span class="the33-cue">{{ upcomingCopy.cue or "Register interest" }}</span>
-          </div>
-
-          <div class="the33-shot">
-            {% if event.imagePath %}
-            <img src="/assets/images/{{ event.imagePath }}" alt="{{ place }}"
-                 width="800" height="800" loading="lazy" decoding="async">
-            {% endif %}
-          </div>
-        </article>
-      </li>
+      <article class="the33-card reveal" data-edition="{{ event.slug }}"
+               data-label="{{ place }} — {{ event.whenLabel }}"
+               role="button" tabindex="0" aria-haspopup="dialog">
+        {% if event.imagePath %}
+        <img src="/assets/images/{{ event.imagePath }}" alt="{{ place }}"
+             width="800" height="800" loading="lazy" decoding="async">
+        {% endif %}
+        <span class="the33-cue">{{ upcomingCopy.cue or "Register interest" }}</span>
+        <span class="the33-scrim" aria-hidden="true"></span>
+        <div class="the33-body">
+          <span class="the33-when">{{ event.whenLabel }}</span>
+          <p class="the33-place">{{ place }}</p>
+          {% if event.tagline %}<p class="the33-blurb">{{ event.tagline }}</p>{% endif %}
+        </div>
+      </article>
       {% endfor %}
-    </ol>
+    </div>
     {% else %}
     {# Nothing announced yet. Saying so is better than an empty grid that looks
        like a fault. #}
     <p class="the33-none">Nothing is announced just yet. The next dates will appear here first.</p>
     {% endif %}
 
-    <footer class="the33-foot">
-      {% if upcomingCopy.footnote %}
-      <p class="the33-closer">{{ upcomingCopy.footnote }}</p>
-      {% endif %}
-      {% if upcomingCopy.credits %}
-      <p class="the33-credits">{{ upcomingCopy.credits }}</p>
-      {% endif %}
-    </footer>
+    {% if upcomingCopy.footnote %}
+    <p class="the33-closer">{{ upcomingCopy.footnote }}</p>
+    {% endif %}
+
+    {% if upcomingCopy.credits %}
+    <p class="the33-credits">{{ upcomingCopy.credits }}</p>
+    {% endif %}
   </div>
 </section>
 

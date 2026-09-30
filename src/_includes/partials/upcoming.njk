@@ -1,38 +1,61 @@
 {#
-  The 33 — upcoming highlights.
+  The 33 — upcoming highlights, on the homepage.
 
   Built from the events table, so adding a date is adding a row rather than
-  editing a template. Renders nothing at all when there is nothing to announce:
-  a heading over an empty list reads as something having gone wrong.
+  editing a template. Renders nothing at all when there is nothing to
+  announce: a heading over an empty list reads as something having gone wrong.
+
+  The words run down the left and the places down the right, each photograph
+  feathering into the navy along a diagonal edge so the right-hand side reads
+  as one continuous strip. That is the point of the arrangement: a list of six
+  lines says "six dates"; this says "one series, six places".
+
+  The page for it is /next/, which has the cards and the form. Here each row
+  is simply a way in.
 #}
 {# `events` is generated before each build; guard it so a checkout that has
    never run the server still builds. #}
 {% if events and events.upcoming and events.upcoming.length %}
 <section class="upcoming" id="the-33" aria-labelledby="upcoming-title">
-  <div class="container">
-    <p class="eyebrow">{{ upcomingCopy.eyebrow }}</p>
-    <h2 class="h2" id="upcoming-title">{{ upcomingCopy.heading }}</h2>
+  <div class="upcoming-spread">
+    <header class="upcoming-head">
+      <p class="eyebrow">{{ upcomingCopy.eyebrow }}</p>
+      <h2 class="h2" id="upcoming-title">{{ upcomingCopy.heading }}</h2>
+    </header>
 
-    <ol class="upcoming-list">
+    <ol class="upcoming-strip">
       {% for event in events.upcoming %}
-      <li class="upcoming-item reveal">
-        <p class="upcoming-where">
-          <span class="upcoming-place">{{ event.city or event.name }}</span>
-          <span class="upcoming-sep" aria-hidden="true">·</span>
-          <span class="upcoming-when">{{ event.whenLabel }}</span>
-        </p>
-        {% if event.tagline %}<p class="upcoming-what">{{ event.tagline }}</p>{% endif %}
+      {% set place = event.city or event.name %}
+      <li>
+        <a class="upcoming-row reveal" href="/next/">
+          <div class="upcoming-entry">
+            <p class="upcoming-where">
+              <span class="upcoming-place">{{ place }}</span>
+              <span class="upcoming-sep" aria-hidden="true">·</span>
+              <span class="upcoming-when">{{ event.whenLabel }}</span>
+            </p>
+            {% if event.tagline %}<p class="upcoming-what">{{ event.tagline }}</p>{% endif %}
+          </div>
+
+          <div class="upcoming-shot">
+            {% if event.imagePath %}
+            <img src="/assets/images/{{ event.imagePath }}" alt="{{ place }}"
+                 width="800" height="800" loading="lazy" decoding="async">
+            {% endif %}
+          </div>
+        </a>
       </li>
       {% endfor %}
     </ol>
 
-    {% if upcomingCopy.footnote %}
-    <p class="upcoming-foot">{{ upcomingCopy.footnote }}</p>
-    {% endif %}
-
-    <p class="upcoming-more">
-      <a class="hero-link hero-link--gold" href="/next/">All of them, in full <span class="arrow">&rarr;</span></a>
-    </p>
+    <footer class="upcoming-foot">
+      {% if upcomingCopy.footnote %}
+      <p class="upcoming-note">{{ upcomingCopy.footnote }}</p>
+      {% endif %}
+      <p class="upcoming-more">
+        <a class="hero-link hero-link--gold" href="/next/">All of them, in full <span class="arrow">&rarr;</span></a>
+      </p>
+    </footer>
   </div>
 </section>
 {% endif %}

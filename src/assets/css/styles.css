@@ -2631,77 +2631,244 @@ body { background: var(--off-white); }
 .invite-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 /* ------- The 33: where we are going next -------
-   A list of places and dates rather than cards. The content is one line each,
-   and a card grid around one line of text is a lot of furniture for very
-   little. */
+   The words down the left, the places down the right, each photograph
+   feathering into the navy along a diagonal edge so the right-hand side reads
+   as one continuous strip.
+
+   That is the argument for it over the list this replaced: six lines of text
+   say "six dates"; a strip of six photographs says "one series, six places",
+   which is what The 33 is selling. The page with the detail is /next/, so
+   every row here is a way in rather than the end of the road. */
+
 .upcoming {
+  position: relative;
+  overflow: hidden;
   background: var(--navy-deep);
   color: var(--white);
-  padding: clamp(80px, 12vh, 140px) 0;
+  padding: clamp(80px, 12vh, 140px) 0 0;
+}
+
+/* The Earth's limb across the foot. A gradient rather than a photograph: it
+   is a lit curve and a horizon glow, and an image would be half a megabyte to
+   say the same thing on a page that already carries six. */
+.upcoming::after {
+  content: "";
+  position: absolute;
+  left: -30%;
+  bottom: -70vw;
+  width: 150%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    #16233d 0%,
+    #101a2e 55%,
+    var(--navy-deep) 72%,
+    transparent 73%
+  );
+  box-shadow: 0 0 120px 10px rgba(120, 170, 235, 0.12);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Not `.container`: the words keep the page's left margin, the photographs
+   run to the right edge of the window. */
+.upcoming-spread {
+  position: relative;
+  z-index: 1;
+  padding-left: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
+}
+
+.upcoming-head {
+  padding-right: var(--gutter);
+  margin: 0 0 clamp(36px, 6vh, 64px);
+  max-width: 46ch;
 }
 
 .upcoming .h2 {
   color: var(--white);
-  margin: 0 0 clamp(36px, 6vh, 64px);
+  margin: 0;
 }
 
-.upcoming-list {
+.upcoming-strip {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-width: 760px;
 }
 
-.upcoming-item {
-  padding: 22px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+.upcoming-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.22fr);
+  align-items: center;
+  gap: 0 clamp(16px, 3vw, 48px);
+  /* Tall enough for a photograph to be a photograph rather than a band. */
+  min-height: clamp(150px, 17vw, 230px);
+  text-decoration: none;
+  color: inherit;
+  position: relative;
 }
 
-.upcoming-item:last-child {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+.upcoming-row:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -4px;
+}
+
+.upcoming-entry {
+  padding: clamp(14px, 2vw, 22px) 0;
+  position: relative;
+  z-index: 2;
 }
 
 .upcoming-where {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 10px;
-  margin: 0 0 6px;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.22em;
+  gap: 0.6em;
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: clamp(17px, 1.8vw, 23px);
+  letter-spacing: 0.09em;
   text-transform: uppercase;
+  color: var(--gold);
 }
 
-.upcoming-place { color: var(--white); }
-.upcoming-sep { color: rgba(255, 255, 255, 0.35); }
+.upcoming-place { color: var(--gold); }
+.upcoming-sep { color: rgba(184, 150, 58, 0.55); }
 .upcoming-when { color: var(--gold); }
 
 .upcoming-what {
   margin: 0;
-  font-family: var(--sans);
-  font-size: clamp(15px, 1.4vw, 17px);
-  line-height: 1.65;
-  color: rgba(255, 255, 255, 0.72);
-  max-width: 54ch;
+  max-width: 42ch;
+  font-family: var(--serif);
+  font-size: clamp(15px, 1.35vw, 18px);
+  line-height: 1.6;
+  color: rgba(246, 242, 235, 0.88);
 }
 
+/* ---- the photographs
+
+   Each fills its row and runs to the right edge of the window. The mask is
+   diagonal and generous: the softness is what turns six pictures into one
+   strip, and a hard edge here would put six rectangles back. */
+.upcoming-shot {
+  position: relative;
+  align-self: stretch;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(101deg, transparent 0%, rgba(0, 0, 0, 0.5) 24%, #000 48%);
+  mask-image: linear-gradient(101deg, transparent 0%, rgba(0, 0, 0, 0.5) 24%, #000 48%);
+}
+
+.upcoming-shot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+  transition: transform 0.9s ease;
+}
+
+.upcoming-row:hover .upcoming-shot img,
+.upcoming-row:focus-visible .upcoming-shot img { transform: scale(1.07); }
+
 .upcoming-foot {
-  margin: clamp(36px, 6vh, 56px) 0 0;
+  padding: clamp(56px, 9vw, 120px) var(--gutter) clamp(72px, 10vh, 120px) 0;
+}
+
+.upcoming-note {
+  margin: 0;
   font-family: var(--serif);
-  font-size: clamp(17px, 2vw, 21px);
+  font-style: italic;
+  font-size: clamp(18px, 2.2vw, 26px);
   letter-spacing: 0.02em;
-  color: var(--gold);
+  color: var(--white);
+}
+
+.upcoming-more { margin: 26px 0 0; }
+
+@media (max-width: 900px) {
+  /* One column. A photograph beside three lines of text at this width is a
+     thumbnail beside a paragraph, which flatters neither, so the picture goes
+     behind the words instead. */
+  .upcoming { padding-bottom: clamp(56px, 9vh, 88px); }
+  .upcoming-spread { padding-left: 0; }
+
+  .upcoming-head,
+  .upcoming-foot { padding-left: var(--gutter); padding-right: var(--gutter); }
+  .upcoming-foot { padding-bottom: 0; }
+
+  .upcoming-strip { display: grid; gap: 14px; padding: 0 var(--gutter); }
+
+  .upcoming-row {
+    display: block;
+    position: relative;
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #0a0f1a;
+  }
+
+  .upcoming-shot {
+    position: absolute;
+    inset: 0;
+    /* No feather: at this size the picture is the card, and a diagonal fade
+       across a small rectangle reads as a rendering fault. */
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  /* Dark at the foot so the words hold against whatever the photograph does. */
+  .upcoming-shot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(13, 19, 34, 0.25) 0%,
+      rgba(13, 19, 34, 0) 20%,
+      rgba(13, 19, 34, 0.6) 55%,
+      rgba(13, 19, 34, 0.95) 100%
+    );
+  }
+
+  .upcoming-entry {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    padding: 0 22px 22px;
+  }
+
+  /* Stacked, and no separator. "THE NORTH · FEBRUARY / MARCH 2027" wraps at
+     this width and leaves the dot stranded at the end of a line, which reads
+     as a typo. Two lines say the same thing and always look deliberate. */
+  .upcoming-where {
+    display: block;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .upcoming-when { display: block; }
+  .upcoming-sep { display: none; }
+
+  .upcoming-what { font-size: 15px; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.7); }
+
+  /* The Earth would be a grey smear behind a column of photographs. */
+  .upcoming::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upcoming-shot img { transition: none; }
+  .upcoming-row:hover .upcoming-shot img { transform: scale(1.02); }
 }
 
 /* ------- The 33, in full -------
-   One spread rather than a grid of cards. The words run down the left, the
-   places down the right, and each photograph feathers into the navy along a
-   diagonal edge so the right-hand side reads as a single continuous strip.
-
-   That is the whole argument for the layout: six squares in a grid say "six
-   products"; one strip says "one series, six places". */
+   Six squares. The homepage carries a list because one line each is all it
+   has; this page has a photograph of each place, and a photograph is the
+   argument. A card is a button: the editions have no pages of their own, and
+   what somebody looking at Lapland wants next is to put their name down. */
 
 .the33-hero {
   background: var(--navy-deep);
@@ -2713,8 +2880,8 @@ body { background: var(--off-white); }
   position: relative;
 }
 
-/* A light off to one side rather than a flat ground, so the strip below is
-   the brightest thing on the page. */
+/* A light off to one side rather than a flat ground, so the squares below
+   read as the brightest thing on the page. */
 .the33-hero::before {
   content: "";
   position: absolute;
@@ -2768,157 +2935,48 @@ body { background: var(--off-white); }
   color: rgba(246, 242, 235, 0.66);
 }
 
-/* ---------------------------------------------------------- the spread */
-
 .the33-editions {
-  position: relative;
-  overflow: hidden;
-  padding-top: 0;
-  background: #0f1523;
+  background: #111829;
   color: var(--white);
   border-top: 1px solid rgba(246, 242, 235, 0.1);
-}
-
-/* The Earth's limb across the foot, as the design has it. A gradient rather
-   than a photograph: it is a lit curve and a horizon glow, which is two
-   gradients, and an image would be half a megabyte to say the same thing. */
-.the33-editions::after {
-  content: "";
-  position: absolute;
-  left: -30%;
-  bottom: -68vw;
-  width: 150%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, #16233d 0%, #101a2e 55%, #0d1322 72%, transparent 73%);
-  box-shadow: 0 0 120px 10px rgba(120, 170, 235, 0.13);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Not `.container`: the words keep the page's left margin, the photographs
-   run to the right edge of the window. */
-.the33-spread {
-  position: relative;
-  z-index: 1;
-  padding-left: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
-}
-
-.the33-head {
-  padding: clamp(56px, 8vw, 104px) var(--gutter) clamp(28px, 4vw, 44px) 0;
-  max-width: 44ch;
-}
-
-/* The wordmark, set rather than drawn: "The" in small caps beside a large
-   gold 33, which is how the series signs itself. */
-.the33-mark {
-  display: flex;
-  align-items: baseline;
-  gap: 0.24em;
-  margin: 0 0 clamp(24px, 4vw, 44px);
-  font-family: var(--serif);
-  line-height: 1;
-  color: var(--gold);
-}
-
-.the33-mark span {
-  font-size: clamp(17px, 2vw, 26px);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(246, 242, 235, 0.86);
-}
-
-.the33-mark b {
-  font-weight: 400;
-  font-size: clamp(42px, 5.6vw, 76px);
 }
 
 .the33-h2 {
   font-family: var(--serif);
   font-weight: 400;
-  font-size: clamp(26px, 3.6vw, 46px);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  margin: 0;
+  font-size: clamp(30px, 3.7vw, 47px);
+  letter-spacing: -0.005em;
+  text-align: center;
+  margin: 0 0 18px;
   color: var(--white);
 }
 
 .the33-standfirst {
-  margin: 16px 0 0;
-  font-size: clamp(15px, 1.2vw, 17px);
+  text-align: center;
+  margin: 0 auto;
+  font-size: clamp(16px, 1.3vw, 18px);
   line-height: 1.7;
-  color: rgba(246, 242, 235, 0.55);
+  color: rgba(246, 242, 235, 0.58);
 }
 
-.the33-strip {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.the33-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 26px;
+  margin-top: clamp(44px, 7vh, 70px);
 }
 
 .the33-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.22fr);
-  align-items: center;
-  gap: 0 clamp(16px, 3vw, 48px);
-  /* Tall enough for a photograph to be a photograph rather than a band. */
-  min-height: clamp(172px, 20vw, 268px);
-  cursor: pointer;
   position: relative;
-}
-
-.the33-card:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: -4px;
-}
-
-.the33-entry {
-  padding: clamp(14px, 2vw, 22px) 0;
-  position: relative;
-  z-index: 2;
-}
-
-.the33-when {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.6em;
-  margin: 0 0 10px;
-  font-family: var(--serif);
-  font-size: clamp(17px, 1.8vw, 23px);
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-
-.the33-dot { color: rgba(184, 150, 58, 0.6); }
-
-.the33-blurb {
-  margin: 0;
-  max-width: 42ch;
-  font-family: var(--serif);
-  font-size: clamp(15px, 1.35vw, 18px);
-  line-height: 1.6;
-  color: rgba(246, 242, 235, 0.88);
-}
-
-/* ---- the photographs
-
-   Each fills its row and bleeds to the right edge of the window. The mask is
-   diagonal and generous: the softness is what turns six pictures into one
-   strip, and a hard edge here would put six rectangles back. */
-.the33-shot {
-  position: relative;
-  align-self: stretch;
-  /* The spread has no right padding, so the grid's right edge is already the
-     window's. Pulling further only crops the picture. */
+  aspect-ratio: 1 / 1;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(101deg, transparent 0%, rgba(0, 0, 0, 0.5) 24%, #000 48%);
-  mask-image: linear-gradient(101deg, transparent 0%, rgba(0, 0, 0, 0.5) 24%, #000 48%);
+  background: #0a0f1a;
+  /* So the scrim cannot escape the rounded corner of a neighbour. */
+  isolation: isolate;
+  cursor: pointer;
 }
 
-.the33-shot img {
+.the33-card img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -2926,24 +2984,83 @@ body { background: var(--off-white); }
   object-fit: cover;
   display: block;
   transform: scale(1.02);
-  transition: transform 0.9s ease;
+  transition: transform 0.8s ease;
 }
 
-.the33-card:hover .the33-shot img,
-.the33-card:focus-visible .the33-shot img { transform: scale(1.07); }
+.the33-card:hover img,
+.the33-card:focus-visible img { transform: scale(1.06); }
 
-/* What the row does, said on hover. On six rows at rest it would be six
-   identical labels competing with six place names. */
-.the33-cue {
-  display: inline-block;
-  margin-top: 14px;
+.the33-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* Dark at the foot so the words hold against whatever the photograph does,
+   and a touch at the head so the cue does the same. */
+.the33-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(13, 19, 34, 0.3) 0%,
+    rgba(13, 19, 34, 0) 16%,
+    rgba(13, 19, 34, 0.58) 52%,
+    rgba(13, 19, 34, 0.96) 100%
+  );
+}
+
+.the33-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 30px 30px;
+}
+
+.the33-when {
+  display: block;
+  margin-bottom: 10px;
   font-family: var(--sans);
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: 12px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--gold);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+.the33-place {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 400;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+}
+
+.the33-blurb {
+  margin: 14px 0 0;
+  max-width: 30ch;
+  font-size: 16px;
+  line-height: 1.68;
+  color: rgba(246, 242, 235, 0.86);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.7);
+}
+
+/* What the card does, said only on hover: on every card at rest it would be
+   six identical labels competing with six place names. */
+.the33-cue {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  padding: 7px 13px;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--navy-deep);
+  background: var(--gold);
   opacity: 0;
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
@@ -2953,28 +3070,26 @@ body { background: var(--off-white); }
   transform: none;
 }
 
-.the33-foot {
-  padding: clamp(64px, 11vw, 150px) var(--gutter) clamp(48px, 7vw, 88px) 0;
-}
-
 .the33-closer {
-  margin: 0;
+  margin: clamp(44px, 7vh, 70px) auto 0;
+  text-align: center;
   font-family: var(--serif);
   font-style: italic;
-  font-size: clamp(20px, 2.6vw, 32px);
+  font-size: clamp(19px, 2vw, 22px);
   color: var(--white);
+  opacity: 0.92;
 }
 
 .the33-credits {
-  margin: 40px 0 0;
-  max-width: 68ch;
+  margin: 52px auto 0;
   font-size: 12px;
   line-height: 1.7;
-  color: rgba(246, 242, 235, 0.3);
+  color: rgba(246, 242, 235, 0.32);
 }
 
 .the33-none {
-  margin: 48px 0;
+  text-align: center;
+  margin: 48px 0 0;
   color: rgba(246, 242, 235, 0.58);
 }
 
@@ -3237,85 +3352,24 @@ body { background: var(--off-white); }
   overflow: hidden;
 }
 
-@media (max-width: 900px) {
-  /* The two columns become one. A photograph beside three lines of text at
-     this width is a thumbnail beside a paragraph, which flatters neither, so
-     the picture goes behind the words instead -- the same arrangement the
-     cards had, and it works. */
-  .the33-spread { padding-left: 0; }
+@media (max-width: 980px) {
+  .the33-cards { grid-template-columns: 1fr 1fr; gap: 20px; }
+}
 
-  .the33-head,
-  .the33-foot { padding-left: var(--gutter); padding-right: var(--gutter); }
-
-  .the33-strip { display: grid; gap: 14px; padding: 0 var(--gutter); }
-
-  .the33-card {
-    display: block;
-    position: relative;
-    min-height: 0;
-    aspect-ratio: 4 / 3;
-    overflow: hidden;
-    background: #0a0f1a;
-  }
-
-  .the33-shot {
-    position: absolute;
-    inset: 0;
-    margin: 0;
-    /* No feather: at this size the picture is the card, and a diagonal fade
-       across a small rectangle reads as a rendering fault. */
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-
-  /* Dark at the foot so the words hold against whatever the photograph does. */
-  .the33-shot::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(13, 19, 34, 0.25) 0%,
-      rgba(13, 19, 34, 0) 20%,
-      rgba(13, 19, 34, 0.6) 55%,
-      rgba(13, 19, 34, 0.95) 100%
-    );
-  }
-
-  .the33-entry {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 2;
-    padding: 0 22px 22px;
-  }
-
-  /* Stacked, and no separator. "THE NORTH · FEBRUARY / MARCH 2027" wraps at
-     this width and leaves the dot stranded at the end of a line, which reads
-     as a typo. Two lines say the same thing and always look deliberate. */
-  .the33-when {
-    display: block;
-    font-size: 15px;
-    line-height: 1.45;
-  }
-
-  .the33-date { display: block; }
-  .the33-dot { display: none; }
-  .the33-blurb { font-size: 15px; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.7); }
+@media (max-width: 640px) {
+  /* One column, and the squares stop being squares: a full-width square on a
+     phone is most of the screen and pushes the words below the fold. */
+  .the33-cards { grid-template-columns: 1fr; gap: 18px; }
+  .the33-card { aspect-ratio: 4 / 3; }
+  .the33-body { padding: 0 22px 22px; }
+  .the33-blurb { font-size: 15px; }
   .the33-chips { grid-template-columns: 1fr; }
-
   /* Always visible on a touch screen, where there is no hover to reveal it. */
-  .the33-cue { opacity: 1; transform: none; margin-top: 10px; }
-
-  /* The Earth would be a grey smear behind a column of photographs. */
-  .the33-editions::after { display: none; }
+  .the33-cue { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .the33-shot img,
+  .the33-card img,
   .the33-cue { transition: none; }
-  .the33-card:hover .the33-shot img { transform: scale(1.02); }
+  .the33-card:hover img { transform: scale(1.02); }
 }
-
-.upcoming-more { margin: 26px 0 0; }
