@@ -12,11 +12,38 @@ import { configValue } from "./runtime-config.js";
  */
 export async function pgStatus(db) {
   try {
-    const [content, revisions, admins, migrations] = await Promise.all([
+    const [content, revisions, admins, migrations, images] = await Promise.all([
       db.query("select count(*)::int n, coalesce(sum(length(body)),0)::bigint bytes from content_documents"),
       db.query("select count(*)::int n from content_revisions"),
       db.query("select count(*)::int n from admin_users"),
-      db.query("select version from schema_migrations order by version")
+      db.query("select version from schema_migrations order by version"),
+      // Stored images that are not images. A body decoded as UTF-8 somewhere
+      // loses every byte above 0x7F to U+FFFD, so a PNG's leading 0x89 reads
+      // as EF BF BD -- and nothing downstream says so: the build declines to
+      // fail over one unreadable image, and the page quietly ships a broken
+      // path. This is the number that would have caught it in a day.
+      db.query(
+        `select count(*)::int n from content_documents
+          where path ~* '[.](png|jpe?g|webp|gif)$'
+            and not (
+                  substring(body from 1 for 4) = $1   -- PNG
+               or substring(body from 1 for 3) = $2   -- JPEG: the fourth byte
+                                                      -- is the segment marker
+                                                      -- and varies
+               or substring(body from 1 for 4) = $3   -- RIFF, for WebP
+               or substring(body from 1 for 4) = $4   -- GIF8
+            )`,
+        // As parameters rather than SQL literals: a bytea hex literal needs
+        // exactly one backslash by the time Postgres sees it, and getting
+        // that through two layers of escaping silently produced a comparison
+        // that was false for every row -- which reported every image broken.
+        [
+          Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+          Buffer.from([0xff, 0xd8, 0xff]),
+          Buffer.from([0x52, 0x49, 0x46, 0x46]),
+          Buffer.from([0x47, 0x49, 0x46, 0x38])
+        ]
+      )
     ]);
     return {
       backend: "postgres",
@@ -26,6 +53,8 @@ export async function pgStatus(db) {
       bytes: Number(content.rows[0].bytes),
       revisions: revisions.rows[0].n,
       accounts: admins.rows[0].n,
+      // Zero, or something has decoded a binary body as text.
+      brokenImages: images.rows[0].n,
       migrations: migrations.rows.map((r) => r.version)
     };
   } catch (err) {

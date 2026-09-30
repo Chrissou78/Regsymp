@@ -481,6 +481,42 @@ the site rebuilds. Square, and large enough to stand being displayed at 800px
 — the build makes the responsive derivatives. Leaving the file box empty
 changes nothing, so saving an event does not require re-uploading its picture.
 
+### When the images stop being images
+
+Symptom: a page renders with no pictures, and the markup carries
+`src="src/assets/images/…"` — a path with no leading slash and a stray `src/`
+— which 404s.
+
+That is not a routing or a CDN problem. It means the stored bytes are not an
+image, so `eleventy-img` could not read the file, and because the build is
+configured with `failOnError: false` it left the half-resolved source path
+rather than failing. **The build says nothing**: look for a missing
+`[11ty/eleventy-img] N images optimized` line, and check the bytes:
+
+```bash
+file src/assets/images/regsymp-hex.png   # "data", not "PNG image data"
+```
+
+The cause is always the same: a body that went through a UTF-8 string. Every
+byte above 0x7F becomes U+FFFD, so a PNG's leading `0x89` reads as `EF BF BD`
+and the file grows by about 75%. It happened once, to staging, when its
+content was copied out of another database through a text path.
+
+Two things now stand in the way:
+
+- **`materialise()` will not write an image that is not one** over the copy on
+  disk, and logs which ones it refused. Before that guard, a corrupt body was
+  written over a working file at every boot.
+- **`/api/health` reports `content.brokenImages`.** Zero is the only
+  acceptable value. It is the number that would have caught this in a day
+  rather than a week.
+
+To repair: the bytes are in git for anything committed, in another database
+for anything uploaded through the admin, and on the live site for anything
+that is in neither. Put them back with the right `digest` and `is_binary`,
+then restart — `materialise()` rewrites the files because the digests no
+longer match — and delete `_site/img` so the image cache is rebuilt.
+
 ### Keeping tests away from live data
 
 The Postgres tests truncate tables, so two guards stand between `npm test` and

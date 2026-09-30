@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promi
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { digestOf } from "./store-fs.js";
+import { detectImageType } from "./multipart.js";
 import { CONTENT_PATHS, CONTENT_FILES } from "./content-dir.js";
 
 /**
@@ -133,9 +134,12 @@ export async function writeThrough({ root, relative, buffer }) {
  * Compares digests rather than copying unconditionally: almost nothing changes
  * between restarts, and rewriting eighty images every boot would be pure cost.
  */
-export async function materialise({ db, store, root, prefix = "src/" }) {
+const IMAGE = /\.(png|jpe?g|webp|gif|avif|svg)$/i;
+
+export async function materialise({ db, store, root, prefix = "src/", log = console }) {
   const documents = await store.listAll(prefix);
   let written = 0;
+  const refused = [];
 
   for (const doc of documents) {
     const target = path.join(root, doc.path);
@@ -146,8 +150,34 @@ export async function materialise({ db, store, root, prefix = "src/" }) {
     }
     const file = await store.getFile(doc.path);
     if (!file || Array.isArray(file)) continue;
+
+    // An image that is not an image does not go over one that is.
+    //
+    // A stored body can be damaged in ways nothing downstream complains
+    // about: a copy that decoded the bytes as UTF-8 turns every byte above
+    // 0x7F into U+FFFD, so a PNG's leading 0x89 becomes EF BF BD. Writing
+    // that here destroyed a working file on disk, the build then could not
+    // read it, and eleventy-img -- configured not to fail the build -- left a
+    // half-resolved path in the markup. The site served broken images for a
+    // week and nothing anywhere said so.
+    //
+    // So: check, keep what is on disk, and say it out loud.
+    if (IMAGE.test(doc.path) && !detectImageType(file.buffer)) {
+      refused.push(doc.path);
+      continue;
+    }
+
     await writeThrough({ root, relative: doc.path, buffer: file.buffer });
     written += 1;
   }
-  return { documents: documents.length, written };
+
+  if (refused.length) {
+    log.error(
+      `content: ${refused.length} stored image(s) are not images and were not written ` +
+        `over the copy on disk: ${refused.slice(0, 5).join(", ")}` +
+        (refused.length > 5 ? ` and ${refused.length - 5} more` : "")
+    );
+  }
+
+  return { documents: documents.length, written, refused };
 }
