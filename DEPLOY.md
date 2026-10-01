@@ -517,6 +517,33 @@ that is in neither. Put them back with the right `digest` and `is_binary`,
 then restart — `materialise()` rewrites the files because the digests no
 longer match — and delete `_site/img` so the image cache is rebuilt.
 
+### The checkout's .env points at production
+
+`DATABASE_URL` in a local `.env` is the **live** database — the `postgres`
+database on the production host, the one regsymp.com serves from. There is no
+dev database behind that variable.
+
+So nothing should write to it from a one-liner. Tests are safe: they use
+`TEST_DATABASE_URL` and refuse a non-local host. Anything else that loads
+`admin/load-env.js` and reaches for `DATABASE_URL` is pointed at the live site,
+including `migrate()`.
+
+Row counts do not tell the two apart — production holds eight attendees and
+three admins, because the speakers live in `speakers.json` content rather than
+as attendee rows. The reliable check is the migration list:
+
+```bash
+curl -s https://regsymp.com/api/health | jq '.content.migrations | length'
+```
+
+If that matches what your `DATABASE_URL` reports, you are on production.
+
+This has already cost once. Migrations 016–022 were applied to production by
+hand in the belief that it was a development database. Most are additive and
+inert to the deployed code, but 021 made `tickets.event_slug` NOT NULL and the
+deployed code does not set it, so issuing a badge on production fails until
+either the V2 code ships or the constraint is relaxed.
+
 ### Keeping tests away from live data
 
 The Postgres tests truncate tables, so two guards stand between `npm test` and
