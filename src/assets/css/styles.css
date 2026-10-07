@@ -247,7 +247,9 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .city-menu-item .tag { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-pill); background: var(--off-white-2); color: var(--text-muted); }
 .city-menu-item.active .tag { background: var(--navy); color: var(--white); }
 
-.nav-links { display: flex; gap: 28px; margin: 0 auto; }
+/* Pushed to the right rather than centred: the city selector on the left
+   is wide enough that a centred set of links sits off-centre anyway. */
+.nav-links { display: flex; gap: 28px; margin-left: auto; margin-right: 0; }
 .nav-links a {
   font-size: 13px; color: rgba(255,255,255,0.6); font-weight: 500;
   position: relative; padding: 6px 0;
@@ -273,7 +275,10 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 
 .drawer-intro-link { color: var(--gold) !important; }
 
-.nav-cta { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+.nav-cta {
+  display: flex; align-items: center; gap: 16px; flex: 0 0 auto;
+  margin-left: 28px; margin-right: auto;
+}
 .nav-write-link {
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -1579,41 +1584,67 @@ section.section { padding-top: var(--section-py); padding-bottom: var(--section-
 .why-card .h4 { margin-bottom: 10px; }
 .why-card p { font-size: 15px; line-height: 1.6; color: rgba(13,19,34,0.72); }
 
+/* Three columns rather than three full-width rows: the same words in about a
+   third of the height, and no 900px of empty gutter beside every paragraph. */
 .format-blocks {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
   border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-top: clamp(28px, 3vw, 40px);
 }
 
 .format-block {
-  border-bottom: 1px solid var(--border);
-  padding: clamp(28px, 3.5vw, 48px) 0;
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: clamp(24px, 4vw, 80px);
-  align-items: baseline;
+  padding: clamp(24px, 2.6vw, 34px) clamp(20px, 2.4vw, 34px);
+  border-left: 1px solid var(--border);
 }
+
+.format-block:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.format-block:last-child { padding-right: 0; }
 
 .format-block .h4 {
   color: var(--text-dark);
-  font-size: 14px;
-  font-weight: 500;
-  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 14px;
 }
 
 .format-block p {
   margin: 0;
-  font-size: 15px;
-  line-height: 1.82;
+  font-size: 14.5px;
+  line-height: 1.72;
   color: var(--text-muted);
-  max-width: 68ch;
+  max-width: 42ch;
+}
+
+/* Two across, with the third spanning underneath: three columns at this width
+   gives each paragraph about twenty characters a line. */
+@media (max-width: 900px) {
+  .format-blocks { grid-template-columns: 1fr 1fr; }
+  .format-block:nth-child(3) {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+  }
 }
 
 @media (max-width: 640px) {
+  .format-blocks { grid-template-columns: 1fr; }
   .format-block {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding: 22px 0;
   }
+  .format-block:first-child { border-top: 0; padding-top: 18px; }
+  .format-block:nth-child(3) { padding-left: 0; }
 }
 
 /* ------- FAQ ------- */
@@ -2702,10 +2733,11 @@ body { background: var(--off-white); }
   align-items: center;
   gap: 0 clamp(16px, 3vw, 48px);
   /* Tall enough for a photograph to be a photograph rather than a band. */
-  min-height: clamp(150px, 17vw, 230px);
+  min-height: clamp(190px, 20vw, 290px);
   text-decoration: none;
   color: inherit;
   position: relative;
+  isolation: isolate;
 }
 
 .upcoming-row:focus-visible {
@@ -2714,7 +2746,7 @@ body { background: var(--off-white); }
 }
 
 .upcoming-entry {
-  padding: clamp(14px, 2vw, 22px) 0;
+  padding: clamp(20px, 2.4vw, 30px) 0;
   position: relative;
   z-index: 2;
 }
@@ -2747,15 +2779,36 @@ body { background: var(--off-white); }
 
 /* ---- the photographs
 
-   Each fills its row and runs to the right edge of the window. The mask is
-   diagonal and generous: the softness is what turns six pictures into one
-   strip, and a hard edge here would put six rectangles back. */
+   A single slanted ribbon down the right-hand side. Every edge of every
+   picture is diagonal — top, bottom and left — so consecutive pictures meet
+   on an angle instead of a horizontal line, which is what makes the stack
+   read as one continuous band. */
+.upcoming-strip { position: relative; }
+.upcoming-strip li { position: relative; }
+.upcoming-strip li:nth-child(1) { z-index: 1; }
+.upcoming-strip li:nth-child(2) { z-index: 2; }
+.upcoming-strip li:nth-child(3) { z-index: 3; }
+.upcoming-strip li:nth-child(4) { z-index: 4; }
+.upcoming-strip li:nth-child(5) { z-index: 5; }
+.upcoming-strip li:nth-child(6) { z-index: 6; }
+
+.upcoming-row { overflow: visible; cursor: pointer; }
+
 .upcoming-shot {
-  position: relative;
-  align-self: stretch;
+  position: absolute;
+  cursor: pointer;
+  top: -16%;
+  bottom: -16%;
+  left: 0;
+  right: 0;
+  z-index: 0;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(101deg, transparent 0%, rgba(0, 0, 0, 0.5) 24%, #000 48%);
-  mask-image: linear-gradient(101deg, transparent 0%, rgba(0, 0, 0, 0.5) 24%, #000 48%);
+  /* the angled cut: top edge rises to the right, bottom edge follows it */
+  -webkit-clip-path: polygon(0 20%, 100% 0, 100% 80%, 0 100%);
+  clip-path: polygon(0 20%, 100% 0, 100% 80%, 0 100%);
+  /* and a short feather on the left so the ribbon dissolves before the words */
+  -webkit-mask-image: linear-gradient(103deg, transparent 26%, rgba(0,0,0,0.6) 36%, #000 46%);
+  mask-image: linear-gradient(103deg, transparent 26%, rgba(0,0,0,0.6) 36%, #000 46%);
 }
 
 .upcoming-shot img {
@@ -2765,12 +2818,24 @@ body { background: var(--off-white); }
   height: 100%;
   object-fit: cover;
   display: block;
-  transform: scale(1.02);
-  transition: transform 0.9s ease;
+  transform: scale(1.03);
+  filter: brightness(0.98) saturate(1.05) contrast(1.04);
+  transition: transform 0.9s ease, filter 0.6s ease;
 }
 
-.upcoming-row:hover .upcoming-shot img,
-.upcoming-row:focus-visible .upcoming-shot img { transform: scale(1.07); }
+/* only where the ribbon passes nearest the copy */
+.upcoming-shot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(103deg,
+    rgba(10, 15, 26, 0.45) 24%,
+    rgba(10, 15, 26, 0.10) 44%,
+    rgba(10, 15, 26, 0) 62%);
+}
+
+.upcoming-row:hover .upcoming-shot img { transform: scale(1.07); }
 
 .upcoming-foot {
   padding: clamp(56px, 9vw, 120px) var(--gutter) clamp(72px, 10vh, 120px) 0;
@@ -2812,10 +2877,15 @@ body { background: var(--off-white); }
   .upcoming-shot {
     position: absolute;
     inset: 0;
-    /* No feather: at this size the picture is the card, and a diagonal fade
-       across a small rectangle reads as a rendering fault. */
+    z-index: 0;
+    /* No feather and no slant: at this size the picture is the card, and
+       either one across a small rectangle reads as a rendering fault. The
+       clip has to be reset as well as the mask -- left on, it cuts a navy
+       wedge out of the top-left and bottom-right of every card. */
     -webkit-mask-image: none;
     mask-image: none;
+    -webkit-clip-path: none;
+    clip-path: none;
   }
 
   /* Dark at the foot so the words hold against whatever the photograph does. */
@@ -2831,6 +2901,8 @@ body { background: var(--off-white); }
       rgba(13, 19, 34, 0.95) 100%
     );
   }
+
+  .upcoming-entry::before { display: none; }
 
   .upcoming-entry {
     position: absolute;
@@ -2865,10 +2937,10 @@ body { background: var(--off-white); }
 }
 
 /* ------- The 33, in full -------
-   Six squares. The homepage carries a list because one line each is all it
-   has; this page has a photograph of each place, and a photograph is the
-   argument. A card is a button: the editions have no pages of their own, and
-   what somebody looking at Lapland wants next is to put their name down. */
+   Four cards, two up. The homepage carries the strip because it is a summary;
+   this page has a photograph of each place, and a photograph is the argument.
+   A card is a button: the editions have no pages of their own, and what
+   somebody looking at Lapland wants next is to put their name down. */
 
 .the33-hero {
   background: var(--navy-deep);
@@ -2961,8 +3033,8 @@ body { background: var(--off-white); }
 
 .the33-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 26px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(18px, 2vw, 30px);
   margin-top: clamp(44px, 7vh, 70px);
 }
 
@@ -2972,12 +3044,20 @@ body { background: var(--off-white); }
      without this the card arrives underneath it. 100px is what the legal
      page's headings already use. */
   scroll-margin-top: 100px;
-  aspect-ratio: 1 / 1;
+  /* Landscape, not square: these are photographs of places. */
+  aspect-ratio: 3 / 2;
   overflow: hidden;
   background: #0a0f1a;
   /* So the scrim cannot escape the rounded corner of a neighbour. */
   isolation: isolate;
   cursor: pointer;
+  border: 1px solid rgba(237, 235, 230, 0.08);
+  transition: border-color 0.45s ease, transform 0.45s ease;
+}
+
+.the33-card:hover {
+  border-color: rgba(183, 154, 99, 0.45);
+  transform: translateY(-3px);
 }
 
 .the33-card img {
@@ -3357,12 +3437,12 @@ body { background: var(--off-white); }
 }
 
 @media (max-width: 980px) {
-  .the33-cards { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .the33-cards { gap: 20px; }
 }
 
 @media (max-width: 640px) {
-  /* One column, and the squares stop being squares: a full-width square on a
-     phone is most of the screen and pushes the words below the fold. */
+  /* One column, and a little taller: a full-width 3:2 on a phone leaves the
+     words cramped against the foot of the picture. */
   .the33-cards { grid-template-columns: 1fr; gap: 18px; }
   .the33-card { aspect-ratio: 4 / 3; }
   .the33-body { padding: 0 22px 22px; }
