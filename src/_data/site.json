@@ -6,5 +6,6 @@
   "twitter": "https://x.com/RegSymp",
   "legalName": "RegSymp Group Limited",
   "themeColor": "#0D1322",
-  "defaultOgImage": "/assets/images/og-image-palma-2026.jpg"
+  "defaultOgImage": "/assets/images/og-image-palma-2026.jpg",
+  "showAgenda": false
 }

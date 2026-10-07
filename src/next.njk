@@ -55,11 +55,12 @@ description: "The 33: a privately convened dinner for thirty-three guests, under
     <p class="the33-standfirst">{{ upcomingCopy.standfirst }}</p>
     {% endif %}
 
-    {% if events and events.upcoming and events.upcoming.length %}
+    {% set editions = events.bySeries["the-33"] if events and events.bySeries else [] %}
+    {% if editions and editions.length %}
     <div class="the33-cards">
-      {% for event in events.upcoming %}
+      {% for event in editions %}
       {% set place = event.city or event.name %}
-      <article class="the33-card reveal" data-edition="{{ event.slug }}"
+      <article class="the33-card reveal" id="{{ event.slug }}" data-edition="{{ event.slug }}"
                data-label="{{ place }} — {{ event.whenLabel }}"
                role="button" tabindex="0" aria-haspopup="dialog">
         {% if event.imagePath %}
@@ -146,7 +147,7 @@ description: "The 33: a privately convened dinner for thirty-three guests, under
         <p class="the33-hint">{{ upcomingCopy.pickerHint }}</p>
         {% endif %}
         <div class="the33-chips">
-          {% for event in events.upcoming %}
+          {% for event in editions %}
           {% set place = event.city or event.name %}
           <label class="the33-chip" data-key="{{ event.slug }}">
             <input type="checkbox" name="editions" value="{{ place }} — {{ event.whenLabel }}">

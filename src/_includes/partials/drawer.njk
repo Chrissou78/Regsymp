@@ -5,7 +5,7 @@
   </div>
   <nav class="drawer-links" aria-label="Mobile sections">
     <a href="/#about">About the Event</a>
-    <a href="/#agenda">Agenda</a>
+    {% if site.showAgenda %}<a href="/#agenda">Agenda</a>{% endif %}
     <a href="/speakers/">Speakers</a>
     <a href="/partners/">Partners</a>
     <a href="/pillars/">The Pillars</a>

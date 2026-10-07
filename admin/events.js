@@ -9,6 +9,22 @@
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * A series as a key a template can index by.
+ *
+ * The site runs two of them -- The Ninety Nine and The 33 -- and a page needs
+ * to ask for one without matching on a display name that somebody will
+ * eventually retitle. "The 33" becomes `the-33`, and the name stays free to
+ * change.
+ */
+export function seriesKey(name) {
+  const key = String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return key || null;
+}
+
 const FIELDS = [
   "name",
   "city",
@@ -21,6 +37,8 @@ const FIELDS = [
   "tagline",
   "summary",
   "image_path",
+  "wide_image_path",
+  "image_alt",
   "upcoming",
   "sort"
 ];
@@ -29,7 +47,9 @@ const FROM_JS = {
   whenLabel: "when_label",
   startsOn: "starts_on",
   endsOn: "ends_on",
-  imagePath: "image_path"
+  imagePath: "image_path",
+  wideImagePath: "wide_image_path",
+  imageAlt: "image_alt"
 };
 
 function present(row) {
@@ -45,10 +65,15 @@ function present(row) {
     startsOn: row.starts_on,
     endsOn: row.ends_on,
     series: row.series,
+    seriesKey: seriesKey(row.series),
     tagline: row.tagline,
     summary: row.summary,
-    // The square photograph on the edition card, under /assets/images/.
+    // Two crops: a square for the cards and a letterbox for the homepage
+    // strip, both under /assets/images/. And what the picture shows, which
+    // is not the same thing as the place name.
     imagePath: row.image_path,
+    wideImagePath: row.wide_image_path,
+    imageAlt: row.image_alt,
     status: row.status,
     upcoming: row.upcoming,
     sort: row.sort,
@@ -215,11 +240,19 @@ export function createEvents({ db }) {
      */
     async toData() {
       const [live, upcoming, all] = await Promise.all([this.live(), this.upcoming(), this.list()]);
-      return {
-        live,
-        upcoming: upcoming.filter((e) => e.slug !== live?.slug),
-        all
-      };
+      const next = upcoming.filter((e) => e.slug !== live?.slug);
+
+      // Grouped by series as well as listed flat. The homepage hero has a
+      // panel per series and each one announces its own dates; without this
+      // those lines are copy somebody has to remember to edit, and they go
+      // stale the first time an edition moves.
+      const bySeries = {};
+      for (const event of next) {
+        if (!event.seriesKey) continue;
+        (bySeries[event.seriesKey] ??= []).push(event);
+      }
+
+      return { live, upcoming: next, bySeries, all };
     }
   };
 }

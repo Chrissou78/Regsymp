@@ -237,6 +237,34 @@ export function eventPage({ event, seats = [], stripeReady = false, session, tok
           help: "Under /assets/images/ — e.g. the33/london-2026.jpg"
         })}
 
+        <div class="a-field">
+          <label for="f-wide-photo">Wide photograph</label>
+          ${
+            event.wideImagePath
+              ? `<img class="a-thumb a-thumb--wide" src="/assets/images/${escape(event.wideImagePath)}"
+                   alt="" width="320" height="120">`
+              : ""
+          }
+          <input id="f-wide-photo" name="widePhoto" type="file"
+                 accept="image/jpeg,image/png,image/webp">
+          <span class="a-help">The letterbox crop for the homepage strip, about
+          2400&times;900. Without one the square is used, and a square cropped
+          into a letterbox loses whatever the photograph was of.</span>
+        </div>
+        ${field({
+          name: "wideImagePath",
+          label: "…or its path",
+          value: event.wideImagePath,
+          help: "Under /assets/images/ — e.g. the33/london-2026-wide.jpg"
+        })}
+
+        ${field({
+          name: "imageAlt",
+          label: "What the photograph shows",
+          value: event.imageAlt,
+          help: "For anyone who cannot see it — “Big Ben at night across the Thames”, not “London”."
+        })}
+
         <h2 class="a-subhead">Where and when</h2>
         <div class="a-form--inline">
           ${field({ name: "city", label: "City", value: event.city })}

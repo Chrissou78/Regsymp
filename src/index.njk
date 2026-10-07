@@ -12,40 +12,7 @@ ogDescription: An invite-only, practitioner-led symposium for senior leaders in 
 <main id="home">
 <h1 class="visually-hidden">RegSymp &mdash; an invite-only finance and fintech symposium for 99 senior leaders. Palma de Mallorca, 14&ndash;15 September 2026.</h1>
 
-<!-- ============================= HERO ============================= -->
-<section class="hero hero-editorial edition-palma" data-screen-label="01 Hero">
-  <div class="hero-vignette"></div>
-  <div class="hero-stage">
-    <div class="container">
-      <div class="hero-inner">
-        <p class="invitation-signal">— By Invitation Only</p>
-        <p class="h-display">The Ninety Nine.</p>
-        <p class="hero-body">An invitation only gathering of 99 senior leaders in financial services. Two days. No attribution. No agenda except the one that emerges when the right people share a room.</p>
-
-        <div class="hero-ctas">
-          <a href="#agenda" class="hero-link">The Programme <span class="arrow">→</span></a>
-          <a href="/portal/signin" class="hero-link hero-link--gold" data-account-link>Profile <span class="arrow">→</span></a>
-        </div>
-
-        <div class="hero-detail-strip" aria-label="Event details">
-          <div class="hero-detail-row" data-city="palma">
-            <span>14–15 September 2026</span>
-            <span class="hero-sep"></span>
-            <span>Palma de Mallorca</span>
-            <span class="hero-sep"></span>
-            <span>Venue disclosed on confirmation</span>
-          </div>
-
-          <div class="hero-detail-row hero-detail-row--meta">
-            <span>99 Senior Delegates</span>
-            <span class="hero-sep"></span>
-            <span class="hero-gold">Chatham House Rule</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+{% include "partials/hero-accordion.njk" %}
 
 <!-- ============================= WHY ATTEND / THEMES ============================= -->
 <section class="section dark" id="why" data-screen-label="04 Themes">
@@ -177,6 +144,16 @@ ogDescription: An invite-only, practitioner-led symposium for senior leaders in 
 </section>
 
 <!-- ============================= AGENDA ============================= -->
+{#
+  The programme, when there is one to show.
+
+  Switched off at Site settings while the 2026 agenda is being confirmed.
+  Kept rather than deleted: the sessions are already written and the admin
+  page for them still works, so turning it back on is a tick rather than a
+  rebuild. The nav, drawer and footer links follow the same switch -- a menu
+  item pointing at a section that is not on the page is worse than no item.
+#}
+{% if site.showAgenda %}
 <section class="section dark-deep" id="agenda" data-screen-label="06 Agenda">
   <div class="container reveal">
     <div class="section-head">
@@ -201,6 +178,7 @@ ogDescription: An invite-only, practitioner-led symposium for senior leaders in 
 
   </div>
 </section>
+{% endif %}
 
 <!-- ============================= THE THIRTY-THREE ============================= -->
 <section id="dinner" data-screen-label="07 Thirty-Three" style="position:relative; width:100%; min-height:100vh; overflow:hidden; background:#0D1322; display:flex; align-items:center; justify-content:center; box-sizing:border-box; padding:120px 32px;">

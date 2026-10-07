@@ -2968,6 +2968,10 @@ body { background: var(--off-white); }
 
 .the33-card {
   position: relative;
+  /* A row on the homepage links straight to its card, and the nav is fixed:
+     without this the card arrives underneath it. 100px is what the legal
+     page's headings already use. */
+  scroll-margin-top: 100px;
   aspect-ratio: 1 / 1;
   overflow: hidden;
   background: #0a0f1a;
@@ -3372,4 +3376,122 @@ body { background: var(--off-white); }
   .the33-card img,
   .the33-cue { transition: none; }
   .the33-card:hover img { transform: scale(1.02); }
+}
+
+
+/* ------- The hero accordion -------
+   Two panels, one per series: ninety-nine delegates over two days, and
+   thirty-three at one table the night before. A single headline could only
+   ever say one of them.
+
+   Kept close to the author's own rules rather than reformatted into this
+   file's usual expanded style — it is a tuned piece of motion design and the
+   timings, easings and breakpoints are the work. The only thing dropped on
+   the way in was a pair of `.reveal{opacity:1!important}` overrides, which
+   exist to stop the scroll animation hiding content in a saved static page
+   and would disable the animation everywhere here. */
+/* ---------------- expanding hero accordion ---------------- */
+.hero-acc{padding-top:0;min-height:100vh;background:#0D1322;overflow:hidden}
+.acc{display:flex;height:100vh;width:100%}
+.acc-panel{position:relative;overflow:hidden;cursor:pointer;flex:0 0 22%;
+  transition:flex-basis 1s cubic-bezier(.65,0,.2,1);isolation:isolate}
+.acc-panel.is-open{flex-basis:78%;cursor:default}
+.acc-panel.is-open .acc-content{cursor:default}
+.acc-panel + .acc-panel{border-left:1px solid rgba(255,255,255,.12)}
+
+.acc-bg{position:absolute;inset:0;background-size:cover;background-position:center;
+  filter:brightness(.34) saturate(.7);transform:scale(1.04);
+  transition:filter .9s ease,transform 1.2s cubic-bezier(.65,0,.2,1)}
+.acc-panel.is-open .acc-bg{filter:brightness(.52) saturate(.85);transform:scale(1)}
+.acc-panel:not(.is-open):hover .acc-bg{filter:brightness(.46) saturate(.8)}
+.acc-veil{position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(13,19,34,.70) 0%,rgba(13,19,34,.28) 40%,rgba(13,19,34,.92) 100%)}
+
+/* timer line across the open panel */
+.acc-progress{position:absolute;top:0;left:0;height:2px;width:0;z-index:4;
+  background:linear-gradient(90deg,rgba(184,150,58,.2),var(--gold,#B8963A))}
+.acc-panel.is-open.ticking .acc-progress{width:100%;transition:width 3s linear}
+
+/* collapsed rail */
+.acc-rail{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:26px;padding:40px 0;
+  opacity:1;transition:opacity .45s ease .25s}
+.acc-panel.is-open .acc-rail{opacity:0;transition-delay:0s;pointer-events:none}
+.rail-num{font-family:"Cinzel",serif;font-size:clamp(46px,3.9vw,70px);line-height:1;
+  color:var(--gold,#B8963A);text-shadow:0 0 36px rgba(184,150,58,.3)}
+.rail-name{writing-mode:vertical-rl;transform:rotate(180deg);font-size:14px;letter-spacing:.3em;
+  text-transform:uppercase;color:rgba(255,255,255,.88);font-weight:600;white-space:nowrap}
+.rail-dates{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;letter-spacing:.2em;
+  text-transform:uppercase;color:rgba(255,255,255,.45);white-space:nowrap}
+.acc-panel:not(.is-open):hover .rail-name{color:#fff}
+
+/* open content */
+.acc-content{position:absolute;inset:0;z-index:3;display:flex;align-items:flex-end;
+  opacity:0;transition:opacity .5s ease;pointer-events:none}
+.acc-panel.is-open .acc-content{opacity:1;transition-delay:.35s;pointer-events:auto}
+.acc-inner{padding:0 clamp(32px,5vw,96px) clamp(64px,7vw,104px);min-width:560px;max-width:70ch}
+.acc-eyebrow{font-size:13.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold,#B8963A);margin:0 0 22px}
+.acc-num{font-family:"Cinzel",serif;font-size:clamp(62px,6.6vw,104px);line-height:.95;margin:0 0 6px;
+  color:rgba(255,255,255,.28);letter-spacing:.02em}
+.acc-title{font-family:"Playfair Display",serif;font-weight:400;font-size:clamp(40px,5vw,76px);
+  line-height:1.12;color:#fff;margin:0 0 20px;letter-spacing:-.01em}
+.acc-text{font-size:21px;line-height:1.68;color:rgba(255,255,255,.8);margin:0 0 28px;max-width:44ch}
+.acc-meta{font-size:14px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.6);margin:0 0 34px}
+.acc-cta{cursor:pointer;display:inline-flex;align-items:center;gap:10px;font-size:14.5px;letter-spacing:.18em;
+  text-transform:uppercase;font-weight:600;color:var(--gold,#B8963A);
+  border-bottom:1px solid rgba(184,150,58,.45);padding-bottom:6px;transition:gap .3s ease}
+.acc-panel.is-open:hover .acc-cta{gap:16px}
+.acc-panel:focus-visible{outline:2px solid var(--gold,#B8963A);outline-offset:-5px}
+.acc-cta:focus-visible{outline:2px solid var(--gold,#B8963A);outline-offset:6px}
+
+@media (max-width:900px){
+  /* vertical version: the open panel fills the screen, the other is a strip
+     pinned to the BOTTOM so it can never collide with the fixed nav */
+  .hero-acc{min-height:100vh;min-height:100svh}
+  .acc{flex-direction:column;height:100vh;height:100svh}
+  .acc-panel{flex:0 0 94px;min-height:94px;order:1;
+    transition:flex-grow .75s cubic-bezier(.65,0,.2,1),flex-basis .75s cubic-bezier(.65,0,.2,1)}
+  .acc-panel.is-open{flex:1 1 auto;order:0;min-height:0}
+  .acc-panel + .acc-panel{border-left:0}
+  .acc-panel:not(.is-open){border-top:1px solid rgba(255,255,255,.16)}
+  .acc-panel:not(.is-open) .acc-veil{background:linear-gradient(180deg,rgba(13,19,34,.86),rgba(13,19,34,.86))}
+  .acc-progress{top:auto;bottom:0}
+
+  /* collapsed strip reads horizontally, with a tap affordance on the right */
+  .acc-rail{flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;padding:0 22px}
+  .rail-name,.rail-dates{writing-mode:horizontal-tb;transform:none}
+  .rail-num{font-size:34px;line-height:1}
+  .rail-name{font-size:13px;letter-spacing:.16em}
+  .rail-dates{margin-left:auto;font-size:10.5px;letter-spacing:.14em;
+    color:var(--gold,#B8963A);opacity:.85}
+  .acc-rail::after{content:"↑";position:absolute;right:22px;bottom:10px;
+    font-size:11px;color:rgba(255,255,255,.4)}
+
+  /* open panel: clear the fixed nav, tighten the type */
+  .acc-content{align-items:flex-end}
+  .acc-inner{min-width:0;max-width:none;padding:104px 24px 34px}
+  .acc-num{font-size:54px;margin-bottom:2px}
+  .acc-title{font-size:38px;margin-bottom:16px}
+  .acc-text{font-size:18.5px;line-height:1.65;margin-bottom:22px}
+  .acc-meta{font-size:12.5px;letter-spacing:.12em;margin-bottom:24px}
+}
+@media (prefers-reduced-motion:reduce){
+  .acc-panel,.acc-bg,.acc-content,.acc-rail{transition:none}
+  .acc-panel.is-open.ticking .acc-progress{transition:none;width:0}
+}
+.acc-next{
+  margin:0 0 32px;
+  font-size:12.5px;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.44);
+}
+.acc-next span{
+  color:var(--gold,#B8963A);
+  margin-right:14px;
+  font-weight:600;
+}
+@media (max-width:900px){
+  .acc-next{margin:0 0 22px;font-size:11px;letter-spacing:.08em}
+  .acc-next span{display:block;margin:0 0 5px}
 }

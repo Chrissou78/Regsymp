@@ -71,6 +71,16 @@ test("agenda is rendered server-side, not injected by JS", async () => {
   const html = await readOutput("index.html");
   const rows = (html.match(/class="agenda-row/g) || []).length;
   const expected = agenda.palma.day1.length + agenda.palma.day2.length;
+
+  // Switched off at Site settings while the 2026 programme is confirmed. The
+  // claim being tested is "if it is shown, the server rendered it" -- not
+  // "it is shown", which is an editorial decision rather than a property of
+  // the build. All or nothing: a partial agenda would mean JavaScript was
+  // filling in the rest, which is the thing this guards against.
+  if (!html.includes('id="agenda"')) {
+    assert.equal(rows, 0, "the agenda section is off, so no rows should have been rendered");
+    return;
+  }
   assert.equal(rows, expected, `expected ${expected} agenda rows in the HTML`);
 });
 

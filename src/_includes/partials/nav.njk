@@ -6,7 +6,7 @@
     {% include "partials/city-select.njk" %}
     <nav class="nav-links" aria-label="Sections">
       <a href="/#about">About</a>
-      <a href="/#agenda">Agenda</a>
+      {% if site.showAgenda %}<a href="/#agenda">Agenda</a>{% endif %}
       <a href="/speakers/">Speakers</a>
       <a href="/partners/">Partners</a>
       {# Only when there is something to buy. The flag is written with the

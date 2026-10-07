@@ -15,7 +15,11 @@
 #}
 {# `events` is generated before each build; guard it so a checkout that has
    never run the server still builds. #}
-{% if events and events.upcoming and events.upcoming.length %}
+{# The 33's own editions. Napa and Mallorca belong to the Ninety-Nine and
+   announce themselves in the hero, so this filters by series rather than
+   showing everything that is upcoming. #}
+{% set editions = events.bySeries["the-33"] if events and events.bySeries else [] %}
+{% if editions and editions.length %}
 <section class="upcoming" id="the-33" aria-labelledby="upcoming-title">
   <div class="upcoming-spread">
     <header class="upcoming-head">
@@ -24,10 +28,10 @@
     </header>
 
     <ol class="upcoming-strip">
-      {% for event in events.upcoming %}
+      {% for event in editions %}
       {% set place = event.city or event.name %}
       <li>
-        <a class="upcoming-row reveal" href="/next/">
+        <a class="upcoming-row reveal" href="/next/#{{ event.slug }}">
           <div class="upcoming-entry">
             <p class="upcoming-where">
               <span class="upcoming-place">{{ place }}</span>
@@ -38,8 +42,13 @@
           </div>
 
           <div class="upcoming-shot">
-            {% if event.imagePath %}
-            <img src="/assets/images/{{ event.imagePath }}" alt="{{ place }}"
+            {# The wide crop, not the square the cards use: this row is a
+               letterbox and a square cropped into it loses the subject. #}
+            {% if event.wideImagePath %}
+            <img src="/assets/images/{{ event.wideImagePath }}" alt="{{ event.imageAlt or place }}"
+                 width="2400" height="900" loading="lazy" decoding="async">
+            {% elif event.imagePath %}
+            <img src="/assets/images/{{ event.imagePath }}" alt="{{ event.imageAlt or place }}"
                  width="800" height="800" loading="lazy" decoding="async">
             {% endif %}
           </div>

@@ -795,3 +795,10 @@ code { background: #EEE9E0; padding: 1px 5px; border-radius: 3px; font-size: 0.9
   margin: 0 0 10px;
   background: var(--a-line);
 }
+
+/* The letterbox crop, shown at its own shape so it is obvious which of the
+   two pictures you are looking at. */
+.a-thumb--wide {
+  width: 320px;
+  height: 120px;
+}

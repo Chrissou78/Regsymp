@@ -126,6 +126,30 @@ export const SCHEMAS = {
     ]
   },
 
+  heroPanels: {
+    file: "src/_data/heroPanels.json",
+    kind: "array",
+    label: "Hero panels",
+    identify: (r) => r.title,
+    fields: [
+      F("key", "slug", { required: true, max: 20, unique: true }),
+      F("series", "slug", {
+        required: true,
+        max: 40,
+        help: "Which series' dates this panel announces: the-33 or the-ninety-nine."
+      }),
+      F("number", "text", { required: true, max: 8 }),
+      F("railName", "text", { required: true, max: 40, help: "Shown down the side when the panel is closed." }),
+      F("railDates", "text", { max: 40 }),
+      F("eyebrow", "text", { max: 80 }),
+      F("title", "text", { required: true, max: 80 }),
+      F("text", "textarea", { required: true, max: 500 }),
+      F("cta", "text", { max: 40 }),
+      F("target", "text", { required: true, max: 60, help: "Where See More scrolls to, e.g. #about" }),
+      F("image", "image", { dir: "src/assets/images/hero" })
+    ]
+  },
+
   editions: {
     file: "src/_data/editions.json",
     kind: "array",
@@ -164,7 +188,10 @@ export const SCHEMAS = {
       F("twitter", "url", { max: 300 }),
       F("legalName", "text", { required: true, max: 120 }),
       F("themeColor", "text", { required: true, max: 20 }),
-      F("defaultOgImage", "text", { required: true, max: 200 })
+      F("defaultOgImage", "text", { required: true, max: 200 }),
+      F("showAgenda", "checkbox", {
+        help: "Show the programme on the homepage, and its link in the menus. Off while the agenda is being confirmed."
+      })
     ]
   }
 };

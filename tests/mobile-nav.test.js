@@ -56,9 +56,22 @@ test("the burger itself is never hidden below the breakpoint", () => {
 test("the drawer still carries every navigation destination", async () => {
   const html = await readFile("_site/index.html", "utf8");
   const drawer = html.slice(html.indexOf('id="drawer"'), html.indexOf("</aside>"));
-  for (const target of ["/speakers/", "/partners/", "/pillars/", "/faq/", "/#agenda", "/#about"]) {
+  for (const target of ["/speakers/", "/partners/", "/pillars/", "/faq/", "/#about"]) {
     assert.ok(drawer.includes(`href="${target}"`), `drawer is missing ${target}`);
   }
+
+  // The agenda is optional -- it is switched off while the programme is being
+  // confirmed. What matters either way is that the drawer agrees with the
+  // page: a menu item pointing at a section that is not there is worse than
+  // no item at all.
+  const onPage = html.includes('id="agenda"');
+  assert.equal(
+    drawer.includes('href="/#agenda"'),
+    onPage,
+    onPage
+      ? "the agenda is on the page but missing from the drawer"
+      : "the drawer links to an agenda that is not on the page"
+  );
   // The invitation CTA became a way into an account when registration opened.
   assert.match(drawer, /data-account-link/, "drawer must keep a way to sign in");
   assert.match(drawer, /data-admin-link/, "drawer must carry the admin shortcut");

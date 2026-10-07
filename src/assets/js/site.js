@@ -1,5 +1,6 @@
 import { trapFocus } from "./focus-trap.js";
 import { theThirtyThree } from "./the-33.js";
+import { heroAccordion } from "./hero-accordion.js";
 
 (function () {
   // ---------------------------------------------------------------- nav state
@@ -160,6 +161,11 @@ import { theThirtyThree } from "./the-33.js";
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && drawer?.classList.contains("open")) setDrawer(false);
   });
+
+  // ----------------------------------------------------------------- the hero
+  // Does nothing on a page without the accordion, which is every page but the
+  // homepage.
+  heroAccordion();
 
   // ------------------------------------------------------------------ The 33
   // Does nothing on a page without the editions grid, which is every page but

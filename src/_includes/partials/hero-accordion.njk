@@ -1,0 +1,60 @@
+{#
+  The hero: one panel per series, the open one filling most of the screen.
+
+  Two things the site is, side by side — ninety-nine delegates over two days,
+  and thirty-three at one table the night before. A single headline could only
+  ever say one of them.
+
+  The panels rotate on their own and a click stops the rotation: somebody who
+  has chosen a panel is reading it, and moving it under them is the one thing
+  a carousel must not do.
+
+  Each panel's "Upcoming" line is built from the events table, filtered by the
+  panel's series, so moving an edition from one series to the other is a field
+  in the admin rather than an edit here. The copy around it lives in
+  heroPanels.json.
+#}
+{% if heroPanels and heroPanels.length %}
+<section class="hero hero-acc" data-screen-label="01 Hero">
+  <div class="acc" id="acc">
+    {% for panel in heroPanels %}
+    {% set dates = events.bySeries[panel.series] if events and events.bySeries else [] %}
+    <article class="acc-panel{% if loop.first %} is-open{% endif %}"
+             data-slide="{{ panel.key }}" data-target="{{ panel.target }}"
+             tabindex="0" aria-expanded="{{ 'true' if loop.first else 'false' }}">
+      <div class="acc-bg"{% if panel.image %} style="background-image:url(/assets/images/{{ panel.image }})"{% endif %}></div>
+      <div class="acc-veil"></div>
+      <span class="acc-progress"></span>
+
+      {# What a collapsed panel shows: enough to know what you would open. #}
+      <div class="acc-rail" aria-hidden="true">
+        <span class="rail-num">{{ panel.number }}</span>
+        <span class="rail-name">{{ panel.railName }}</span>
+        {% if panel.railDates %}<span class="rail-dates">{{ panel.railDates }}</span>{% endif %}
+      </div>
+
+      <div class="acc-content">
+        <div class="acc-inner">
+          {% if panel.eyebrow %}<p class="acc-eyebrow">{{ panel.eyebrow }}</p>{% endif %}
+          <p class="acc-num" aria-hidden="true">{{ panel.number }}</p>
+          <h2 class="acc-title">{{ panel.title }}</h2>
+          <p class="acc-text">{{ panel.text }}</p>
+
+          {% if dates and dates.length %}
+          <p class="acc-next">
+            <span>Upcoming</span>
+            {%- for event in dates -%}
+              {{ event.city or event.name }} &middot; {{ event.whenLabel }}
+              {%- if not loop.last %} &nbsp;/&nbsp; {% endif -%}
+            {%- endfor -%}
+          </p>
+          {% endif %}
+
+          <span class="acc-cta">{{ panel.cta or "See More" }} <span class="arrow">&rarr;</span></span>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
