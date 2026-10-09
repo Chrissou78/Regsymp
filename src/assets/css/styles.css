@@ -3574,7 +3574,14 @@ body { background: var(--off-white); }
 
   /* open panel: narrower column, so the type comes down a step */
   .acc-content{align-items:flex-end}
-  .acc-inner{min-width:0;max-width:none;padding:96px 20px 30px}
+  /* Pinned to the width the panel has when it is open, not left to follow the
+     panel. The panel animates from 24% to 76% over .8s and the words fade in
+     a third of the way through, so a box that tracks the panel re-wraps on
+     every frame of that -- the paragraph visibly concertinas and the lines
+     under it jump. Fixed, the text is simply uncovered as the panel widens.
+     This is what min-width does for the desktop panel; the breakpoint had
+     turned it off without putting anything in its place. */
+  .acc-inner{width:76vw;min-width:76vw;max-width:76vw;padding:96px 20px 30px}
   .acc-eyebrow{font-size:10.5px;letter-spacing:.16em;margin-bottom:14px}
   .acc-num{font-size:40px;margin-bottom:2px}
   .acc-title{font-size:30px;line-height:1.14;margin-bottom:12px}
