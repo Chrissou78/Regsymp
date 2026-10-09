@@ -2751,22 +2751,52 @@ body { background: var(--off-white); }
   z-index: 2;
 }
 
+/* One line, always. The place and the date belong to each other and a wrap
+   between them leaves the separator stranded at the end of a line, which
+   reads as a typo rather than a line break.
+
+   That makes the longest label set the size for all four rows. "The North
+   (Sweden / Finland) · February / March 2027" is fifty-odd tracked uppercase
+   characters, so the tracking comes in from .09em and the size follows the
+   column rather than the window -- the words keep the page's left margin
+   while the photographs run to the right edge, so the column grows at about
+   a fifth of the rate the viewport does. 23px is where it stops, which is
+   the size this line was drawn at before the places took their countries
+   on. */
 .upcoming-where {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
-  gap: 0.6em;
+  gap: 0.42em;
   margin: 0 0 10px;
   font-family: var(--serif);
-  font-size: clamp(17px, 1.8vw, 23px);
-  letter-spacing: 0.09em;
+  font-size: min(23px, calc(8.2px + 0.6vw));
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--gold);
 }
 
 .upcoming-place { color: var(--gold); }
 .upcoming-sep { color: rgba(184, 150, 58, 0.55); }
 .upcoming-when { color: var(--gold); }
+
+/* Below this the column is too narrow for the longest label to finish on one
+   line at any size worth reading -- around 1100px it would want twelve-pixel
+   type. So the date goes under the place, which is what the phone already
+   does, and all four rows do it together: two wrapping and two not is what
+   looked like a fault in the first place. */
+@media (max-width: 1279px) {
+  .upcoming-where {
+    display: block;
+    white-space: normal;
+    font-size: clamp(16px, 1.5vw, 19px);
+    line-height: 1.42;
+  }
+
+  .upcoming-when { display: block; }
+  .upcoming-sep { display: none; }
+}
 
 .upcoming-what {
   margin: 0;
