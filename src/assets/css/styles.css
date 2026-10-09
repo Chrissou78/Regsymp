@@ -3490,7 +3490,7 @@ body { background: var(--off-white); }
 /* timer line across the open panel */
 .acc-progress{position:absolute;top:0;left:0;height:2px;width:0;z-index:4;
   background:linear-gradient(90deg,rgba(184,150,58,.2),var(--gold,#B8963A))}
-.acc-panel.is-open.ticking .acc-progress{width:100%;transition:width 3s linear}
+.acc-panel.is-open.ticking .acc-progress{width:100%;transition:width 10s linear}
 
 /* collapsed rail */
 .acc-rail{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;
@@ -3525,35 +3525,34 @@ body { background: var(--off-white); }
 .acc-cta:focus-visible{outline:2px solid var(--gold,#B8963A);outline-offset:6px}
 
 @media (max-width:900px){
-  /* vertical version: the open panel fills the screen, the other is a strip
-     pinned to the BOTTOM so it can never collide with the fixed nav */
+  /* same sideways accordion as desktop, scaled down: the open panel takes
+     most of the width, the other stays as a narrow vertical rail */
   .hero-acc{min-height:100vh;min-height:100svh}
-  .acc{flex-direction:column;height:100vh;height:100svh}
-  .acc-panel{flex:0 0 94px;min-height:94px;order:1;
-    transition:flex-grow .75s cubic-bezier(.65,0,.2,1),flex-basis .75s cubic-bezier(.65,0,.2,1)}
-  .acc-panel.is-open{flex:1 1 auto;order:0;min-height:0}
-  .acc-panel + .acc-panel{border-left:0}
-  .acc-panel:not(.is-open){border-top:1px solid rgba(255,255,255,.16)}
-  .acc-panel:not(.is-open) .acc-veil{background:linear-gradient(180deg,rgba(13,19,34,.86),rgba(13,19,34,.86))}
-  .acc-progress{top:auto;bottom:0}
+  .acc{flex-direction:row;height:100vh;height:100svh}
+  .acc-panel{flex:0 0 24%;transition:flex-basis .8s cubic-bezier(.65,0,.2,1)}
+  .acc-panel.is-open{flex-basis:76%}
+  .acc-panel + .acc-panel{border-left:1px solid rgba(255,255,255,.14)}
+  .acc-progress{top:0;bottom:auto}
 
-  /* collapsed strip reads horizontally, with a tap affordance on the right */
-  .acc-rail{flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;padding:0 22px}
-  .rail-name,.rail-dates{writing-mode:horizontal-tb;transform:none}
-  .rail-num{font-size:34px;line-height:1}
-  .rail-name{font-size:13px;letter-spacing:.16em}
-  .rail-dates{margin-left:auto;font-size:10.5px;letter-spacing:.14em;
-    color:var(--gold,#B8963A);opacity:.85}
-  .acc-rail::after{content:"↑";position:absolute;right:22px;bottom:10px;
-    font-size:11px;color:rgba(255,255,255,.4)}
+  /* rail stays vertical, just smaller */
+  .acc-rail{flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:90px 0 34px}
+  .rail-name,.rail-dates{writing-mode:vertical-rl;transform:rotate(180deg)}
+  .rail-num{font-size:30px;line-height:1}
+  .rail-name{font-size:11.5px;letter-spacing:.24em}
+  .rail-dates{font-size:10px;letter-spacing:.16em}
+  .acc-rail::after{content:none}
 
-  /* open panel: clear the fixed nav, tighten the type */
+  /* open panel: narrower column, so the type comes down a step */
   .acc-content{align-items:flex-end}
-  .acc-inner{min-width:0;max-width:none;padding:104px 24px 34px}
-  .acc-num{font-size:54px;margin-bottom:2px}
-  .acc-title{font-size:38px;margin-bottom:16px}
-  .acc-text{font-size:18.5px;line-height:1.65;margin-bottom:22px}
-  .acc-meta{font-size:12.5px;letter-spacing:.12em;margin-bottom:24px}
+  .acc-inner{min-width:0;max-width:none;padding:96px 20px 30px}
+  .acc-eyebrow{font-size:10.5px;letter-spacing:.16em;margin-bottom:14px}
+  .acc-num{font-size:40px;margin-bottom:2px}
+  .acc-title{font-size:30px;line-height:1.14;margin-bottom:12px}
+  .acc-text{font-size:15.5px;line-height:1.6;margin-bottom:16px}
+  .acc-meta{font-size:11.5px;letter-spacing:.1em;margin-bottom:18px}
+  .acc-next{margin:0 0 20px;font-size:10.5px;letter-spacing:.07em;line-height:1.7}
+  .acc-next span{display:block;margin:0 0 4px}
+  .acc-cta{font-size:12.5px;letter-spacing:.14em}
 }
 @media (prefers-reduced-motion:reduce){
   .acc-panel,.acc-bg,.acc-content,.acc-rail{transition:none}

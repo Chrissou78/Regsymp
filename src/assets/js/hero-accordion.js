@@ -10,7 +10,10 @@
  * is an instant swap rather than no swap at all, which is the difference
  * between a quieter page and a page missing half its content.
  */
-const DWELL = 3000;
+// Ten seconds. Long enough to read the panel and the dates under it; the
+// progress line in the stylesheet is timed to match, so if this changes
+// the `transition: width 10s` on .acc-progress changes with it.
+const DWELL = 10000;
 
 export function heroAccordion() {
   const acc = document.getElementById("acc");

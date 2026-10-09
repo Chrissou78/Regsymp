@@ -2,14 +2,14 @@
 layout: layouts/base.njk
 permalink: /next/
 title: "The Thirty-Three — upcoming editions"
-description: "The 33: a privately convened dinner for thirty-three guests, under Chatham House Rule. London, Davos, Lapland, Napa Valley, Barcelona and Mallorca."
+description: "The 33: a privately convened dinner for thirty-three guests, under Chatham House Rule. London, St Moritz–Davos, Lapland and Barcelona."
 ---
 {#
   The 33.
 
-  Six squares, one per edition, built from the events table -- so announcing
-  one is adding a row and swapping a photograph is editing a field, neither of
-  which is a change to this template.
+  One card per edition, built from the events table -- so announcing one is
+  adding a row and swapping a photograph is editing a field, neither of which
+  is a change to this template.
 
   A card is a button rather than a link: the editions have no pages of their
   own yet, and there is nowhere honest for a link to go. What it opens is the
@@ -64,7 +64,7 @@ description: "The 33: a privately convened dinner for thirty-three guests, under
                data-label="{{ place }} — {{ event.whenLabel }}"
                role="button" tabindex="0" aria-haspopup="dialog">
         {% if event.imagePath %}
-        <img src="/assets/images/{{ event.imagePath }}" alt="{{ place }}"
+        <img src="/assets/images/{{ event.imagePath }}" alt="{{ event.imageAlt or place }}"
              width="800" height="800" loading="lazy" decoding="async">
         {% endif %}
         <span class="the33-cue">{{ upcomingCopy.cue or "Register interest" }}</span>
